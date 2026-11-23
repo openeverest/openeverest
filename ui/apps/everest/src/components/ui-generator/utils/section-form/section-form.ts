@@ -28,7 +28,9 @@ import {
   deleteByPathAndEmptyParents,
   getByPath,
   isPlainObject,
-} from '../object-path';
+  parsePath,
+  toFormId,
+} from 'components/ui-generator/utils/object-path';
 import {
   getOpenApiConstraintError,
   getOpenApiConstraints,
@@ -120,12 +122,18 @@ const toContractPath = (
   contract: SectionFormContract,
   path: string
 ): string[] | undefined => {
+  const pathParts = parsePath(path);
   if (!contract.path) {
-    return path.split('.');
+    return pathParts;
   }
-  return path.startsWith(`${contract.path}.`)
-    ? path.slice(contract.path.length + 1).split('.')
-    : undefined;
+  const rootParts = parsePath(contract.path);
+  if (
+    pathParts.length > rootParts.length &&
+    rootParts.every((part, index) => pathParts[index] === part)
+  ) {
+    return pathParts.slice(rootParts.length);
+  }
+  return undefined;
 };
 
 // Checked on what the API gets, so a field showing 30 beside an "s" badge is
@@ -161,7 +169,8 @@ const getContractIssues = (
         })
         .find((error) => error !== undefined);
       if (message) {
-        issues.push({ path: name.split('.'), message });
+        // Zod issue paths must match form-state keys (RHF-safe form ids).
+        issues.push({ path: toFormId(name).split('.'), message });
       }
     }
   );

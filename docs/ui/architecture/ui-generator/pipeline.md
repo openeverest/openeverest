@@ -307,6 +307,14 @@ use it.
 5. **Error isolation** — `ComponentErrorBoundary` around every render.
 6. **Engine reuse** — the section edit modal and section forms use the same UIGenerator +
    `buildSectionZodSchema`.
+7. **Shared path tokenizer** — `parsePath` / `formatPath` in `utils/object-path/object-path.ts`
+   parse and stringify canonical schema/API paths. Dots separate segments; keys containing dots
+   (Kubernetes qualified names such as `nvidia.com/gpu`) use bracket-quoted segments
+   (`resources.limits['nvidia.com/gpu']`). Get/set/delete, nesting, flattening, and overview path
+   comparison go through this tokenizer. React Hook Form still has its own `stringToPath` for
+   field names, so schema paths are converted to RHF-safe form ids with `toFormId` when registering
+   fields (and when building defaults / zod shapes), then decoded back to API keys once in
+   postprocess (`toApiShapedValues` / `toApiPath`).
 
 ## Modes — override matrix
 
@@ -374,4 +382,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-20
+- Last updated: 2026-11-24

@@ -31,7 +31,9 @@ import { widgetSummaryRegistry } from 'pages/database-form/widget-registry';
 import {
   flattenObject,
   formatDisplayValue,
-} from 'components/ui-generator/utils/object-path/object-path';
+  formatPath,
+  parsePath,
+} from 'components/ui-generator/utils/object-path';
 import { collectAllSchemaPaths } from 'components/ui-generator/utils/schema-walker';
 import { hasConnectionDetails } from 'utils/instance-gating';
 
@@ -134,7 +136,12 @@ export const useClusterOverviewData = () => {
   const otherFields: UncoveredField[] = useMemo(() => {
     if (!instance) return [];
 
-    const coveredPaths = collectAllSchemaPaths(sections);
+    // Canonicalize so authored bracket/quote variants match flattenObject keys.
+    const coveredPaths = new Set(
+      [...collectAllSchemaPaths(sections)].map((path) =>
+        formatPath(parsePath(path))
+      )
+    );
     coveredPaths.add('metadata.name');
     coveredPaths.add('spec.provider');
     coveredPaths.add('spec.topology.type');

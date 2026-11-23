@@ -14,6 +14,7 @@
 
 import { useMemo } from 'react';
 import { FieldErrors } from 'react-hook-form';
+import { appendPath } from 'components/ui-generator/utils/object-path';
 
 /**
  * Walks the react-hook-form `errors` object and collects all leaf
@@ -21,6 +22,9 @@ import { FieldErrors } from 'react-hook-form';
  *
  * A leaf node is detected by the presence of `message` or `type`,
  * which is how RHF represents individual field errors.
+ *
+ * RHF field names are form ids (dot-only), so prefixes are joined with
+ * {@link appendPath} — never with the canonical bracket formatter.
  */
 export const flattenErrorPaths = (
   obj: Record<string, unknown>,
@@ -32,7 +36,7 @@ export const flattenErrorPaths = (
   return Object.keys(obj).flatMap((key) =>
     flattenErrorPaths(
       obj[key] as Record<string, unknown>,
-      prefix ? `${prefix}.${key}` : key
+      appendPath(prefix, key)
     )
   );
 };
@@ -57,7 +61,7 @@ export const useErrorRouting = (
     for (const path of errorPaths) {
       if (typeof path !== 'string' || path.length === 0) continue;
 
-      // Try full path first, then progressively shorter prefixes.
+      // Form ids are always dot-separated; try full path then shorter prefixes.
       const parts = path.split('.');
       for (let i = parts.length; i > 0; i--) {
         const prefix = parts.slice(0, i).join('.');

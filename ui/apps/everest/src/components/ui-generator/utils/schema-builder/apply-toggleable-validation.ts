@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { z } from 'zod';
-import { getByPath } from '../object-path/object-path';
+import { getByPath, parsePath } from 'components/ui-generator/utils/object-path';
 import { isToggleableOn } from '../toggleable/toggleable';
 import type { ToggleableFieldRule } from './schema-builder.types';
 
@@ -38,7 +38,8 @@ export const applyToggleableValidation = (
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: issue.message,
-          path: [...fieldId.split('.'), ...issue.path],
+          // fieldId is a form id (dot-only); parsePath equals split('.').
+          path: [...parsePath(fieldId), ...issue.path],
         });
       });
     });

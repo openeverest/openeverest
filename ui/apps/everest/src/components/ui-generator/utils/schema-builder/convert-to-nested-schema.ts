@@ -13,15 +13,17 @@
 // limitations under the License.
 
 import { z } from 'zod';
+import { parsePath } from 'components/ui-generator/utils/object-path';
 
 export const convertToNestedSchema = (
   flatSchema: Record<string, z.ZodTypeAny>
 ): Record<string, z.ZodTypeAny> => {
   const nested: Record<string, unknown> = {};
 
-  // Build nested structure from flat paths
+  // Build nested structure from flat paths (form ids are dot-only; parsePath
+  // also accepts bracket-quoted API paths if they appear here).
   Object.entries(flatSchema).forEach(([path, zodType]) => {
-    const keys = path.split('.');
+    const keys = parsePath(path);
     let current: Record<string, unknown> = nested;
 
     keys.forEach((key, index) => {

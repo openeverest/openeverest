@@ -1,5 +1,9 @@
 // This is needed for correct reading of Zod and CEL validation errors.
 // Example: { "spec.replica.nodes": 3 } => { spec: { replica: { nodes: 3 } } }
+// Form ids are always dot-separated (see toFormId); parsePath still works and
+// also accepts any accidental bracket-quoted flat keys.
+
+import { parsePath } from 'components/ui-generator/utils/object-path';
 
 export const convertToNestedObject = (
   flatObj: Record<string, unknown>
@@ -7,7 +11,7 @@ export const convertToNestedObject = (
   const result: Record<string, unknown> = {};
 
   Object.entries(flatObj).forEach(([path, value]) => {
-    const keys = path.split('.');
+    const keys = parsePath(path);
     let current: Record<string, unknown> = result;
 
     keys.forEach((key, index) => {

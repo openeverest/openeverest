@@ -17,12 +17,18 @@ import {
   deepClone,
   deepMerge,
   deleteByPath,
+  deleteByPathAndEmptyParents,
   flattenObject,
   formatDisplayValue,
+  formatPath,
   getByPath,
+  getPathPrefixes,
   isPlainObject,
+  parsePath,
   resolvePath,
   setByPath,
+  toApiPath,
+  toFormId,
 } from './object-path';
 
 describe('object-path utils', () => {
@@ -126,6 +132,105 @@ describe('object-path utils', () => {
     });
   });
 
+  describe('parsePath & formatPath (Kubernetes qualified names)', () => {
+    it('parses dot-separated paths normally', () => {
+      expect(parsePath('spec.replicas')).toEqual(['spec', 'replicas']);
+    });
+
+    it('parses bracketed keys with single quotes', () => {
+      expect(parsePath("resources.limits['nvidia.com/gpu']")).toEqual([
+        'resources',
+        'limits',
+        'nvidia.com/gpu',
+      ]);
+    });
+
+    it('parses bracketed keys with double quotes', () => {
+      expect(
+        parsePath('metadata.annotations["app.kubernetes.io/name"]')
+      ).toEqual(['metadata', 'annotations', 'app.kubernetes.io/name']);
+    });
+
+    it('handles mid-path bracketed keys', () => {
+      expect(parsePath("spec.template['custom.io/label'].value")).toEqual([
+        'spec',
+        'template',
+        'custom.io/label',
+        'value',
+      ]);
+    });
+
+    it('formats canonical path using formatPath', () => {
+      expect(formatPath(['resources', 'limits', 'nvidia.com/gpu'])).toBe(
+        "resources.limits['nvidia.com/gpu']"
+      );
+      expect(formatPath(['spec', 'replicas'])).toBe('spec.replicas');
+      expect(formatPath(['spec', 'foo-bar'])).toBe('spec.foo-bar');
+    });
+
+    it('correctly sets and reads bracketed paths on objects', () => {
+      const obj: Record<string, unknown> = {};
+      setByPath(obj, "resources.limits['nvidia.com/gpu']", '2');
+
+      expect(obj).toEqual({
+        resources: {
+          limits: {
+            'nvidia.com/gpu': '2',
+          },
+        },
+      });
+
+      expect(getByPath(obj, "resources.limits['nvidia.com/gpu']")).toBe('2');
+    });
+
+    it('returns ancestor prefixes via getPathPrefixes', () => {
+      expect(getPathPrefixes("resources.limits['nvidia.com/gpu']")).toEqual([
+        'resources',
+        'resources.limits',
+        "resources.limits['nvidia.com/gpu']",
+      ]);
+    });
+
+    it('deletes bracketed paths and prunes empty parents', () => {
+      const obj: Record<string, unknown> = {
+        resources: { limits: { 'nvidia.com/gpu': 2, cpu: '1' } },
+      };
+      deleteByPathAndEmptyParents(obj, "resources.limits['nvidia.com/gpu']");
+      expect(obj).toEqual({ resources: { limits: { cpu: '1' } } });
+
+      deleteByPathAndEmptyParents(obj, 'resources.limits.cpu');
+      expect(obj).toEqual({});
+    });
+  });
+
+  describe('form ids (React Hook Form safe names)', () => {
+    it('leaves safe paths untouched, including hyphens', () => {
+      expect(toFormId('spec.replicas')).toBe('spec.replicas');
+      expect(toFormId('spec.foo-bar')).toBe('spec.foo-bar');
+      expect(toFormId('spec.g-foo')).toBe('spec.g-foo');
+    });
+
+    it('encodes dots and slashes so RHF cannot split the key', () => {
+      expect(toFormId("resources.limits['nvidia.com/gpu']")).toBe(
+        'resources.limits.nvidia%2Ecom%2Fgpu'
+      );
+      expect(toFormId("metadata.annotations['app.kubernetes.io/name']")).toBe(
+        'metadata.annotations.app%2Ekubernetes%2Eio%2Fname'
+      );
+    });
+
+    it('round-trips back to the canonical API path', () => {
+      const apiPath = "spec.annotations['app.kubernetes.io/name']";
+
+      expect(toApiPath(toFormId(apiPath))).toBe(apiPath);
+      expect(toApiPath('spec.foo-bar')).toBe('spec.foo-bar');
+    });
+
+    it('never leaves a dot inside a form segment', () => {
+      expect(toFormId("a['b.c']").split('.')).toEqual(['a', 'b%2Ec']);
+    });
+  });
+
   describe('deepClone', () => {
     it('produces an independent copy', () => {
       const source = { spec: { topology: { type: 'ha' } } };
@@ -168,6 +273,18 @@ describe('object-path utils', () => {
       expect(flattenObject({ x: 10 }, 'root')).toEqual([
         { key: 'root.x', value: 10 },
       ]);
+    });
+
+    it('keeps hyphenated keys in dot notation', () => {
+      expect(flattenObject({ 'foo-bar': 1 }, 'spec')).toEqual([
+        { key: 'spec.foo-bar', value: 1 },
+      ]);
+    });
+
+    it('bracket-quotes keys that contain dots', () => {
+      expect(
+        flattenObject({ limits: { 'nvidia.com/gpu': 2 } }, 'spec.resources')
+      ).toEqual([{ key: "spec.resources.limits['nvidia.com/gpu']", value: 2 }]);
     });
   });
 

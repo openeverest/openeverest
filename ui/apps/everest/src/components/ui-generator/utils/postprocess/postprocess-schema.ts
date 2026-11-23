@@ -64,6 +64,27 @@ const normalizeRuntimePathArray = (paths: unknown): string[] => {
   );
 };
 
+// Form state is keyed by form ids (see toFormId); the payload is API-shaped.
+// Decode the keys once, at this boundary, so every step below speaks API paths.
+const decodeFormIdSegment = (key: string): string => {
+  try {
+    return decodeURIComponent(key);
+  } catch {
+    return key;
+  }
+};
+
+const toApiShapedValues = (value: unknown): unknown => {
+  if (!isPlainObject(value)) return value;
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [
+      decodeFormIdSegment(key),
+      toApiShapedValues(child),
+    ])
+  );
+};
+
 export const extractMultiPathMappings = (
   schema: TopologyUISchemas,
   selectedTopology: string
@@ -207,14 +228,16 @@ export const postprocessSchemaData = (
     ...(options?.multiPathMappings ?? []),
   ];
 
+  const apiValues = toApiShapedValues(formValues) as PostprocessInput;
+
   const scoped =
     options?.schema && options.selectedTopology
       ? dropOtherTopologyValues(
-          formValues,
+          apiValues,
           options.schema,
           options.selectedTopology
         )
-      : formValues;
+      : apiValues;
 
   const mapped = applyMultiPathMappings(scoped, allMappings);
 

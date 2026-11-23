@@ -64,6 +64,11 @@ flowchart TD
 ```
 
 - **`path` | `id`** — `path` (`string` | `string[]`) writes to the API; an array is a multi-path (`[0]` is the source, all entries are targets). `id` has no API binding and is used only for validation / CEL.
+  - Keys that contain dots (Kubernetes qualified names) use a bracket-quoted segment:
+    `resources.limits['nvidia.com/gpu']`. That is a **key escape**, not an array index; numeric
+    `[0]`-style segments remain unsupported.
+  - The form registers the field under an RHF-safe id from `toFormId` (e.g.
+    `resources.limits.nvidia%2Ecom%2Fgpu`). Postprocess restores the API key.
 - **`dataSource.provider`** — a key in the open runtime registry (`register()`), not a closed enum.
 - **`modes?`** — `{ [FormMode]: { uiType? } }`; the create wizard runs in `import` when it creates a database from an imported backup.
 
@@ -257,4 +262,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-13
+- Last updated: 2026-11-24

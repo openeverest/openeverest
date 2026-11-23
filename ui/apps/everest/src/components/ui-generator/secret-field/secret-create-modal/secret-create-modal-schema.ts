@@ -15,7 +15,7 @@
 import { z } from 'zod';
 import { FormMode, Section } from 'components/ui-generator/ui-generator.types';
 import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
-import { joinPath } from 'components/ui-generator/utils/object-path';
+import { appendPath } from 'components/ui-generator/utils/object-path';
 import { rfc_123_schema } from 'utils/common-validation';
 import {
   MAX_SECRET_NAME_LENGTH,
@@ -47,7 +47,7 @@ export const secretCreateSchema = (
       [SECRET_DATA_ROOT]: schema,
     }),
     celDependencyGroups: celDependencyGroups.map((group) =>
-      group.map((path) => joinPath(SECRET_DATA_ROOT, path))
+      group.map((path) => appendPath(SECRET_DATA_ROOT, path))
     ),
   };
 };
