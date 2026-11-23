@@ -162,6 +162,10 @@ schema, where `dataSource` fields have no static `options`. Once the options hav
 helper text explains an unavailable stored value (without claiming a cause) or an empty one (via the
 registry entry's `unsetValueHint`); it reads the current value with `useWatch`, so it clears as soon
 as the user picks another option.
+When the options are empty, the provider's `emptyHint` (e.g. no `storage-classes` read), if any,
+replaces the generic empty helper text. The edit-mode explanation above takes precedence over both:
+an empty list doesn't change what the spec holds, so the field keeps saying that the stored value
+is kept (or what an unset one means) instead of why the list is empty.
 A resource created from the provider's `emptyStateFallback` is a separate path: the fallback calls
 `onCreated(value)` once the refetched options include it, and `DataSourceField` sets it as a user
 change (`shouldDirty`) in every mode — the user picked it, so the edit rule doesn't apply. The
@@ -332,42 +336,42 @@ components:
 
 ## Key files
 
-| Area                       | File                                                       |
-| -------------------------- | ---------------------------------------------------------- |
-| Types                      | `ui-generator.types.ts`                                    |
-| Main component             | `ui-generator.tsx`                                         |
-| Context                    | `ui-generator-context.tsx`                                 |
-| Preprocess                 | `utils/preprocess/preprocess-schema.ts`                    |
-| Mode overrides             | `utils/preprocess/apply-mode-overrides.ts`                 |
-| Zod builder                | `utils/schema-builder/build-zod-schema.ts`                 |
-| Section Zod                | `utils/schema-builder/build-section-zod-schema.ts`         |
-| CEL validation             | `utils/schema-builder/cel-validation/`                     |
-| Defaults                   | `utils/default-values/`                                    |
-| Instance values            | `utils/default-values/extract-instance-values.ts`          |
-| Quantity codec             | `utils/quantity/`                                          |
-| Section editability        | `utils/section-editable/is-section-editable.ts`            |
-| Renderer                   | `utils/component-renderer/render-component.tsx`            |
-| UI component mapper        | `ui-component/`                                            |
-| Postprocess                | `utils/postprocess/postprocess-schema.ts`                  |
-| Schema walker              | `utils/schema-walker/schema-walker.ts`                     |
-| Toggleable groups          | `utils/toggleable/toggleable.ts`                           |
-| Toggleable validation      | `utils/schema-builder/apply-toggleable-validation.ts`      |
-| Section edit merge         | `utils/postprocess/merge-section-edit.ts`                  |
-| Section forms              | `utils/section-form/section-form.ts`                       |
-| Field overrides            | `utils/field-overrides/field-overrides.ts`                 |
-| OpenAPI constraints        | `utils/openapi-constraints/openapi-constraints.ts`         |
-| Topology scope             | `utils/topology-scope/topology-scope.ts`                   |
-| Object path                | `utils/object-path/object-path.ts`                         |
-| API provider registry      | `api-providers/registry.ts`                                |
-| API provider registrations | `api-providers/providers.ts`                               |
-| DataSourceField            | `api-providers/data-source-field/data-source-field.tsx`    |
-| DataSourcePrefetcher       | `api-providers/data-source-prefetcher.tsx`                 |
-| SecretNamespaceSync        | `secret-field/secret-namespace-sync.tsx`                   |
-| Error boundary             | `component-error-boundary/component-error-boundary.tsx`    |
-| Storage classes hook       | `hooks/api/kubernetesClusters/useStorageClassesOptions.ts` |
+| Area                       | File                                                        |
+| -------------------------- | ----------------------------------------------------------- |
+| Types                      | `ui-generator.types.ts`                                     |
+| Main component             | `ui-generator.tsx`                                          |
+| Context                    | `ui-generator-context.tsx`                                  |
+| Preprocess                 | `utils/preprocess/preprocess-schema.ts`                     |
+| Mode overrides             | `utils/preprocess/apply-mode-overrides.ts`                  |
+| Zod builder                | `utils/schema-builder/build-zod-schema.ts`                  |
+| Section Zod                | `utils/schema-builder/build-section-zod-schema.ts`          |
+| CEL validation             | `utils/schema-builder/cel-validation/`                      |
+| Defaults                   | `utils/default-values/`                                     |
+| Instance values            | `utils/default-values/extract-instance-values.ts`           |
+| Quantity codec             | `utils/quantity/`                                           |
+| Section editability        | `utils/section-editable/is-section-editable.ts`             |
+| Renderer                   | `utils/component-renderer/render-component.tsx`             |
+| UI component mapper        | `ui-component/`                                             |
+| Postprocess                | `utils/postprocess/postprocess-schema.ts`                   |
+| Schema walker              | `utils/schema-walker/schema-walker.ts`                      |
+| Toggleable groups          | `utils/toggleable/toggleable.ts`                            |
+| Toggleable validation      | `utils/schema-builder/apply-toggleable-validation.ts`       |
+| Section edit merge         | `utils/postprocess/merge-section-edit.ts`                   |
+| Section forms              | `utils/section-form/section-form.ts`                        |
+| Field overrides            | `utils/field-overrides/field-overrides.ts`                  |
+| OpenAPI constraints        | `utils/openapi-constraints/openapi-constraints.ts`          |
+| Topology scope             | `utils/topology-scope/topology-scope.ts`                    |
+| Object path                | `utils/object-path/object-path.ts`                          |
+| API provider registry      | `api-providers/registry.ts`                                 |
+| API provider registrations | `api-providers/providers.ts`                                |
+| DataSourceField            | `api-providers/data-source-field/data-source-field.tsx`     |
+| DataSourcePrefetcher       | `api-providers/data-source-prefetcher.tsx`                  |
+| SecretNamespaceSync        | `secret-field/secret-namespace-sync.tsx`                    |
+| Error boundary             | `component-error-boundary/component-error-boundary.tsx`     |
+| Storage classes provider   | `api-providers/storage-classes/useStorageClassesOptions.ts` |
 
 ## Metadata
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-16
+- Last updated: 2026-11-20

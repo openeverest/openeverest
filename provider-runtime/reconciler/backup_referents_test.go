@@ -43,7 +43,7 @@ func (p *backupTestProvider) Sync(c *controller.Context) error {
 	if p.sync != nil {
 		p.sync(c)
 	}
-	return nil
+	return p.readyTestProvider.Sync(c)
 }
 
 func (p *backupTestProvider) SyncBackup(*controller.Context, *backupv1alpha1.Backup) (controller.BackupExecutionStatus, error) {

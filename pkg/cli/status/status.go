@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
@@ -46,6 +47,8 @@ type Config struct {
 	Pretty bool
 	// JSON if set print the output in JSON mode.
 	JSON bool
+	// YAML if set print the output in YAML mode.
+	YAML bool
 }
 
 // Status provides the functionality to check Everest health.
@@ -133,6 +136,12 @@ func (s *Status) Run(ctx context.Context) error {
 	// Print results.
 	if s.cfg.JSON {
 		return s.printJSON(result)
+	}
+	if s.cfg.YAML {
+		if err := cli.Encode(os.Stdout, result, true); err != nil {
+			return fmt.Errorf("failed to marshal status: %w", err)
+		}
+		return nil
 	}
 	s.printPretty(result)
 	return nil

@@ -193,7 +193,7 @@ database operator), so they run side by side without conflicting.
 
 ### Some pods can't reach Service ClusterIPs (DNS times out)
 
-An instance hangs in `Provisioning` with replicas restarting on liveness probe
+An instance never becomes `Ready` (its status stays `Creating`), with replicas restarting on liveness probe
 timeouts, and which pods are affected changes on every `make dev-up`. This
 means `br_netfilter` is not loaded on the host (Linux only), so kube-proxy's
 DNAT is bypassed for traffic that stays on one node's bridge — pods sharing a

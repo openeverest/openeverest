@@ -17,7 +17,6 @@ package backupstorage
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -183,14 +182,14 @@ func (u *Updater) emitUpdated(updated *client.BackupStorage, opts UpdateOptions)
 	if updated == nil {
 		return fmt.Errorf("backup storage %q was updated but the server returned an unreadable response body", opts.Name)
 	}
-	return writeBackupStorageJSON(updated)
+	return writeBackupStorage(updated, u.config.YAML)
 }
 
 // emitClientDryRun prints the merge patch update would send: as YAML under a
-// header in pretty mode, as JSON otherwise.
+// header in pretty mode, as JSON/YAML otherwise.
 func (u *Updater) emitClientDryRun(patch map[string]any, name string) error {
 	if !u.config.Pretty {
-		if err := json.NewEncoder(os.Stdout).Encode(patch); err != nil {
+		if err := cli.Encode(os.Stdout, patch, u.config.YAML); err != nil {
 			return fmt.Errorf("failed to encode patch: %w", err)
 		}
 		return nil
@@ -215,5 +214,5 @@ func (u *Updater) emitServerDryRun(updated *client.BackupStorage, opts UpdateOpt
 	if updated == nil {
 		return fmt.Errorf("the server accepted the update of backup storage %q but returned an unreadable response body", opts.Name)
 	}
-	return writeBackupStorageJSON(updated)
+	return writeBackupStorage(updated, u.config.YAML)
 }

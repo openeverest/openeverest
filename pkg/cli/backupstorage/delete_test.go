@@ -269,12 +269,12 @@ func TestDelete_JSONMode_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
 
 	opts := DeleteOptions{
-		Name:      "my-s3",
-		Namespace: "everest",
-		Cluster:   "main",
-		JSON:      true,
-		// IsTerminal is true here to prove --json alone forces non-interactive,
-		// independent of whether stdin is actually a real terminal.
+		Name:            "my-s3",
+		Namespace:       "everest",
+		Cluster:         "main",
+		MachineReadable: true,
+		// IsTerminal is true here to prove machine-readable output alone forces
+		// non-interactive, independent of whether stdin is actually a real terminal.
 		IsTerminal: func() bool { return true },
 	}
 
@@ -296,12 +296,12 @@ func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
 	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
 
 	opts := DeleteOptions{
-		Name:       "my-s3",
-		Namespace:  "everest",
-		Cluster:    "main",
-		JSON:       false,
-		IsTerminal: func() bool { return true },
-		Yes:        true,
+		Name:            "my-s3",
+		Namespace:       "everest",
+		Cluster:         "main",
+		MachineReadable: false,
+		IsTerminal:      func() bool { return true },
+		Yes:             true,
 	}
 
 	d := NewDeleter(Config{Pretty: false}, zap.NewNop().Sugar())
@@ -403,6 +403,41 @@ func TestDelete_IgnoreNotFound_AlreadyGone_JSONOutput(t *testing.T) {
 	require.NoError(t, runErr)
 	assert.False(t, deleteCalled)
 	assert.JSONEq(t, `{"name":"my-s3","namespace":"everest","deleted":false}`, out)
+}
+
+//nolint:paralleltest // mutates global os.Stdout; must run serially
+func TestDelete_IgnoreNotFound_AlreadyGone_YAMLOutput(t *testing.T) {
+	deleteCalled := false
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		},
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		},
+	)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := DeleteOptions{
+		Name:           "my-s3",
+		Namespace:      "everest",
+		Cluster:        "main",
+		IgnoreNotFound: true,
+		IsTerminal:     isTerminalFalse,
+	}
+
+	d := NewDeleter(Config{Pretty: false, YAML: true}, zap.NewNop().Sugar())
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = d.Run(context.Background(), opts, cfgPath)
+	})
+	require.NoError(t, runErr)
+	assert.False(t, deleteCalled)
+	assert.Equal(t, "deleted: false\nname: my-s3\nnamespace: everest\n", out)
 }
 
 func TestDeleteCondition(t *testing.T) {

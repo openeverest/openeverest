@@ -59,6 +59,7 @@ export type RBACResource =
   | 'monitoring-destinations'
   | 'monitoring-bindings'
   | 'secrets'
+  | 'storage-classes'
   | 'pod-scheduling-policies'
   | 'load-balancer-configs'
   | 'enginefeatures/split-horizon-dns-configs'
@@ -91,6 +92,7 @@ const RBAC_OBJECT_FORMATS: { [R in RBACResource]: RBACObjectFormat<R> } = {
   plugins: 'cluster-scoped',
   'backup-classes': 'cluster-scoped',
   'monitoring-classes': 'cluster-scoped',
+  'storage-classes': 'cluster-scoped',
   instances: 'cluster-namespaced',
   backups: 'cluster-namespaced',
   'backup-imports': 'cluster-namespaced',

@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package confirm handles the --yes / --json / TTY check and prompt shared
-// by every delete command.
+// Package confirm handles the --yes / machine-readable (-o) / TTY check and
+// prompt shared by every delete command.
 package confirm
 
 import (
@@ -32,7 +32,7 @@ var (
 	ErrDeclined = errors.New("action was not confirmed")
 	// ErrNameMismatch means the typed name didn't match.
 	ErrNameMismatch = errors.New("typed name did not match; nothing was deleted")
-	// ErrNonInteractive means no safe way to prompt (no TTY, or --json) and --yes wasn't set.
+	// ErrNonInteractive means no safe way to prompt (no TTY, or -o) and --yes wasn't set.
 	ErrNonInteractive = errors.New("confirmation required in non-interactive mode; re-run with --yes")
 )
 
@@ -60,8 +60,8 @@ func WillPrompt(o Options) bool {
 	return !o.JSON && o.isTerminal()
 }
 
-// gate checks --yes / --json / TTY. True means skip the prompt; an error
-// means don't prompt at all.
+// gate checks --yes / machine-readable (-o) / TTY. True means skip the prompt;
+// an error means don't prompt at all.
 func gate(o Options) (bool, error) {
 	if o.Yes {
 		return true, nil

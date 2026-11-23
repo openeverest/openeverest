@@ -24,6 +24,7 @@ import {
 import { useRBACAction } from 'hooks/rbac';
 import { DbInstanceContextProps } from './dbCluster.context.types';
 import { Instance } from 'shared-types/api.types';
+import { isInstanceDeleting } from 'utils/instance-status';
 
 export const DbInstanceContext = createContext<DbInstanceContextProps>({
   instance: {} as Instance,
@@ -83,8 +84,10 @@ export const DbInstanceContextProvider = ({
   //     `${dbCluster?.metadata.namespace}/${dbCluster?.metadata.name}`
   //   );
 
+  const deleting = isInstanceDeleting(instance);
+
   useEffect(() => {
-    if (instance?.status?.phase === 'Terminating') {
+    if (deleting) {
       isDeleting.current = true;
     }
 
@@ -103,7 +106,7 @@ export const DbInstanceContextProvider = ({
         queryKey: getDbInstanceQueryKey(namespace, instanceName, clusterName),
       });
     }
-  }, [instance?.status, error, namespace, instanceName, queryClient]);
+  }, [deleting, error, namespace, instanceName, queryClient]);
 
   return (
     <DbInstanceContext.Provider

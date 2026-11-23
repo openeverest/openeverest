@@ -16,6 +16,7 @@ package reconciler
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,6 +25,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 // TestOwnership_OnlyClaimedClasses checks that the runtime executes the
@@ -104,4 +106,48 @@ func TestOwnership_InstanceOfAnotherProvider(t *testing.T) {
 	_, _, ours, err := resolveBackupOwnership(t.Context(), c, backup, "test-provider")
 	require.NoError(t, err)
 	assert.False(t, ours)
+}
+
+// TestOwnership_ReconcileIgnoresInstanceOfAnotherProvider checks that the
+// reconciler leaves an Instance of another provider untouched, also while it
+// is deleted. A watch can queue one, for example a Restore that names it.
+func TestOwnership_ReconcileIgnoresInstanceOfAnotherProvider(t *testing.T) {
+	t.Parallel()
+
+	foreign := func(in *v1alpha1.Instance) {
+		in.Spec.ProviderRef = common.ObjectRef{Name: "other-provider"}
+		in.Labels = map[string]string{controller.ProviderLabel: "other-provider"}
+		in.Status.ObservedGeneration = 1
+	}
+	tests := []struct {
+		name   string
+		mutate func(*v1alpha1.Instance)
+	}{
+		{name: "live", mutate: foreign},
+		{name: "being deleted", mutate: func(in *v1alpha1.Instance) {
+			foreign(in)
+			deleted := metav1.NewTime(time.Date(2026, 3, 1, 11, 0, 0, 0, time.UTC))
+			in.DeletionTimestamp = &deleted
+		}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cleaned := false
+			p := &readyTestProvider{status: controller.Ready(), cleanup: func(*controller.Context) { cleaned = true }}
+			in := readyTestInstance(tc.mutate)
+			st := newStatusTest(t, p, readyTestProviderObject(), in)
+
+			got, res, err := st.reconcile()
+			require.NoError(t, err)
+			assert.Equal(t, in.ResourceVersion, got.ResourceVersion, "the Instance is not written")
+			assert.Equal(t, "other-provider", got.Labels[controller.ProviderLabel])
+			assert.Equal(t, []string{finalizerName}, got.Finalizers)
+			assert.Zero(t, st.writes, "no status write")
+			assert.Zero(t, p.syncs, "no Sync")
+			assert.Zero(t, p.calls, "no Validate")
+			assert.False(t, cleaned, "no Cleanup")
+			assert.Zero(t, res.RequeueAfter)
+		})
+	}
 }

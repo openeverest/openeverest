@@ -37,16 +37,16 @@ import (
 
 // DeleteOptions configures `restore delete`.
 type DeleteOptions struct {
-	Name           string
-	Namespace      string
-	Cluster        string
-	Context        string        // overrides the active context when set
-	Yes            bool          // skip the confirmation prompt
-	JSON           bool          // --json was passed; forces non-interactive regardless of --verbose
-	Force          bool          // override the in-flight (Pending/Running/no status yet) guard; orthogonal to Yes
-	IgnoreNotFound bool          // treat "restore already gone" (404) as a successful delete
-	Wait           bool          // block until the restore is fully deleted
-	Timeout        time.Duration // bounds --wait; must be positive
+	Name            string
+	Namespace       string
+	Cluster         string
+	Context         string        // overrides the active context when set
+	Yes             bool          // skip the confirmation prompt
+	MachineReadable bool          // -o json|yaml was passed; forces non-interactive regardless of --verbose
+	Force           bool          // override the in-flight (Pending/Running/no status yet) guard; orthogonal to Yes
+	IgnoreNotFound  bool          // treat "restore already gone" (404) as a successful delete
+	Wait            bool          // block until the restore is fully deleted
+	Timeout         time.Duration // bounds --wait; must be positive
 
 	// IsTerminal overrides the TTY check for the prompt. Set in tests.
 	IsTerminal func() bool
@@ -94,7 +94,7 @@ func (rd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		return fmt.Errorf("restore %q is still running; wait for it to finish or re-run with --force", opts.Name)
 	}
 
-	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
+	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.MachineReadable, IsTerminal: opts.IsTerminal}
 	msg := deleteConfirmMessage(opts.Name, opts.Namespace, state, forcingInFlight)
 	if err := confirm.YesNo(ctx, confirmOpts, msg); err != nil {
 		return err
@@ -184,13 +184,13 @@ func deleteConfirmMessage(name, namespace string, state client.RestoreStatusStat
 
 // emitDeleted prints success: a line in pretty mode, JSON otherwise.
 func (rd *Deleter) emitDeleted(opts DeleteOptions) error {
-	return deletion.EmitDeleted(rd.config.Pretty, "restore", opts.Name, opts.Namespace)
+	return deletion.EmitDeleted(rd.config.Pretty, rd.config.YAML, "restore", opts.Name, opts.Namespace)
 }
 
 // emitAlreadyGone reports the --ignore-not-found short-circuit: "deleted"
 // stays false since this run didn't actually delete anything.
 func (rd *Deleter) emitAlreadyGone(opts DeleteOptions) error {
-	return deletion.EmitAlreadyGone(rd.config.Pretty, "restore", opts.Name, opts.Namespace)
+	return deletion.EmitAlreadyGone(rd.config.Pretty, rd.config.YAML, "restore", opts.Name, opts.Namespace)
 }
 
 // waitForDeletion blocks until the restore is gone. The cancellable context
@@ -217,5 +217,5 @@ func (rd *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		return err
 	}
 
-	return deletion.EmitWaitSucceeded(rd.config.Pretty, "restore", opts.Name, opts.Namespace)
+	return deletion.EmitWaitSucceeded(rd.config.Pretty, rd.config.YAML, "restore", opts.Name, opts.Namespace)
 }
