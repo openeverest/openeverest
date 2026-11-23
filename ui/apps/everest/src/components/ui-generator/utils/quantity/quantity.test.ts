@@ -14,6 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  formatFormQuantity,
   formatQuantity,
   quantitiesEqual,
   readQuantity,
@@ -115,6 +116,28 @@ describe('formatQuantity', () => {
   it('returns undefined for empty or unreadable values', () => {
     expect(formatQuantity(undefined, 'Gi')).toBeUndefined();
     expect(formatQuantity('', 'Gi')).toBeUndefined();
+  });
+});
+
+describe('formatFormQuantity', () => {
+  it('reads a typed amount as a number in unit, not as a stored quantity', () => {
+    expect(formatFormQuantity('30', 'Gi')).toBe('30 Gi');
+    expect(formatFormQuantity('100', 'm')).toBe('100 m');
+    expect(formatFormQuantity('0.5', undefined, 'CPU')).toBe('0.5 CPU');
+  });
+
+  it('formats a form number the same way', () => {
+    expect(formatFormQuantity(30, 'Gi')).toBe('30 Gi');
+  });
+
+  it('still reads a stored quantity the form was seeded with', () => {
+    expect(formatFormQuantity('10240Mi', 'Gi')).toBe('10 Gi');
+  });
+
+  it('returns undefined for an emptied field', () => {
+    expect(formatFormQuantity('', 'Gi')).toBeUndefined();
+    expect(formatFormQuantity('  ', 'Gi')).toBeUndefined();
+    expect(formatFormQuantity(undefined, 'Gi')).toBeUndefined();
   });
 });
 

@@ -16,6 +16,7 @@ export {
   readQuantity,
   writeQuantity,
   formatQuantity,
+  formatFormQuantity,
   quantitiesEqual,
 } from './quantity';
 export {
