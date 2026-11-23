@@ -53,7 +53,8 @@ func TestBackupGet_HappyPath(t *testing.T) {
 		Name:      "pre-upgrade",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.NoError(t, err)
 	assert.Contains(t, requestPath, "/namespaces/everest/backups/pre-upgrade")
 	assert.NotContains(t, requestPath, "/instances/")
@@ -76,7 +77,8 @@ func TestBackupGet_NotFound(t *testing.T) {
 		Name:      "missing",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -98,7 +100,8 @@ func TestBackupGet_ServerError(t *testing.T) {
 		Name:      "pre-upgrade",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected response")
 }
@@ -118,7 +121,8 @@ func TestBackupGet_NoActiveContext(t *testing.T) {
 		Name:      "pre-upgrade",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no active context")
 }

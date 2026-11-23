@@ -51,7 +51,8 @@ func TestProviderGet_HappyPath(t *testing.T) {
 	err := runner.Run(t.Context(), GetOptions{
 		Name:    "percona-server-mongodb",
 		Cluster: "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.NoError(t, err)
 	assert.Contains(t, requestPath, "/providers/percona-server-mongodb")
 }
@@ -72,7 +73,8 @@ func TestProviderGet_NotFound(t *testing.T) {
 	err := runner.Run(t.Context(), GetOptions{
 		Name:    "missing",
 		Cluster: "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -93,7 +95,8 @@ func TestProviderGet_ServerError(t *testing.T) {
 	err := runner.Run(t.Context(), GetOptions{
 		Name:    "percona-server-mongodb",
 		Cluster: "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected response")
 }
@@ -112,7 +115,8 @@ func TestProviderGet_NoActiveContext(t *testing.T) {
 	err := runner.Run(t.Context(), GetOptions{
 		Name:    "percona-server-mongodb",
 		Cluster: "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no active context")
 }

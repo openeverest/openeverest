@@ -52,7 +52,8 @@ func TestBackupStorageGet_HappyPath(t *testing.T) {
 		Name:      "s3-primary",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.NoError(t, err)
 	assert.Contains(t, requestPath, "/namespaces/everest/backup-storages/s3-primary")
 }
@@ -74,7 +75,8 @@ func TestBackupStorageGet_NotFound(t *testing.T) {
 		Name:      "missing",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -96,7 +98,8 @@ func TestBackupStorageGet_ServerError(t *testing.T) {
 		Name:      "s3-primary",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected response")
 }
@@ -116,7 +119,8 @@ func TestBackupStorageGet_NoActiveContext(t *testing.T) {
 		Name:      "s3-primary",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no active context")
 }

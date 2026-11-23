@@ -52,7 +52,8 @@ func TestInstanceGet_HappyPath(t *testing.T) {
 		Name:      "my-mongo",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.NoError(t, err)
 	assert.Contains(t, requestPath, "/namespaces/everest/instances/my-mongo")
 }
@@ -74,7 +75,8 @@ func TestInstanceGet_NotFound(t *testing.T) {
 		Name:      "missing",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -96,7 +98,8 @@ func TestInstanceGet_ServerError(t *testing.T) {
 		Name:      "my-mongo",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected response")
 }
@@ -116,7 +119,8 @@ func TestInstanceGet_NoActiveContext(t *testing.T) {
 		Name:      "my-mongo",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no active context")
 }
@@ -142,6 +146,7 @@ func TestInstanceGet_YAMLOutput(t *testing.T) {
 		Name:      "my-mongo",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.NoError(t, err)
 }
