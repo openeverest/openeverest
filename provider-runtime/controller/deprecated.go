@@ -15,9 +15,12 @@
 package controller
 
 import (
+	corev1 "k8s.io/api/core/v1"
+
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/contract"
+	"github.com/openeverest/openeverest/v2/contract/definitions"
 	"github.com/openeverest/openeverest/v2/contract/referents"
 )
 
@@ -158,4 +161,36 @@ func ValidateRestorePITR(restore *backupv1alpha1.Restore, bc *backupv1alpha1.Bac
 // release.
 func ValidatePITRStorage(pitr *backupv1alpha1.DataSourcePointInTime, instance *corev1alpha1.Instance) error {
 	return referents.ValidatePITRStorage(pitr, instance)
+}
+
+// ErrSecretSchemaValidation is returned when a secret fails schema
+// validation.
+//
+// Deprecated: use contract/definitions.ErrSecretSchemaValidation; removed in
+// the next release.
+var ErrSecretSchemaValidation = definitions.ErrSecretSchemaValidation
+
+// ErrConfigMapSchemaValidation is returned when a configmap fails schema
+// validation.
+//
+// Deprecated: use contract/definitions.ErrConfigMapSchemaValidation; removed in
+// the next release.
+var ErrConfigMapSchemaValidation = definitions.ErrConfigMapSchemaValidation
+
+// ValidateSecretSchema validates a Kubernetes Secret's data or stringData
+// against the provider's secret definition its definition label names.
+//
+// Deprecated: use contract/definitions.ValidateSecretSchema; removed in the
+// next release.
+func ValidateSecretSchema(secret *corev1.Secret, providerSpec *corev1alpha1.ProviderSpec) error {
+	return definitions.ValidateSecretSchema(secret, providerSpec)
+}
+
+// ValidateConfigMapSchema validates a Kubernetes ConfigMap's data against
+// the provider's configmap definition its definition label names.
+//
+// Deprecated: use contract/definitions.ValidateConfigMapSchema; removed in the
+// next release.
+func ValidateConfigMapSchema(configMap *corev1.ConfigMap, providerSpec *corev1alpha1.ProviderSpec) error {
+	return definitions.ValidateConfigMapSchema(configMap, providerSpec)
 }

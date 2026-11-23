@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package definitions
 
 import (
 	"testing"
@@ -24,7 +24,7 @@ import (
 
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/contract"
 )
 
 func TestValidateSecretSchema(t *testing.T) {
@@ -67,7 +67,7 @@ func TestValidateSecretSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-secret",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
+						contract.DefinitionLabel: "database-credentials",
 					},
 				},
 				StringData: map[string]string{
@@ -84,7 +84,7 @@ func TestValidateSecretSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-secret",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
+						contract.DefinitionLabel: "database-credentials",
 					},
 				},
 				Type: corev1.SecretTypeDockerConfigJson,
@@ -102,7 +102,7 @@ func TestValidateSecretSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-secret",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "registry",
+						contract.DefinitionLabel: "registry",
 					},
 				},
 				Type: corev1.SecretTypeDockerConfigJson,
@@ -147,7 +147,7 @@ func TestValidateSecretSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-secret",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "non-existent",
+						contract.DefinitionLabel: "non-existent",
 					},
 				},
 				StringData: map[string]string{
@@ -164,7 +164,7 @@ func TestValidateSecretSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-secret",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
+						contract.DefinitionLabel: "database-credentials",
 					},
 				},
 				Data: map[string][]byte{
@@ -180,7 +180,7 @@ func TestValidateSecretSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-secret",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
+						contract.DefinitionLabel: "database-credentials",
 					},
 				},
 				StringData: map[string]string{
@@ -196,7 +196,7 @@ func TestValidateSecretSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-secret",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
+						contract.DefinitionLabel: "database-credentials",
 					},
 				},
 				Data: map[string][]byte{
@@ -216,7 +216,7 @@ func TestValidateSecretSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-secret",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
+						contract.DefinitionLabel: "database-credentials",
 					},
 				},
 			},
@@ -229,7 +229,7 @@ func TestValidateSecretSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-secret",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
+						contract.DefinitionLabel: "database-credentials",
 					},
 				},
 				StringData: map[string]string{
@@ -245,7 +245,7 @@ func TestValidateSecretSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-secret",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
+						contract.DefinitionLabel: "database-credentials",
 					},
 				},
 				StringData: map[string]string{
@@ -263,7 +263,7 @@ func TestValidateSecretSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-secret",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
+						contract.DefinitionLabel: "database-credentials",
 					},
 				},
 				StringData: map[string]string{

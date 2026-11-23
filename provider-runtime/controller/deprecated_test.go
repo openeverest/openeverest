@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openeverest/openeverest/v2/contract"
+	"github.com/openeverest/openeverest/v2/contract/definitions"
 	"github.com/openeverest/openeverest/v2/contract/referents"
 )
 
@@ -53,6 +54,13 @@ func TestDeprecatedSentinelsMatchTheirReplacements(t *testing.T) {
 			require.ErrorIs(t, fmt.Errorf("wrapped: %w", tc.replacement), ErrInvalidReference)
 		})
 	}
+}
+
+func TestDeprecatedSchemaErrorsMatchTheirReplacements(t *testing.T) {
+	t.Parallel()
+
+	require.ErrorIs(t, fmt.Errorf("wrapped: %w", definitions.ErrSecretSchemaValidation), ErrSecretSchemaValidation)
+	require.ErrorIs(t, fmt.Errorf("wrapped: %w", definitions.ErrConfigMapSchemaValidation), ErrConfigMapSchemaValidation)
 }
 
 func TestDeprecatedStatusFieldOwner(t *testing.T) {
