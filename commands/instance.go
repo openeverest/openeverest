@@ -38,6 +38,7 @@ func init() {
 	instanceCmd.AddCommand(instance.GetCreateCmd())
 	instanceCmd.AddCommand(instance.GetStatusCmd())
 	instanceCmd.AddCommand(instance.GetListCmd())
+	instanceCmd.AddCommand(instance.GetGetCmd())
 	instanceCmd.AddCommand(instance.GetUpdateCmd())
 	instanceCmd.AddCommand(instance.GetDeleteCmd())
 }
