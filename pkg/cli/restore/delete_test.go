@@ -289,7 +289,7 @@ func TestDelete_JSONMode_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 }
 
 // TestDelete_VerboseAloneDoesNotForceNonInteractive proves --verbose alone
-// does not force non-interactive mode on a real TTY, only --json/--yaml should.
+// does not force non-interactive mode on a real TTY, only -o json|yaml should.
 func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
 	t.Parallel()
 

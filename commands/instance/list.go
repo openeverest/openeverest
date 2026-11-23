@@ -38,7 +38,7 @@ var (
 Displays a table with NAME, NAMESPACE, PROVIDER, VERSION, STATUS, AVAILABLE,
 and AGE. STATUS says what is happening to the instance (Ready, Creating,
 Upgrading, Crash loop, ...) and AVAILABLE whether clients can connect to it
-(Yes, No, or - when that is not known). Pass --json / --verbose to get the raw
+(Yes, No, or - when that is not known). Pass -o json / --verbose to get the raw
 API response instead of the formatted table.`,
 		Example: `  # List instances in a namespace
   everestctl instance list --namespace everest
@@ -47,7 +47,7 @@ API response instead of the formatted table.`,
   everestctl instance ls --all-namespaces
 
   # JSON output for scripting
-  everestctl instance list --namespace everest --json | jq '.[].metadata.name'
+  everestctl instance list --namespace everest -o json | jq '.[].metadata.name'
 
   # Specific cluster and context
   everestctl instance list --namespace everest --cluster staging --context staging-ctx`,

@@ -37,7 +37,7 @@ var (
 		Long: `List Provider resources via the Everest API.
 
 Displays a table with NAME and AGE. Details such as supported topologies,
-version catalog, and schemas remain available via --json / --verbose.`,
+version catalog, and schemas remain available via -o json / --verbose.`,
 		Example: `  # List installed providers
   everestctl provider list
 
@@ -45,7 +45,7 @@ version catalog, and schemas remain available via --json / --verbose.`,
   everestctl prov ls
 
   # JSON output — inspect the full version catalog
-  everestctl provider list --json | jq '.[].spec.versions'
+  everestctl provider list -o json | jq '.[].spec.versions'
 
   # Specific cluster and context
   everestctl provider list --cluster staging --context staging-ctx`,

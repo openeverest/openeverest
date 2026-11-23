@@ -38,7 +38,7 @@ import (
 // Config holds the shared configuration for backup class CLI runners.
 type Config struct {
 	Pretty bool
-	YAML   bool // --yaml: machine-readable YAML instead of JSON when Pretty is false
+	YAML   bool // -o yaml: machine-readable YAML instead of JSON when Pretty is false
 }
 
 // ListOptions holds the inputs for the list command.

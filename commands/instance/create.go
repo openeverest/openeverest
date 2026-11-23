@@ -90,7 +90,7 @@ to override any Instance spec field using dot-notation paths rooted at the spec
 
   # Bounded wait for CI, then check that clients can connect
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb \
-    --wait --timeout 15m --json | jq -r '.status.conditions[] | select(.type == "Available") | .status'`,
+    --wait --timeout 15m -o json | jq -r '.status.conditions[] | select(.type == "Available") | .status'`,
 		PreRun: createPreRun,
 		Run:    createRun,
 	}

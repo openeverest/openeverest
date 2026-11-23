@@ -264,7 +264,7 @@ func TestDelete_JSONMode_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 
 // TestDelete_VerboseAloneDoesNotForceNonInteractive proves --verbose alone
 // (Config.Pretty false, MachineReadable false) does not force non-interactive
-// mode on a real TTY, only --json/--yaml should. It runs Run itself rather
+// mode on a real TTY, only -o json|yaml should. It runs Run itself rather
 // than restating the gating rule against a hand-built confirm.Options, since
 // that would pass even if Run went back to deriving MachineReadable from
 // Pretty. Without a real terminal, the prompt itself fails, so this only

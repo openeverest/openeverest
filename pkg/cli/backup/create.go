@@ -115,7 +115,7 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 }
 
 // emitCreated reports a non-waiting create: a success line in pretty mode, or
-// the created backup in JSON mode (so `create --json` is parseable either way).
+// the created backup in JSON mode (so `create -o json` is parseable either way).
 func (cr *CreateRunner) emitCreated(created *client.Backup, name string) error {
 	if cr.config.Pretty {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q created", name))

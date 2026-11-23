@@ -51,7 +51,7 @@ const (
 
 type Config struct {
 	Pretty bool
-	YAML   bool // --yaml: machine-readable YAML instead of JSON when Pretty is false
+	YAML   bool // -o yaml: machine-readable YAML instead of JSON when Pretty is false
 }
 
 type CreateOptions struct {
@@ -269,7 +269,7 @@ func (ic *InstanceCreator) emitServerDryRun(created *client.Instance, opts Creat
 }
 
 // emitCreated reports a non-waiting create: a success line in pretty mode, or
-// the created instance in JSON/YAML mode (so `create --json`/`--yaml` is parseable).
+// the created instance in JSON/YAML mode (so `create -o json`/`-o yaml` is parseable).
 func (ic *InstanceCreator) emitCreated(created *client.Instance, opts CreateOptions) error {
 	if ic.config.Pretty {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q created in namespace %q", opts.Name, opts.Namespace))

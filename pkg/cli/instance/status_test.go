@@ -547,7 +547,8 @@ func TestInstanceStatus_YAMLOutput(t *testing.T) {
 		Name:      "my-mongo",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.NoError(t, err)
 }
 
@@ -611,7 +612,7 @@ func TestWatch_StopsOnContextCancel(t *testing.T) {
 	assert.GreaterOrEqual(t, calls.Load(), int32(2), "expected the watch to poll before the cancel")
 }
 
-// TestWatch_YAMLOutputMultiDocument proves --watch --yaml emits a YAML
+// TestWatch_YAMLOutputMultiDocument proves --watch -o yaml emits a YAML
 // multi-document stream (--- between updates) that a decoder can read.
 //
 //nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
@@ -663,7 +664,8 @@ func TestWatch_YAMLOutputMultiDocument(t *testing.T) {
 			Cluster:   "main",
 			Watch:     true,
 			Interval:  30 * time.Millisecond,
-		}, cfgPath)
+		}, cfgPath,
+		)
 	})
 	require.NoError(t, runErr)
 

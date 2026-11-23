@@ -343,7 +343,7 @@ func createStorageError(resp *client.CreateBackupStorageResponse) error {
 }
 
 // emitCreated reports a successful create: success lines in pretty mode, or the
-// created backup storage in JSON mode (so `create --json` is parseable either way).
+// created backup storage in JSON mode (so `create -o json` is parseable either way).
 func (cr *CreateRunner) emitCreated(created *client.BackupStorage, name string, secrets []string) error {
 	if cr.config.Pretty {
 		for _, secret := range secrets {

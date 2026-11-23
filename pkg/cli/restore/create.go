@@ -110,7 +110,7 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 }
 
 // emitCreated reports a non-waiting create: a success line in pretty mode, or
-// the created restore in JSON mode (so `create --json` is parseable either way).
+// the created restore in JSON mode (so `create -o json` is parseable either way).
 func (cr *CreateRunner) emitCreated(created *client.Restore, name string) error {
 	if cr.config.Pretty {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Restore %q created", name))

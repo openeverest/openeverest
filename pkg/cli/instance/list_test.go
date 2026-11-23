@@ -296,6 +296,7 @@ func TestInstanceList_YAMLOutput(t *testing.T) {
 	err := runner.Run(t.Context(), ListOptions{
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.NoError(t, err)
 }

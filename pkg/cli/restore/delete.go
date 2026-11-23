@@ -42,7 +42,7 @@ type DeleteOptions struct {
 	Cluster         string
 	Context         string        // overrides the active context when set
 	Yes             bool          // skip the confirmation prompt
-	MachineReadable bool          // --json or --yaml was passed; forces non-interactive regardless of --verbose
+	MachineReadable bool          // -o json|yaml was passed; forces non-interactive regardless of --verbose
 	Force           bool          // override the in-flight (Pending/Running/no status yet) guard; orthogonal to Yes
 	IgnoreNotFound  bool          // treat "restore already gone" (404) as a successful delete
 	Wait            bool          // block until the restore is fully deleted

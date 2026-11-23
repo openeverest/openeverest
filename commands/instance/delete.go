@@ -44,7 +44,7 @@ delete with --deletion-policy.
 
 Interactively (a terminal, no --yes), you'll be asked to type the instance
 name back to confirm — this is irreversible. Pass --yes/-y to skip the
-prompt; in a non-interactive context (no terminal, or --json/--yaml) omitting --yes
+prompt; in a non-interactive context (no terminal, or -o json|yaml) omitting --yes
 fails immediately instead of hanging on a prompt nobody can answer.
 
 --ignore-not-found treats an already-absent instance as success and skips

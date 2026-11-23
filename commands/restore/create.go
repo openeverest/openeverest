@@ -62,7 +62,7 @@ server-side.`,
 
   # Bounded wait for CI, then grab the state (Ctrl-C only stops waiting; the restore keeps running)
   everestctl restore create --instance my-mongo --namespace everest \
-    --backup pre-upgrade --wait --timeout 15m --json | jq '.status.state'`,
+    --backup pre-upgrade --wait --timeout 15m -o json | jq '.status.state'`,
 		PreRun: createPreRun,
 		Run:    createRun,
 	}

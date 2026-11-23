@@ -43,7 +43,7 @@ create' made them or not: remove them once nothing else uses them.
 
 Interactively (a terminal, no --yes), you'll be asked to confirm with y/N.
 Pass --yes/-y to skip the prompt; in a non-interactive context (no terminal,
-or --json/--yaml) omitting --yes fails immediately instead of hanging on a prompt
+or -o json|yaml) omitting --yes fails immediately instead of hanging on a prompt
 nobody can answer.
 
 The server keeps a deleted backup storage until no Instance, Backup,
