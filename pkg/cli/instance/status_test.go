@@ -528,28 +528,10 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 func TestInstanceStatus_YAMLOutput(t *testing.T) {
 	t.Parallel()
 
-	inst := minimalInst()
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(inst)
-	}))
-	defer srv.Close()
-
-	cfg := newTestConfig(srv.URL)
-	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
-	require.NoError(t, cfg.Save(cfgPath))
-
-	// Pretty=false, YAML=true → YAML path
-	runner := NewInstanceStatusRunner(Config{Pretty: false, YAML: true}, zap.NewNop().Sugar())
-	err := runner.Run(t.Context(), StatusOptions{
-		Name:      "my-mongo",
-		Namespace: "everest",
-		Cluster:   "main",
-	}, cfgPath,
-	)
-	require.NoError(t, err)
+	inst := instanceFromJSON(`{"metadata":{"name":"my-mongo"}}`)
+	var buf bytes.Buffer
+	NewInstanceStatusRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, inst, "everest", time.Now())
+	assert.Contains(t, buf.String(), "metadata:\n  name: my-mongo\n")
 }
 
 func minimalInst() *client.Instance {
@@ -618,17 +600,15 @@ func TestWatch_StopsOnContextCancel(t *testing.T) {
 //nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestWatch_YAMLOutputMultiDocument(t *testing.T) {
 	var calls atomic.Int32
-	changed := make(chan struct{})
+	printed := make(chan struct{})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		n := calls.Add(1)
 		phase := "Pending"
 		if n >= 2 {
 			phase = "Provisioned"
-			select {
-			case <-changed:
-			default:
-				close(changed)
-			}
+		}
+		if n == 3 {
+			close(printed)
 		}
 		inst := instanceFromJSON(fmt.Sprintf(
 			`{"metadata":{"name":"my-mongo","generation":1},"status":{"observedGeneration":1,"phase":%q}}`,
@@ -647,11 +627,9 @@ func TestWatch_YAMLOutputMultiDocument(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		select {
-		case <-changed:
+		case <-printed:
 		case <-time.After(30 * time.Second):
 		}
-		// Let the watch print the second document before cancelling.
-		time.Sleep(50 * time.Millisecond)
 		cancel()
 	}()
 
