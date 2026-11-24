@@ -131,6 +131,25 @@ const (
 	// FlagInstanceDryRun previews create or update: "client" prints the request, "server" sends it with dryRun=All.
 	FlagInstanceDryRun = "dry-run"
 
+	// `preset` flags (namespace-scoped InstancePreset).
+
+	// FlagPresetName is the name of the instance preset name flag.
+	FlagPresetName = "name"
+	// FlagPresetNamespace is the name of the namespace flag.
+	FlagPresetNamespace = "namespace"
+	// FlagPresetAllNamespaces lists instance presets across all namespaces.
+	FlagPresetAllNamespaces = "all-namespaces"
+	// FlagPresetCluster is the name of the cluster flag.
+	FlagPresetCluster = "cluster"
+	// FlagPresetContext overrides the active context for this command.
+	FlagPresetContext = "context"
+	// FlagPresetProvider filters list to presets of that provider.
+	FlagPresetProvider = "provider"
+	// FlagPresetFile is the path to an InstancePreset YAML/JSON manifest.
+	FlagPresetFile = "file"
+	// FlagPresetIgnoreNotFound treats an already-deleted preset as success.
+	FlagPresetIgnoreNotFound = "ignore-not-found"
+
 	// `cluster-preset` flags (cluster-scoped ClusterInstancePreset).
 
 	// FlagClusterPresetName is the name of the cluster instance preset name flag.
