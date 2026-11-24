@@ -17,6 +17,7 @@ package contract_test
 import (
 	"bytes"
 	"encoding/json"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,9 +28,10 @@ import (
 )
 
 type vectors struct {
-	Order   []string      `json:"order"`
-	Invalid []string      `json:"invalid"`
-	Check   []checkVector `json:"check"`
+	Order       []string            `json:"order"`
+	Invalid     []string            `json:"invalid"`
+	Check       []checkVector       `json:"check"`
+	Acknowledge []acknowledgeVector `json:"acknowledge"`
 }
 
 type checkVector struct {
@@ -38,6 +40,13 @@ type checkVector struct {
 	Cur    string                 `json:"cur"`
 	Status metav1.ConditionStatus `json:"status"`
 	Reason string                 `json:"reason"`
+}
+
+type acknowledgeVector struct {
+	Ack             string `json:"ack"`
+	ContractVersion string `json:"contractVersion"`
+	CoreVersion     string `json:"coreVersion"`
+	Holds           bool   `json:"holds"`
 }
 
 func loadVectors(t *testing.T) vectors {
@@ -50,6 +59,7 @@ func loadVectors(t *testing.T) vectors {
 	require.NotEmpty(t, v.Order)
 	require.NotEmpty(t, v.Invalid)
 	require.NotEmpty(t, v.Check)
+	require.NotEmpty(t, v.Acknowledge)
 	return v
 }
 
@@ -126,4 +136,67 @@ func TestCheckVectorsCoverEveryReasonAndEdge(t *testing.T) {
 	}
 	assert.True(t, atMin, "no supported check vector with the stamp at the bottom of the window")
 	assert.True(t, atCurrent, "no supported check vector with the stamp at the top of the window")
+}
+
+func TestAcknowledgeVectors(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range loadVectors(t).Acknowledge {
+		assert.Equal(t, tc.Holds, contract.AcknowledgementHolds(tc.Ack, tc.ContractVersion, tc.CoreVersion),
+			"AcknowledgementHolds(%q, %q, %q)", tc.Ack, tc.ContractVersion, tc.CoreVersion,
+		)
+	}
+}
+
+func TestAcknowledgeVectorsCoverEveryCase(t *testing.T) {
+	t.Parallel()
+
+	valid := func(v acknowledgeVector) bool {
+		return contract.Valid(v.Ack) && contract.Valid(v.ContractVersion) && contract.Valid(v.CoreVersion)
+	}
+	cases := []struct {
+		name  string
+		match func(v acknowledgeVector) bool
+	}{
+		{
+			name:  "an acknowledgement of the installed release",
+			match: func(v acknowledgeVector) bool { return v.Holds && v.Ack == v.CoreVersion },
+		},
+		{
+			name: "an acknowledgement kept by a patch release that keeps the contract",
+			match: func(v acknowledgeVector) bool {
+				return v.Holds && contract.Compare(v.Ack, v.CoreVersion) < 0
+			},
+		},
+		{
+			name: "an acknowledgement written ahead of the installed release",
+			match: func(v acknowledgeVector) bool {
+				return valid(v) && contract.Compare(v.Ack, v.CoreVersion) > 0 &&
+					contract.Compare(v.ContractVersion, v.Ack) <= 0
+			},
+		},
+		{
+			name: "an acknowledgement expired by a release that moved the contract",
+			match: func(v acknowledgeVector) bool {
+				return valid(v) && contract.Compare(v.Ack, v.ContractVersion) < 0 &&
+					contract.Compare(v.ContractVersion, v.CoreVersion) <= 0
+			},
+		},
+		{
+			name:  "an invalid acknowledgement",
+			match: func(v acknowledgeVector) bool { return !contract.Valid(v.Ack) },
+		},
+		{
+			name:  "an invalid contract version",
+			match: func(v acknowledgeVector) bool { return !contract.Valid(v.ContractVersion) },
+		},
+		{
+			name:  "an invalid core version",
+			match: func(v acknowledgeVector) bool { return !contract.Valid(v.CoreVersion) },
+		},
+	}
+	acks := loadVectors(t).Acknowledge
+	for _, c := range cases {
+		assert.True(t, slices.ContainsFunc(acks, c.match), "no acknowledge vector for %s", c.name)
+	}
 }

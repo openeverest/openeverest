@@ -18,12 +18,15 @@ import _ "embed"
 
 // OrderVectors is the JSON document of the cases every implementation of the
 // check must pass, so that a Helm template, the UI or a CEL rule decides
-// exactly as Check does:
+// exactly as Check and AcknowledgementHolds do:
 //
 //   - "order" lists valid versions in strictly ascending precedence;
 //   - "invalid" lists values Valid rejects;
 //   - "check" lists objects with the fields "ext", "min" and "cur", the
-//     arguments of Check, and "status" and "reason", its Result.
+//     arguments of Check, and "status" and "reason", its Result;
+//   - "acknowledge" lists objects with the fields "ack", "contractVersion"
+//     and "coreVersion", the arguments of AcknowledgementHolds, and "holds",
+//     its result.
 //
 //go:embed testdata/order.json
 var OrderVectors []byte

@@ -42,7 +42,14 @@
 // example 2.0.1-dev). An extension stamped with a development value was
 // built against an unreleased core and is not meant to be published.
 //
-// OrderVectors holds the cases that pin the ordering, the accepted syntax and
-// the results of Check, so that every other implementation of the check, such
-// as Helm templates or the UI, runs the same cases.
+// A user can run an extension outside the window anyway by acknowledging the
+// incompatibility on a core release. The acknowledgement holds until a core
+// release changes the contract, and does nothing before the release it names
+// is installed; AcknowledgementHolds decides it from values the core CRDs
+// publish.
+//
+// OrderVectors holds the cases that pin the ordering, the accepted syntax,
+// the results of Check and when an acknowledgement holds, so that every
+// other implementation, such as Helm templates or the UI, runs the same
+// cases.
 package contract

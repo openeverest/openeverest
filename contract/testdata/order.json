@@ -67,5 +67,31 @@
     {"ext": "2.0.0-alpha.1", "min": "2.0.0-alpha.1", "cur": "latest", "status": "Unknown", "reason": "InvalidVersion"},
     {"ext": "latest", "min": "2.0.0-alpha.2", "cur": "2.0.0-alpha.1", "status": "Unknown", "reason": "InvalidVersion"},
     {"ext": "2.0.0-alpha.1", "min": "2.0.0-alpha.2", "cur": "2.0.0-alpha.1.dev", "status": "Unknown", "reason": "CoreVersionSkew"}
+  ],
+  "acknowledge": [
+    {"ack": "2.1.0", "contractVersion": "2.1.0", "coreVersion": "2.1.0", "holds": true},
+    {"ack": "2.1.1", "contractVersion": "2.1.0", "coreVersion": "2.1.1", "holds": true},
+    {"ack": "2.1.0", "contractVersion": "2.1.0", "coreVersion": "2.1.2", "holds": true},
+    {"ack": "2.1.1", "contractVersion": "2.1.0", "coreVersion": "2.1.2", "holds": true},
+    {"ack": "2.0.0-alpha.1", "contractVersion": "2.0.0-alpha.1", "coreVersion": "2.0.0-alpha.1.1", "holds": true},
+    {"ack": "2.0.0-alpha.10", "contractVersion": "2.0.0-alpha.9", "coreVersion": "2.0.0-alpha.10", "holds": true},
+    {"ack": "2.1.0+build.1", "contractVersion": "2.1.0", "coreVersion": "2.1.0", "holds": true},
+    {"ack": "2.2.0", "contractVersion": "2.1.0", "coreVersion": "2.1.2", "holds": false},
+    {"ack": "2.1.3", "contractVersion": "2.1.0", "coreVersion": "2.1.2", "holds": false},
+    {"ack": "2.0.0-alpha.10", "contractVersion": "2.0.0-alpha.1", "coreVersion": "2.0.0-alpha.9", "holds": false},
+    {"ack": "2.1.2", "contractVersion": "2.2.0", "coreVersion": "2.2.0", "holds": false},
+    {"ack": "2.1.0", "contractVersion": "2.2.0", "coreVersion": "2.2.1", "holds": false},
+    {"ack": "2.1.0-rc.1", "contractVersion": "2.1.0", "coreVersion": "2.1.0", "holds": false},
+    {"ack": "2.0.0-alpha.9", "contractVersion": "2.0.0-alpha.10", "coreVersion": "2.0.0-alpha.10", "holds": false},
+    {"ack": "2.1.0", "contractVersion": "2.2.0", "coreVersion": "2.1.0", "holds": false},
+    {"ack": "", "contractVersion": "2.1.0", "coreVersion": "2.1.0", "holds": false},
+    {"ack": "v2.1.0", "contractVersion": "2.1.0", "coreVersion": "2.1.0", "holds": false},
+    {"ack": "2.1", "contractVersion": "2.1.0", "coreVersion": "2.1.0", "holds": false},
+    {"ack": " 2.1.0", "contractVersion": "2.1.0", "coreVersion": "2.1.0", "holds": false},
+    {"ack": "latest", "contractVersion": "2.1.0", "coreVersion": "2.1.0", "holds": false},
+    {"ack": "2.1.0", "contractVersion": "", "coreVersion": "2.1.0", "holds": false},
+    {"ack": "2.1.0", "contractVersion": "v2.1.0", "coreVersion": "2.1.0", "holds": false},
+    {"ack": "2.1.0", "contractVersion": "2.1.0", "coreVersion": "", "holds": false},
+    {"ack": "2.1.0", "contractVersion": "2.1.0", "coreVersion": "2.1", "holds": false}
   ]
 }
