@@ -274,6 +274,7 @@ export const DatabasePage = () => {
     trigger,
     control,
     getValues,
+    setValue,
   } = methods;
 
   const selectedTopology = useWatch({
@@ -285,6 +286,10 @@ export const DatabasePage = () => {
     control,
     name: DbWizardFormFields.k8sNamespace,
   });
+  const defaultNamespace = namespaces[0];
+  // useDatabaseFormSync writes the default into the form right after mount;
+  // for that first render the wizard already works in it.
+  const namespace = selectedNamespace || defaultNamespace;
 
   const selectedProvider = useWatch({
     control,
@@ -304,21 +309,23 @@ export const DatabasePage = () => {
 
   // ── Monitoring step (shown when a class is compatible with the provider)
   const monitoringStep = useMonitoringStep(
-    typeof selectedNamespace === 'string' ? selectedNamespace : '',
+    namespace || '',
     typeof selectedProvider === 'string'
       ? selectedProvider
       : (providerObject?.metadata?.name ?? '')
   );
   const { hasMonitoringStep } = monitoringStep;
 
-  // Single owner of programmatic form writes: populate from the picked preset
-  // (and revert on clear) and merge topology defaults on a manual switch.
+  // Single owner of programmatic form writes: default the namespace, populate
+  // from the picked preset (and revert on clear) and merge topology defaults
+  // on a manual switch. Must stay below the useWatch calls above.
   useDatabaseFormSync({
     mode,
     uiSchema,
     defaultValues: defaultValues ?? {},
     defaultTopology,
     selectedTopology,
+    defaultNamespace,
     preset: {
       selectedPreset: presetSelection.selectedPreset,
       presetName: presetSelection.presetName,
@@ -326,6 +333,7 @@ export const DatabasePage = () => {
     },
     reset,
     getValues,
+    setValue,
   });
 
   // Static step definitions
@@ -367,7 +375,7 @@ export const DatabasePage = () => {
     selectedTopology,
     staticSteps,
     providerObject,
-    namespace: selectedNamespace || namespaces[0],
+    namespace,
     formMode: mode,
     widgetRegistry,
     originalData: mode === FormMode.Restore ? dbClusterData : undefined,
@@ -599,14 +607,14 @@ export const DatabasePage = () => {
                 auto-selected options would only mislead the preview. */}
             <DataSourcePrefetcher
               sections={engine.sections}
-              namespace={selectedNamespace || namespaces[0]}
+              namespace={namespace}
               autoSelect={!presetSelection.presetSelected}
             />
             {/* Restore fixes the namespace, and a selected preset owns the values. */}
             {mode === FormMode.New && !presetSelection.presetSelected && (
               <SecretNamespaceSync
                 sections={engine.sections}
-                namespace={selectedNamespace || namespaces[0]}
+                namespace={namespace}
                 provider={providerObject?.metadata?.name}
               />
             )}
@@ -631,7 +639,7 @@ export const DatabasePage = () => {
             {nav.activeStepIndex === 0 && !presetSelection.presetSelected && (
               <PluginFormSections
                 formValues={methods.getValues() as Record<string, unknown>}
-                namespace={selectedNamespace || namespaces[0] || ''}
+                namespace={namespace || ''}
                 engineType={providerObject?.name}
                 isCreate={true}
                 onPluginConfigChange={handlePluginConfigChange}

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { act, renderHook } from '@testing-library/react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { vi } from 'vitest';
 import {
   Component,
@@ -21,6 +21,7 @@ import {
   FormMode,
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
+import { DbWizardFormFields } from 'consts';
 import { DbWizardType } from '../database-form-schema';
 import { useDatabaseFormSync } from './use-database-form-sync';
 
@@ -75,13 +76,57 @@ const setup = () =>
         defaultValues: {},
         defaultTopology: 'cluster',
         selectedTopology,
+        defaultNamespace: undefined,
         preset: NO_PRESET,
         reset: methods.reset,
         getValues: methods.getValues,
+        setValue: methods.setValue,
       });
       return methods;
     },
     { initialProps: { selectedTopology: 'cluster' } }
+  );
+
+interface NamespaceProps {
+  mode: FormMode;
+  defaultNamespace: string | undefined;
+}
+
+const setupNamespace = (
+  initialProps: NamespaceProps = {
+    mode: FormMode.New,
+    defaultNamespace: 'team-a',
+  }
+) =>
+  renderHook(
+    ({ mode, defaultNamespace }: NamespaceProps) => {
+      const methods = useForm<DbWizardType>({
+        defaultValues: {
+          dbName: 'my-db',
+          k8sNamespace: '',
+          topology: { type: 'cluster' },
+        },
+      });
+      // Subscribed before the sync runs, the way the wizard page reads it.
+      const watchedNamespace = useWatch({
+        control: methods.control,
+        name: DbWizardFormFields.k8sNamespace,
+      });
+      useDatabaseFormSync({
+        mode,
+        uiSchema,
+        defaultValues: {},
+        defaultTopology: 'cluster',
+        selectedTopology: 'cluster',
+        defaultNamespace,
+        preset: NO_PRESET,
+        reset: methods.reset,
+        getValues: methods.getValues,
+        setValue: methods.setValue,
+      });
+      return { methods, watchedNamespace };
+    },
+    { initialProps }
   );
 
 describe('useDatabaseFormSync topology switch', () => {
@@ -112,4 +157,64 @@ describe('useDatabaseFormSync topology switch', () => {
       1
     );
   });
+});
+
+describe('useDatabaseFormSync default namespace', () => {
+  it('starts a new instance in the first namespace', () => {
+    const { result } = setupNamespace();
+
+    expect(
+      result.current.methods.getValues(DbWizardFormFields.k8sNamespace)
+    ).toBe('team-a');
+  });
+
+  // useWatch ignores a value written before its subscription is in place. The
+  // page reads the namespace through useWatch, so a default it cannot see
+  // leaves it working with an empty namespace.
+  it('writes the default where the page subscription sees it', () => {
+    const { result } = setupNamespace();
+
+    expect(result.current.watchedNamespace).toBe('team-a');
+  });
+
+  it('waits for the namespaces to load', () => {
+    const { result, rerender } = setupNamespace({
+      mode: FormMode.New,
+      defaultNamespace: undefined,
+    });
+    expect(
+      result.current.methods.getValues(DbWizardFormFields.k8sNamespace)
+    ).toBe('');
+
+    rerender({ mode: FormMode.New, defaultNamespace: 'team-a' });
+
+    expect(result.current.watchedNamespace).toBe('team-a');
+  });
+
+  it('keeps the chosen namespace when the list gets a new first entry', () => {
+    const { result, rerender } = setupNamespace();
+    act(() => {
+      result.current.methods.setValue(
+        DbWizardFormFields.k8sNamespace,
+        'team-b'
+      );
+    });
+
+    rerender({ mode: FormMode.New, defaultNamespace: 'another-team' });
+
+    expect(
+      result.current.methods.getValues(DbWizardFormFields.k8sNamespace)
+    ).toBe('team-b');
+  });
+
+  it.each([FormMode.Restore, FormMode.Import])(
+    'leaves the namespace to the source in %s mode',
+    (mode) => {
+      const { result } = setupNamespace({ mode, defaultNamespace: 'team-a' });
+
+      expect(
+        result.current.methods.getValues(DbWizardFormFields.k8sNamespace)
+      ).toBe('');
+    }
+  );
 });
