@@ -61,13 +61,13 @@ func TestRun(t *testing.T) {
 	const (
 		wantCRDMetadata = "  annotations:\n" +
 			"    controller-gen.kubebuilder.io/version: v0.18.0\n" +
-			"    openeverest.io/contract-version: 2.0.0-alpha.1.dev\n" +
+			"    openeverest.io/contract-version: 2.0.0-alpha.1.next\n" +
 			"    openeverest.io/min-contract-version: 2.0.0-alpha.1\n" +
 			"    openeverest.io/upgradable-from: \"\"\n" +
 			"  name: widgets.test.openeverest.io\n"
 		wantClassMetadata = "metadata:\n" +
 			"  annotations:\n" +
-			"    openeverest.io/contract-version: 2.0.0-alpha.1.dev\n" +
+			"    openeverest.io/contract-version: 2.0.0-alpha.1.next\n" +
 			"  name: s3\n"
 	)
 	assert.Contains(t, readFile(t, root, crdPath), wantCRDMetadata)
@@ -119,7 +119,7 @@ func TestRunRelease(t *testing.T) {
 	notices.Reset()
 	require.NoError(t, generate(root, &notices))
 	assert.Equal(t, "2.0.0-alpha.2.next\n", readFile(t, root, versionFile))
-	const wantDevelopmentStamp = "    openeverest.io/contract-version: 2.0.0-alpha.2.dev\n" +
+	const wantDevelopmentStamp = "    openeverest.io/contract-version: 2.0.0-alpha.2.next\n" +
 		"    openeverest.io/min-contract-version: 2.0.0-alpha.1\n" +
 		"    openeverest.io/upgradable-from: \"\"\n"
 	assert.Contains(t, readFile(t, root, crdPath), wantDevelopmentStamp)

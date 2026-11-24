@@ -37,7 +37,7 @@ const (
 	windowLines = "    openeverest.io/contract-version: 2.1.0\n" +
 		"    openeverest.io/min-contract-version: 2.0.0\n" +
 		"    openeverest.io/upgradable-from: 2.0.0,2.0.1\n"
-	freshInstallLines = "    openeverest.io/contract-version: 2.1.1-dev\n" +
+	freshInstallLines = "    openeverest.io/contract-version: 2.2.0-alpha.0\n" +
 		"    openeverest.io/min-contract-version: 2.0.0\n" +
 		"    openeverest.io/upgradable-from: \"\"\n"
 	staleLines = "    openeverest.io/contract-version: 2.0.0\n" +
@@ -62,7 +62,7 @@ func TestStampManifest(t *testing.T) {
 		upgradableFromAnnotation: "2.0.0,2.0.1",
 	}
 	freshInstall := map[string]string{
-		versionAnnotation:        "2.1.1-dev",
+		versionAnnotation:        "2.2.0-alpha.0",
 		minVersionAnnotation:     "2.0.0",
 		upgradableFromAnnotation: "",
 	}

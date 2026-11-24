@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-    openeverest.io/contract-version: 2.0.0-alpha.1.dev
+    openeverest.io/contract-version: 2.0.0-alpha.1.next
     openeverest.io/min-contract-version: 2.0.0-alpha.1
     openeverest.io/upgradable-from: ""
   name: monitoringdestinations.monitoring.openeverest.io
