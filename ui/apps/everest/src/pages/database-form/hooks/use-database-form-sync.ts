@@ -13,7 +13,12 @@
 // limitations under the License.
 
 import { useEffect, useRef } from 'react';
-import { UseFormGetValues, UseFormReset } from 'react-hook-form';
+import {
+  UseFormGetValues,
+  UseFormReset,
+  UseFormSetValue,
+} from 'react-hook-form';
+import { DbWizardFormFields } from 'consts';
 import {
   FormMode,
   TopologyUISchemas,
@@ -37,26 +42,46 @@ interface UseDatabaseFormSyncArgs {
   defaultValues: Record<string, unknown>;
   defaultTopology: string;
   selectedTopology: string | undefined;
+  defaultNamespace: string | undefined;
   preset: PresetSource;
   reset: UseFormReset<DbWizardType>;
   getValues: UseFormGetValues<DbWizardType>;
+  setValue: UseFormSetValue<DbWizardType>;
 }
 
 // Single owner of programmatic form writes for the create/edit wizard. Each
 // "source" is a self-contained sync with its own precedence; today that is
-// preset population and topology-default merge. New sources (e.g. plugins)
-// compose here, so the form never has competing resets scattered across
-// components with ad-hoc ordering guards.
+// the default namespace, preset population and topology-default merge. New
+// sources (e.g. plugins) compose here, so the form never has competing writes
+// scattered across components with ad-hoc ordering guards.
+//
+// Call it after the page's useWatch calls: useWatch ignores a value written
+// before its subscription is in place, which is what a write from a step's
+// mount effect is.
 export const useDatabaseFormSync = ({
   mode,
   uiSchema,
   defaultValues,
   defaultTopology,
   selectedTopology,
+  defaultNamespace,
   preset,
   reset,
   getValues,
+  setValue,
 }: UseDatabaseFormSyncArgs) => {
+  // Source 0 — default namespace: a new instance starts in the first
+  // namespace. Only an empty value is filled, so a namespace the user chose is
+  // never replaced when the list changes.
+  useEffect(() => {
+    if (mode !== FormMode.New || !defaultNamespace) return;
+    if (getValues(DbWizardFormFields.k8sNamespace)) return;
+
+    setValue(DbWizardFormFields.k8sNamespace, defaultNamespace, {
+      shouldValidate: true,
+    });
+  }, [mode, defaultNamespace, getValues, setValue]);
+
   // Source 1 — preset: populates the form from the selected preset and reverts
   // on clear. Owns topology while a preset is selected.
   usePresetFormSync({
