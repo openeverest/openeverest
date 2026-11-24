@@ -61,6 +61,19 @@ func requireTag(root, tag string) error {
 	)
 }
 
+// showFile returns the content of the file at path, relative to the
+// repository root, in the tree of ref, and false when there is none.
+func showFile(root, ref, file string) ([]byte, bool, error) {
+	if _, err := git(root, "cat-file", "-e", ref+":"+file); err != nil {
+		return nil, false, nil //nolint:nilerr // no such file
+	}
+	data, err := git(root, "cat-file", "blob", ref+":"+file)
+	if err != nil {
+		return nil, false, err
+	}
+	return data, true, nil
+}
+
 // extractInputs writes the files that hold the artifacts of every input in
 // the tree of ref to a new temporary directory, and returns it with a
 // function that removes it. The fingerprints of that directory are those

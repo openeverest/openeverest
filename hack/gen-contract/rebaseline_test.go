@@ -250,3 +250,40 @@ func TestAddSchemeKeepsTheRest(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, olderRecord()+"  "+scheme+":\n    crds: "+fpB+"\n    changes: "+fpB+"\n# A trailing comment.\n", string(got))
 }
+
+func TestVerify(t *testing.T) {
+	t.Parallel()
+
+	// The seed has nothing to verify.
+	root := gitRepo(t, testRepo())
+	var notices bytes.Buffer
+	msg, err := execute([]string{"-root", root, "verify"}, io.Discard, &notices)
+	require.NoError(t, err)
+	assert.Empty(t, msg)
+	assert.Contains(t, notices.String(), "the latest release, 2.0.0-alpha.1, is the seed, which has no fingerprints to verify")
+
+	// A record that holds what the generator computes from its tag.
+	root = releaseRepo(t, record("2.1.0", "2.1.0", "2.0.0", "upgradable", "[2.0.0]", testFingerprints(t, testRepo())))
+	msg, err = execute([]string{"-root", root, "verify"}, io.Discard, io.Discard)
+	require.NoError(t, err)
+	assert.Equal(t, "the record of release 2.1.0 holds what this generator computes from v2.1.0 under scheme "+scheme+
+		" (crds, http-api, storage-classes, go-api, changes)", msg,
+	)
+
+	// A record whose digests this generator no longer computes from the
+	// same tag: the scheme changed without a new name.
+	root = releaseRepo(t, record("2.1.0", "2.1.0", "2.0.0", "upgradable", "[2.0.0]", with(testFingerprints(t, testRepo()), "http-api", fpA)))
+	_, err = execute([]string{"-root", root, "verify"}, io.Discard, io.Discard)
+	require.ErrorContains(t, err, "the fingerprint scheme changed: bump it and run rebaseline")
+	require.ErrorContains(t, err, "under scheme "+scheme+", for http-api,")
+
+	// No tag, no verification.
+	root = writeRepo(t, func() map[string]string {
+		f := testRepo()
+		f[recordPath("2.1.0")] = record("2.1.0", "2.1.0", "2.0.0", "upgradable", "[2.0.0]", digests(fpA))
+		return f
+	}())
+	runGit(t, root, "init", "-q")
+	_, err = execute([]string{"-root", root, "verify"}, io.Discard, io.Discard)
+	require.ErrorContains(t, err, "tag v2.1.0 is not here")
+}

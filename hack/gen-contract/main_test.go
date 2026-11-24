@@ -180,7 +180,8 @@ func TestExecuteErrors(t *testing.T) {
 		{args: []string{"-check-release", "-version", "2.1.1", "-branch", "release-2.1"}, wantErr: "not both"},
 		{args: []string{"-check-release", "-version", "2.1.0-alpha.0"}, wantErr: "-version: \"2.1.0-alpha.0\" is a development value"},
 		{args: []string{"-version", "2.1.1"}, wantErr: "-version and -branch go with -check-release"},
-		{args: []string{"-check-release", "diff"}, wantErr: "do not go with the diff command"},
+		{args: []string{"-check-release", "latest"}, wantErr: "do not go with the latest command"},
+		{args: []string{"latest", "x"}, wantErr: `latest: unexpected argument "x"`},
 	}
 	for _, tt := range tests {
 		_, err := execute(append([]string{"-root", root}, tt.args...), io.Discard, io.Discard)
@@ -189,6 +190,10 @@ func TestExecuteErrors(t *testing.T) {
 
 	_, err := execute([]string{"-h"}, io.Discard, io.Discard)
 	require.ErrorIs(t, err, flag.ErrHelp)
+
+	msg, err := execute([]string{"-root", root, "latest"}, io.Discard, io.Discard)
+	require.NoError(t, err)
+	assert.Equal(t, "2.0.0-alpha.1", msg)
 }
 
 // TestImportsNothingFromThisModule keeps the command independent of the

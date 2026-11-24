@@ -18,6 +18,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"path/filepath"
@@ -164,4 +165,51 @@ func insertScheme(text, block string) (string, error) {
 		end--
 	}
 	return strings.Join(lines[:end], "") + block + strings.Join(lines[end:], ""), nil
+}
+
+// runVerify checks that the digests the latest record holds under the
+// current scheme are those this generator computes from the tag of its
+// release. They differ when a change to the generator, its dependencies or
+// Go changes how an unchanged contract hashes without a new scheme: then
+// every comparison with the record is wrong.
+func runVerify(root string, args []string, notices io.Writer) (string, error) {
+	flags := flag.NewFlagSet("verify", flag.ContinueOnError)
+	tag := flags.String("tag", "", "the tag of the latest release (default v<version>)")
+	if err := flags.Parse(args); err != nil {
+		return "", err
+	}
+	if flags.NArg() > 0 {
+		return "", fmt.Errorf("verify: unexpected argument %q", flags.Arg(0))
+	}
+	releases, err := readReleases(filepath.Join(root, filepath.FromSlash(releasesDir)))
+	if err != nil {
+		return "", err
+	}
+	latest := releases[len(releases)-1]
+	if latest.isSeed() {
+		notifyf(notices, "the latest release, %s, is the seed, which has no fingerprints to verify", latest.Version)
+		return "", nil
+	}
+	recorded, ok := latest.Fingerprints[scheme]
+	if !ok {
+		return "", noSchemeError(latest)
+	}
+	if *tag == "" {
+		*tag = "v" + latest.Version
+	}
+	fps, err := fingerprintsAt(root, *tag)
+	if err != nil {
+		return "", err
+	}
+	if !maps.Equal(recorded, fps) {
+		return "", fmt.Errorf("the fingerprint scheme changed: bump it and run rebaseline. "+
+			"This generator computes from %s digests that differ from those the record of release %s holds under scheme %s, for %s, "+
+			"so a change to the generator, its dependencies or Go changed how an unchanged contract hashes. "+
+			"Name a new scheme in hack/gen-contract, then run go run ./hack/gen-contract rebaseline -version %s. See contract/README.md",
+			*tag, latest.Version, scheme, strings.Join(differentInputs(recorded, fps), ", "), latest.Version,
+		)
+	}
+	return fmt.Sprintf("the record of release %s holds what this generator computes from %s under scheme %s (%s)",
+		latest.Version, *tag, scheme, strings.Join(sortedInputs(fps), ", "),
+	), nil
 }

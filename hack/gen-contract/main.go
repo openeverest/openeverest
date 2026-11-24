@@ -80,6 +80,9 @@ const usage = `usage: gen-contract [-root dir]
        gen-contract [-root dir] -check-release -version X.Y.Z | -branch release-X.Y
        gen-contract [-root dir] rebaseline -version X.Y.Z [-tag vX.Y.Z]
        gen-contract [-root dir] diff [-ref vX.Y.Z] [-input name] [-raw] [-max-lines n]
+       gen-contract [-root dir] verify [-tag vX.Y.Z]
+       gen-contract [-root dir] check-records -changes file | -all
+       gen-contract [-root dir] latest
 
 `
 
@@ -165,7 +168,7 @@ func execute(args []string, stdout, notices io.Writer) (string, error) {
 		if *checkOnly || *version != "" || *branch != "" {
 			return "", fmt.Errorf("-check-release, -version and -branch do not go with the %s command", fs.Arg(0))
 		}
-		return runCommand(*root, fs.Arg(0), fs.Args()[1:], stdout)
+		return runCommand(*root, fs.Arg(0), fs.Args()[1:], stdout, notices)
 	}
 	switch {
 	case *checkOnly:
@@ -179,12 +182,25 @@ func execute(args []string, stdout, notices io.Writer) (string, error) {
 
 // runCommand runs the command name with its arguments. Only diff writes
 // to stdout itself, since -raw prints bytes that must stay exact.
-func runCommand(root, name string, args []string, stdout io.Writer) (string, error) {
+func runCommand(root, name string, args []string, stdout, notices io.Writer) (string, error) {
 	switch name {
 	case "rebaseline":
 		return runRebaseline(root, args)
 	case "diff":
 		return "", runDiff(root, args, stdout)
+	case "verify":
+		return runVerify(root, args, notices)
+	case "check-records":
+		return runCheckRecords(root, args, notices)
+	case "latest":
+		if len(args) > 0 {
+			return "", fmt.Errorf("latest: unexpected argument %q", args[0])
+		}
+		releases, err := readReleases(filepath.Join(root, filepath.FromSlash(releasesDir)))
+		if err != nil {
+			return "", err
+		}
+		return releases[len(releases)-1].Version, nil
 	default:
 		return "", fmt.Errorf("unknown command %q", name)
 	}

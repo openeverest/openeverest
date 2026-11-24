@@ -1,0 +1,121 @@
+---
+# Checks that the fingerprints the latest release record holds under the
+# current scheme are what the branch's own generator computes from the tag
+# of that release (hack/gen-contract verify). They differ when a change to
+# hack/gen-contract, its dependencies or Go changes how an unchanged
+# contract hashes without naming a new scheme: every comparison with the
+# record is then wrong, and the contract version moves, or fails to move,
+# for no reason. See contract/README.md.
+#
+# Pull requests run it when they touch the generator, go.mod, go.sum or the
+# records. A scheduled workflow runs only on the default branch, so the
+# nightly run lists main and the v2 release branches, those that carry
+# contract/releases, and checks out each with its own generator. While the
+# latest record is the seed, which has no fingerprints, there is nothing to
+# verify.
+name: Contract verify
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'release-*'
+    paths:
+      - 'hack/gen-contract/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'contract/releases/**'
+  schedule:
+    - cron: '41 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify-pr:
+    name: Verify the latest release record
+    if: github.event_name == 'pull_request'
+    runs-on: cncf-ubuntu-8-32-x86
+    timeout-minutes: 15
+    steps:
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Set up Go release
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Verify the latest release record
+        run: |
+          set -euo pipefail
+
+          tag="v$(go run ./hack/gen-contract latest)"
+          git fetch --no-tags --depth=1 origin "refs/tags/$tag:refs/tags/$tag" || true
+          go run ./hack/gen-contract verify
+
+  branches:
+    name: List the branches to verify
+    if: github.event_name != 'pull_request'
+    runs-on: cncf-ubuntu-8-32-x86
+    timeout-minutes: 5
+    outputs:
+      branches: ${{ steps.list.outputs.branches }}
+    steps:
+      - name: List main and the v2 release branches
+        id: list
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          branches=(main)
+          while IFS= read -r branch; do
+            # v1 release branches carry no release records.
+            if gh api "repos/$REPO/contents/contract/releases?ref=$branch" --silent 2>/dev/null; then
+              branches+=("$branch")
+            fi
+          done < <(gh api "repos/$REPO/branches" --paginate --jq '.[].name | select(startswith("release-"))')
+          json=$(printf '%s\n' "${branches[@]}" | jq -R . | jq -cs .)
+          echo "Branches to verify: $json"
+          echo "branches=$json" >> "$GITHUB_OUTPUT"
+
+  verify-branch:
+    name: Verify the latest release record (${{ matrix.branch }})
+    needs: branches
+    runs-on: cncf-ubuntu-8-32-x86
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ fromJSON(needs.branches.outputs.branches) }}
+    steps:
+      - name: Check out ${{ matrix.branch }}
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ matrix.branch }}
+          persist-credentials: false
+
+      - name: Set up Go release
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Verify the latest release record
+        run: |
+          set -euo pipefail
+
+          tag="v$(go run ./hack/gen-contract latest)"
+          git fetch --no-tags --depth=1 origin "refs/tags/$tag:refs/tags/$tag" || true
+          go run ./hack/gen-contract verify
