@@ -38,10 +38,11 @@ func TestReleaseCommand(t *testing.T) {
 
 	msg, err := execute([]string{"-root", root, "release", "-version", "2.0.0-alpha.2", "-type", "fresh-install"}, io.Discard, io.Discard)
 	require.NoError(t, err)
-	assert.Equal(t, "recorded release 2.0.0-alpha.2 in contract/releases/2.0.0-alpha.2.yaml: fresh-install, "+
-		"serving contract versions [2.0.0-alpha.2, 2.0.0-alpha.2]; run make gen-contract to publish it", msg)
-	assertRecord(t, record("2.0.0-alpha.2", "2.0.0-alpha.2", "2.0.0-alpha.2", "fresh-install", "[]", fps),
-		readFile(t, root, releasesDir+"/2.0.0-alpha.2.yaml"))
+	wantMsg := "recorded release 2.0.0-alpha.2 in contract/releases/2.0.0-alpha.2.yaml: fresh-install, " +
+		"serving contract versions [2.0.0-alpha.2, 2.0.0-alpha.2]; run make gen-contract to publish it"
+	assert.Equal(t, wantMsg, msg)
+	wantRecord := record("2.0.0-alpha.2", "2.0.0-alpha.2", "2.0.0-alpha.2", "fresh-install", "[]", fps)
+	assertRecord(t, wantRecord, readFile(t, root, releasesDir+"/2.0.0-alpha.2.yaml"))
 
 	require.NoError(t, run(root))
 	assert.Equal(t, "2.0.0-alpha.2\n", readFile(t, root, versionFile))
@@ -57,10 +58,11 @@ func TestReleaseCommand(t *testing.T) {
 		"-min", "2.0.0-alpha.2", "-upgradable-from", " 2.0.0-alpha.2 ",
 	}, io.Discard, io.Discard)
 	require.NoError(t, err)
-	assert.Equal(t, "recorded release 2.0.0-alpha.3 in contract/releases/2.0.0-alpha.3.yaml: upgradable, "+
-		"serving contract versions [2.0.0-alpha.2, 2.0.0-alpha.3], upgradable from 2.0.0-alpha.2; run make gen-contract to publish it", msg)
-	assertRecord(t, record("2.0.0-alpha.3", "2.0.0-alpha.3", "2.0.0-alpha.2", "upgradable", "[2.0.0-alpha.2]", fps),
-		readFile(t, root, releasesDir+"/2.0.0-alpha.3.yaml"))
+	wantMsg = "recorded release 2.0.0-alpha.3 in contract/releases/2.0.0-alpha.3.yaml: upgradable, " +
+		"serving contract versions [2.0.0-alpha.2, 2.0.0-alpha.3], upgradable from 2.0.0-alpha.2; run make gen-contract to publish it"
+	assert.Equal(t, wantMsg, msg)
+	wantRecord = record("2.0.0-alpha.3", "2.0.0-alpha.3", "2.0.0-alpha.2", "upgradable", "[2.0.0-alpha.2]", fps)
+	assertRecord(t, wantRecord, readFile(t, root, releasesDir+"/2.0.0-alpha.3.yaml"))
 
 	require.NoError(t, run(root))
 	assert.Equal(t, "2.0.0-alpha.3\n", readFile(t, root, versionFile))
