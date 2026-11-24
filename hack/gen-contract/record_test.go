@@ -201,9 +201,14 @@ func TestNewReleaseErrors(t *testing.T) {
 			wantErrs: []string{`-version: "2.1.0+abc" carries build metadata`},
 		},
 		{
-			name:     "development value",
-			req:      releaseRequest{version: "2.1.0-dev.1", typ: typeFreshInstall},
-			wantErrs: []string{`-version: "2.1.0-dev.1" is a development value`},
+			name:     "development value after a release",
+			req:      releaseRequest{version: "2.1.0-alpha.0", typ: typeFreshInstall},
+			wantErrs: []string{`-version: "2.1.0-alpha.0" is a development value`},
+		},
+		{
+			name:     "development value after a pre-release",
+			req:      releaseRequest{version: "2.1.0-rc.1.next", typ: typeFreshInstall},
+			wantErrs: []string{`-version: "2.1.0-rc.1.next" is a development value`},
 		},
 		{
 			name:     "latest release again",
@@ -255,8 +260,8 @@ func TestNewReleaseErrors(t *testing.T) {
 		},
 		{
 			name:     "development minimum",
-			req:      upgradable("2.0.2-dev", "2.0.1"),
-			wantErrs: []string{`-min: "2.0.2-dev" is a development value`},
+			req:      upgradable("2.0.1-rc.1.next", "2.0.1"),
+			wantErrs: []string{`-min: "2.0.1-rc.1.next" is a development value`},
 		},
 		{
 			name:     "upgradable from an invalid version",

@@ -220,14 +220,14 @@ make gen-contract
 
 The first command writes `releases/2.1.0.yaml` with the fingerprint of the branch's contract. The second finds that fingerprint in the latest record, so `VERSION` becomes the release's contract version and the CRDs carry its window and `upgradable-from`. The workflow commits both with the version it sets in the `Makefile`, and tags that commit, so the tag ships the window. Nothing is pushed until the record is written. `release` refuses:
 
-- a version that is not SemVer 2.0.0, carries build metadata, or is a development value;
+- a version that is not SemVer 2.0.0, carries build metadata, or is a development value, such as `2.1.0-alpha.0` or `2.1.0-rc.1.next`, so no release can take a name `main` uses;
 - a release that has a record already, or is not newer than the latest release recorded on the branch, since every record is worked out from the one before;
 - `-min` or `-upgradable-from` for a fresh-install release, and an upgradable release without both;
 - an upgradable release from a release that has no record on the branch: a release cut on another branch since this one forked needs its record merged first;
 - an upgradable release whose minimum is above the contract version of the latest release, or of a release it is upgraded from. Users upgrade core first and their extensions after, so the extensions they run, and those published for the latest release, must keep working on the new core;
 - a window that goes below the latest release's.
 
-A dev build, such as `2.0.0-dev.5`, is a snapshot, not a release. It sorts above every alpha and beta of its version, so its record would stay the latest until the first release candidate: it gets none.
+A dev build, such as `2.0.0-dev.5`, is a snapshot, not a release. It sorts above every alpha and beta of its version, so its record would stay the latest until the first release candidate: the workflow records none for it. It is not a development value, though: users can install it.
 
 **The contract version of a release is the release itself**, even when the fingerprint shows the contract is the one the latest release was cut with. Keeping the latest release's contract version would tell extensions built against the new release that they also run on the one before, and the fingerprint is not evidence of that: it only shows that no artifact changed and that nobody recorded a change in `CHANGES`. The evidence will come from a job that runs the extensions built against each release candidate on the release before it, and records every break it finds in `CHANGES`. From then on, an equal fingerprint means no break, and `release` will keep the latest release's contract version, so that a release that does not change the contract strands no extension.
 

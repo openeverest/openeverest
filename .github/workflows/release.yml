@@ -265,10 +265,12 @@ jobs:
 
           # The record moves main's contract version by itself, so the
           # contract decision is not a reviewer's to make: the label says what
-          # contract/VERSION says.
+          # contract/VERSION says: a development value, R.next after a
+          # pre-release R or X.Y.0-alpha.0 after a release, as
+          # contract.IsDevelopment decides, means the contract changed.
           version=$(cat contract/VERSION)
           label=no-contract-change
-          if [[ $version == *-* && .${version#*-}. == *.dev.* ]]; then
+          if [[ $version == *-* && ( .${version#*-} == *.next || ${version#*-} == alpha.0 ) ]]; then
             label=contract-change
           fi
           gh pr edit "$PR_BRANCH" --add-label "$label" \
