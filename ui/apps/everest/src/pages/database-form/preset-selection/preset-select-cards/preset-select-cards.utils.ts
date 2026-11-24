@@ -63,9 +63,9 @@ export const presetToCardItem = (preset: SelectablePreset): CardPickerItem => {
 // names the namespace the dropped one belongs to.
 export const getDroppedPresetMessage = ({
   name,
-  namespace,
-  presetNamespace,
+  wizardNamespace,
+  ownerNamespace,
 }: DroppedPreset): string =>
-  presetNamespace && presetNamespace !== namespace
-    ? Messages.presetFromOtherNamespace(name, presetNamespace, namespace)
+  ownerNamespace && ownerNamespace !== wizardNamespace
+    ? Messages.presetFromOtherNamespace(name, ownerNamespace, wizardNamespace)
     : Messages.presetUnavailable(name);

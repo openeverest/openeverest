@@ -301,9 +301,15 @@ export const DatabasePage = () => {
     name: DbWizardFormFields.presetId,
   });
 
+  // Presets are offered only for a new instance, so restore and import
+  // request none.
+  const presetProvider =
+    mode === FormMode.New && typeof selectedProvider === 'string'
+      ? selectedProvider
+      : undefined;
   const presetSelection = usePresetSelection(
     clusterName,
-    typeof selectedProvider === 'string' ? selectedProvider : undefined,
+    presetProvider,
     namespace || '',
     typeof selectedPresetId === 'string' ? selectedPresetId : ''
   );

@@ -20,9 +20,9 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
-import { extractWizardBackup } from 'pages/database-form/database-form-body/steps/backup-step/backup-step.utils';
 import { DbWizardType } from '../../database-form-schema';
 import { SelectablePreset } from '../preset-selection.types';
+import { getPresetBackupFormValues } from '../preset-selection.utils';
 
 interface UsePresetFormSyncArgs {
   mode: FormMode;
@@ -106,7 +106,7 @@ export const usePresetFormSync = ({
       // Backups and monitoring are not ui-generator sections, so they are
       // mapped onto the wizard's own form shape for the preview to show what
       // the preset will actually deploy.
-      backup: extractWizardBackup({ spec: selectedPreset.spec }),
+      backup: getPresetBackupFormValues(selectedPreset.spec),
       monitoring: {
         destinations: selectedPreset.spec?.monitoring?.destinations ?? [],
       },

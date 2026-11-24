@@ -49,6 +49,19 @@ export const usePresetSelection = (
     [presets, presetId]
   );
 
+  // The cards first appear once both lists have arrived, so the form is not
+  // pushed down twice. After that a namespace switch reloads only the
+  // namespace presets, and the cluster ones must stay on screen meanwhile.
+  const isLoadingAnyList =
+    clusterPresetsQuery.isLoading || namespacePresetsQuery.isLoading;
+  const [hasShownPresets, setHasShownPresets] = useState(false);
+  if (!hasShownPresets && !isLoadingAnyList) {
+    setHasShownPresets(true);
+  }
+  const isLoadingPresets = hasShownPresets
+    ? clusterPresetsQuery.isLoading
+    : isLoadingAnyList;
+
   const pickedId = parsePresetId(presetId);
   const pickedFromOtherNamespace =
     pickedId?.scope === PresetScope.Namespace &&
@@ -75,8 +88,8 @@ export const usePresetSelection = (
         dropped
           ? {
               name: dropped.name,
-              namespace,
-              presetNamespace:
+              wizardNamespace: namespace,
+              ownerNamespace:
                 dropped.scope === PresetScope.Namespace
                   ? dropped.namespace
                   : undefined,
@@ -87,16 +100,16 @@ export const usePresetSelection = (
     }
     // The notice is about one namespace and ends with the next pick.
     setDroppedPreset((current) =>
-      current && (presetId || current.namespace !== namespace) ? null : current
+      current && (presetId || current.wizardNamespace !== namespace)
+        ? null
+        : current
     );
   }, [presetUnavailable, presetId, namespace]);
 
   return useMemo<PresetSelectionContextType>(
     () => ({
       presets,
-      // Cluster presets do not depend on the namespace, so they never wait
-      // for (or disappear with) the namespace list.
-      isLoadingPresets: clusterPresetsQuery.isLoading,
+      isLoadingPresets,
       isError: clusterPresetsQuery.isError || namespacePresetsQuery.isError,
       presetId,
       selectedPreset,
@@ -107,7 +120,7 @@ export const usePresetSelection = (
     }),
     [
       presets,
-      clusterPresetsQuery.isLoading,
+      isLoadingPresets,
       clusterPresetsQuery.isError,
       namespacePresetsQuery.isError,
       presetId,

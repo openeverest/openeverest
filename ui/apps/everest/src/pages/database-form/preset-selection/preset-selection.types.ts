@@ -35,8 +35,6 @@ export type PresetIdParts =
 // A picked preset the wizard had to drop, kept to tell the user why.
 export interface DroppedPreset {
   name: string;
-  // The namespace the wizard was on; the notice ends once it changes.
-  namespace: string;
-  // The namespace a namespace preset belongs to.
-  presetNamespace?: string;
+  wizardNamespace: string;
+  ownerNamespace?: string;
 }

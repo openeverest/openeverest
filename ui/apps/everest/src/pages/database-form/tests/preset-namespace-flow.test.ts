@@ -20,81 +20,63 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { getByPath } from 'components/ui-generator/utils/object-path/object-path';
 import { DbWizardFormFields } from 'consts';
-import { ClusterInstancePreset, InstancePreset } from 'shared-types/api.types';
 import { DbWizardType } from '../database-form-schema';
 import { useDatabaseFormSync } from '../hooks/use-database-form-sync';
+import { PresetScope, usePresetSelection } from '../preset-selection';
 import {
-  getClusterPresetId,
-  getNamespacePresetId,
-  usePresetSelection,
-} from '../preset-selection';
+  PRESET_NAME,
+  PRESET_PROVIDER,
+  TEAM_A,
+  TEAM_B,
+  clusterPreset,
+  teamAPreset,
+} from '../preset-selection/__mocks__/presets';
 
 // The wizard page wiring, without the page: the namespace default, the preset
 // selection and the form sync only work together, so they are run together.
-const queries = vi.hoisted(() => {
+const requestedNamespaces = vi.hoisted(() => new Set<string>());
+
+vi.mock('hooks/api/cluster-instance-presets', async () => {
+  const { clusterPresetItem } = await import(
+    '../preset-selection/__mocks__/presets'
+  );
+  const list = {
+    data: [clusterPresetItem],
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+  };
+  return { useClusterInstancePresets: () => list };
+});
+
+// Both namespaces have a preset of the same name: the one of the other
+// namespace must never be picked up silently.
+vi.mock('hooks/api/instance-presets', async () => {
+  const { TEAM_A, TEAM_B, teamAPresetItem, teamBPresetItem } = await import(
+    '../preset-selection/__mocks__/presets'
+  );
   const settled = { isLoading: false, isFetching: false, isError: false };
-  const spec = (version: string) => ({
-    providerRef: { name: 'psmdb' },
-    version,
-    topology: { type: 'replicaSet' },
-  });
-  const clusterPreset: ClusterInstancePreset = {
-    metadata: { name: 'psmdb-default' },
-    spec: spec('8.0.12'),
+  const lists: Record<string, object> = {
+    [TEAM_A]: { data: [teamAPresetItem], ...settled },
+    [TEAM_B]: { data: [teamBPresetItem], ...settled },
   };
-  const teamAPreset: InstancePreset = {
-    metadata: { name: 'team-default', namespace: 'team-a' },
-    spec: {
-      ...spec('7.0.18'),
-      backup: {
-        enabled: true,
-        classRef: { name: 'psmdb-backup' },
-        storages: [
-          {
-            storageRef: { name: 'bs-team-a' },
-            schedules: [{ name: 'daily', cron: '0 0 * * *', enabled: true }],
-          },
-        ],
-      },
-    },
-  };
-  // Same name as in team-a, on purpose: it must never be picked up silently.
-  const teamBPreset: InstancePreset = {
-    metadata: { name: 'team-default', namespace: 'team-b' },
-    spec: spec('6.0.21'),
-  };
-  const namespaceLists: Record<string, object> = {
-    'team-a': { data: [teamAPreset], ...settled },
-    'team-b': { data: [teamBPreset], ...settled },
-  };
+  const noList = { data: undefined, ...settled };
   return {
-    clusterList: { data: [clusterPreset], ...settled },
-    namespaceLists,
-    noList: { data: undefined, ...settled },
-    requestedNamespaces: new Set<string>(),
+    useInstancePresets: (_clusterName: string, namespace: string) => {
+      requestedNamespaces.add(namespace);
+      return lists[namespace] ?? noList;
+    },
   };
 });
 
-vi.mock('hooks/api/cluster-instance-presets', () => ({
-  useClusterInstancePresets: () => queries.clusterList,
-}));
-vi.mock('hooks/api/instance-presets', () => ({
-  useInstancePresets: (_clusterName: string, namespace: string) => {
-    queries.requestedNamespaces.add(namespace);
-    return queries.namespaceLists[namespace] ?? queries.noList;
-  },
-}));
-
 const uiSchema: TopologyUISchemas = { replicaSet: { sections: {} } };
 const FORM_DEFAULTS = { backup: { schedules: [] } };
-const CLUSTER_PRESET_ID = getClusterPresetId('psmdb-default');
-const TEAM_A_PRESET_ID = getNamespacePresetId('team-a', 'team-default');
 
 const setup = () => {
   const view = renderHook(() => {
     const methods = useForm<DbWizardType>({
       defaultValues: {
-        provider: 'psmdb',
+        provider: PRESET_PROVIDER,
         dbName: 'my-db',
         k8sNamespace: '',
         presetId: '',
@@ -109,7 +91,7 @@ const setup = () => {
     const presetId = useWatch({ control, name: DbWizardFormFields.presetId });
     const selection = usePresetSelection(
       'main',
-      'psmdb',
+      PRESET_PROVIDER,
       selectedNamespace || '',
       presetId || ''
     );
@@ -119,7 +101,7 @@ const setup = () => {
       defaultValues: FORM_DEFAULTS,
       defaultTopology: 'replicaSet',
       selectedTopology: 'replicaSet',
-      defaultNamespace: 'team-a',
+      defaultNamespace: TEAM_A,
       preset: selection,
       reset,
       getValues,
@@ -147,52 +129,50 @@ const setup = () => {
 
 describe('presets across namespaces in the create wizard', () => {
   beforeEach(() => {
-    queries.requestedNamespaces.clear();
+    requestedNamespaces.clear();
   });
 
   it('lists the presets of the namespace the wizard defaults to', () => {
     const { result } = setup();
 
-    expect(queries.requestedNamespaces).toContain('team-a');
+    expect(requestedNamespaces).toContain(TEAM_A);
     expect(result.current.selection.presets.map(({ id }) => id)).toEqual([
-      CLUSTER_PRESET_ID,
-      TEAM_A_PRESET_ID,
+      clusterPreset.id,
+      teamAPreset.id,
     ]);
   });
 
   it('drops a namespace preset on a namespace switch and keeps the new namespace', async () => {
     const { result, read, pickPreset, switchNamespace } = setup();
-    pickPreset(TEAM_A_PRESET_ID);
+    pickPreset(teamAPreset.id);
     await waitFor(() => expect(read('backup.schedules')).toHaveLength(1));
 
-    switchNamespace('team-b');
+    switchNamespace(TEAM_B);
 
     await waitFor(() => expect(read('presetId')).toBe(''));
     // Back to the defaults, not to team-b's preset of the same name.
     expect(read('backup.schedules')).toEqual([]);
-    expect(read('k8sNamespace')).toBe('team-b');
+    expect(read('k8sNamespace')).toBe(TEAM_B);
     expect(result.current.selection.droppedPreset).toEqual({
-      name: 'team-default',
-      namespace: 'team-b',
-      presetNamespace: 'team-a',
+      name: PRESET_NAME,
+      wizardNamespace: TEAM_B,
+      ownerNamespace: TEAM_A,
     });
   });
 
   it('keeps a cluster preset through a namespace switch', async () => {
     const { result, read, pickPreset, switchNamespace } = setup();
-    pickPreset(CLUSTER_PRESET_ID);
+    pickPreset(clusterPreset.id);
     await waitFor(() =>
-      expect(result.current.selection.selectedPreset?.name).toBe(
-        'psmdb-default'
+      expect(result.current.selection.selectedPreset?.scope).toBe(
+        PresetScope.Cluster
       )
     );
 
-    switchNamespace('team-b');
+    switchNamespace(TEAM_B);
 
-    await waitFor(() =>
-      expect(queries.requestedNamespaces).toContain('team-b')
-    );
-    expect(read('presetId')).toBe(CLUSTER_PRESET_ID);
+    await waitFor(() => expect(requestedNamespaces).toContain(TEAM_B));
+    expect(read('presetId')).toBe(clusterPreset.id);
     expect(result.current.selection.droppedPreset).toBeNull();
   });
 });

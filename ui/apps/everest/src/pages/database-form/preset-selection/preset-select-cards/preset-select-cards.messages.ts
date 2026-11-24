@@ -40,8 +40,8 @@ export const Messages = {
     `Preset “${name}” is no longer available.`,
   presetFromOtherNamespace: (
     name: string,
-    presetNamespace: string,
-    namespace: string
+    ownerNamespace: string,
+    wizardNamespace: string
   ) =>
-    `Preset “${name}” belongs to namespace “${presetNamespace}” and can't be used in “${namespace}”.`,
+    `Preset “${name}” belongs to namespace “${ownerNamespace}” and can't be used in “${wizardNamespace}”.`,
 };

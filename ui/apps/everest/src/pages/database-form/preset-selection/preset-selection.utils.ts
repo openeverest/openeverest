@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { extractWizardBackup } from 'pages/database-form/database-form-body/steps/backup-step/backup-step.utils';
 import { ClusterInstancePreset, InstancePreset } from 'shared-types/api.types';
 import { PRESET_ANNOTATION_BY_SCOPE } from './preset-selection.constants';
 import {
@@ -71,6 +72,20 @@ export const mergePresets = (
     getNamespacePresetId(namespace, name)
   ),
 ];
+
+// The backups a preset will run, in the wizard's form shape. A preset is
+// deployed as is, so what it switches off is left out instead of being shown
+// as scheduled.
+export const getPresetBackupFormValues = (spec: SelectablePreset['spec']) => {
+  const backup = extractWizardBackup({ spec });
+  if (!spec?.backup?.enabled) {
+    return { ...backup, schedules: [], pitr: {} };
+  }
+  return {
+    ...backup,
+    schedules: backup.schedules.filter(({ enabled }) => enabled),
+  };
+};
 
 interface BuildPresetCreateArgsInput {
   selectedPreset: SelectablePreset;

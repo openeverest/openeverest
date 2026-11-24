@@ -22,11 +22,11 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { getByPath } from 'components/ui-generator/utils/object-path/object-path';
 import { DbWizardType } from '../../database-form-schema';
-import { PresetScope, SelectablePreset } from '../preset-selection.types';
 import {
-  getClusterPresetId,
-  getNamespacePresetId,
-} from '../preset-selection.utils';
+  clusterPreset as defaultClusterPreset,
+  teamAPreset,
+} from '../__mocks__/presets';
+import { SelectablePreset } from '../preset-selection.types';
 import { usePresetFormSync } from './use-preset-form-sync';
 
 const makeComponent = (path: string, defaultValue?: unknown): Component =>
@@ -62,45 +62,17 @@ const uiSchema = {
   },
 } as unknown as TopologyUISchemas;
 
+// Differs from the schema defaults above in cpu and storageClass, so a test
+// can tell which of the two won.
 const clusterPreset: SelectablePreset = {
-  id: getClusterPresetId('psmdb-replicaset'),
-  scope: PresetScope.Cluster,
-  name: 'psmdb-replicaset',
+  ...defaultClusterPreset,
   spec: {
-    providerRef: { name: 'psmdb' },
-    version: '8.0.12',
-    topology: { type: 'replicaSet' },
+    ...defaultClusterPreset.spec,
     components: {
       engine: {
         resources: { limits: { cpu: 2 } },
         storage: { size: '25Gi', storageClass: 'preset-sc' },
       },
-    },
-  },
-};
-
-// What a namespace preset is for: references that only exist in its namespace.
-const namespacePreset: SelectablePreset = {
-  id: getNamespacePresetId('ns-1', 'team-default'),
-  scope: PresetScope.Namespace,
-  name: 'team-default',
-  spec: {
-    ...clusterPreset.spec,
-    backup: {
-      enabled: true,
-      classRef: { name: 'percona-backup-mongodb' },
-      storages: [
-        {
-          storageRef: { name: 'bs-team' },
-          schedules: [{ name: 'daily', cron: '0 0 * * *', enabled: true }],
-          pitr: { enabled: true },
-        },
-      ],
-    },
-    monitoring: {
-      destinations: [
-        { name: 'pmm-team', destinationRef: { name: 'pmm-team' } },
-      ],
     },
   },
 };
@@ -197,10 +169,7 @@ describe('usePresetFormSync', () => {
   // The preview reads the form, while the request sends the preset spec: both
   // must describe the same backups and monitoring.
   it('shows the preset backups and monitoring in the wizard form', async () => {
-    const { read } = setup({
-      preset: namespacePreset,
-      presetId: namespacePreset.id,
-    });
+    const { read } = setup({ preset: teamAPreset, presetId: teamAPreset.id });
 
     await waitFor(() =>
       expect(read('backup.schedules')).toEqual([
@@ -208,14 +177,14 @@ describe('usePresetFormSync', () => {
           name: 'daily',
           cron: '0 0 * * *',
           enabled: true,
-          storageName: 'bs-team',
+          storageName: 'bs-team-a',
         },
       ])
     );
-    expect(read('backup.classRef.name')).toBe('percona-backup-mongodb');
-    expect(read('backup.pitr')).toEqual({ 'bs-team': { enabled: true } });
+    expect(read('backup.classRef.name')).toBe('psmdb-backup-class');
+    expect(read('backup.pitr')).toEqual({ 'bs-team-a': { enabled: true } });
     expect(read('monitoring.destinations')).toEqual(
-      namespacePreset.spec.monitoring?.destinations
+      teamAPreset.spec.monitoring?.destinations
     );
   });
 
@@ -245,16 +214,17 @@ describe('usePresetFormSync', () => {
 
   it('drops a preset that became unavailable, keeping the chosen namespace', async () => {
     const { read, rerender } = setup({
-      preset: namespacePreset,
-      presetId: namespacePreset.id,
+      preset: teamAPreset,
+      presetId: teamAPreset.id,
     });
 
-    await waitFor(() => expect(read(CPU_PATH)).toBe(2));
+    await waitFor(() => expect(read('backup.schedules')).toHaveLength(1));
+    expect(read(CPU_PATH)).toBe(1);
 
     // Namespace switched: the pick is still in the form but no longer resolves.
     rerender({
       mode: FormMode.New,
-      presetId: namespacePreset.id,
+      presetId: teamAPreset.id,
       preset: null,
       presetUnavailable: true,
     });
