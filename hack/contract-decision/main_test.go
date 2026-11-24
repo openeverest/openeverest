@@ -153,21 +153,21 @@ func TestDecide(t *testing.T) {
 	}{
 		{
 			name:        "base without a contract",
-			headVersion: "2.0.0-alpha.1.dev",
+			headVersion: "2.0.0-alpha.1.next",
 			files:       adjacent,
 			wantNotice:  "no contract/VERSION",
 		},
 		{
 			name:        "contract changed since the last pre-release",
-			baseVersion: "2.0.0-alpha.1.dev",
-			headVersion: "2.0.0-alpha.1.dev",
+			baseVersion: "2.0.0-alpha.1.next",
+			headVersion: "2.0.0-alpha.1.next",
 			files:       adjacent,
 			wantNotice:  "has changed since the last release already",
 		},
 		{
 			name:        "contract changed since the last release",
-			baseVersion: "2.0.1-dev",
-			headVersion: "2.0.1-dev",
+			baseVersion: "2.1.0-alpha.0",
+			headVersion: "2.1.0-alpha.0",
 			files:       adjacent,
 			wantNotice:  "no decision is needed",
 		},
@@ -189,7 +189,7 @@ func TestDecide(t *testing.T) {
 		{
 			name:        "both labels",
 			baseVersion: "2.0.0",
-			headVersion: "2.0.1-dev",
+			headVersion: "2.1.0-alpha.0",
 			files:       adjacent,
 			labels:      []string{labelChange, labelNoChange},
 			wantFailure: "Add exactly one label",
@@ -205,7 +205,7 @@ func TestDecide(t *testing.T) {
 		{
 			name:        "contract change recorded",
 			baseVersion: "2.0.0-alpha.2",
-			headVersion: "2.0.0-alpha.2.dev",
+			headVersion: "2.0.0-alpha.2.next",
 			files:       adjacent,
 			labels:      []string{labelChange},
 			wantNotice:  "Labelled contract-change",
@@ -221,10 +221,10 @@ func TestDecide(t *testing.T) {
 		{
 			name:        "contract change denied",
 			baseVersion: "2.0.0",
-			headVersion: "2.0.1-dev",
+			headVersion: "2.1.0-alpha.0",
 			files:       []string{"api/openapi/http-api.yaml"},
 			labels:      []string{labelNoChange},
-			wantFailure: "labelled no-contract-change, but it changes the contract: a contract artifact or contract/CHANGES changed, so contract/VERSION moves to 2.0.1-dev. Label it contract-change instead.",
+			wantFailure: "labelled no-contract-change, but it changes the contract: a contract artifact or contract/CHANGES changed, so contract/VERSION moves to 2.1.0-alpha.0. Label it contract-change instead.",
 		},
 		{
 			name:        "too many paths to list",
@@ -297,14 +297,14 @@ func TestRun(t *testing.T) {
 		},
 		{
 			name:     "API change from stdin",
-			args:     []string{"-base-version", "2.0.0", "-head-version", "2.0.1-dev", "-label", labelChange},
+			args:     []string{"-base-version", "2.0.0", "-head-version", "2.1.0-alpha.0", "-label", labelChange},
 			stdin:    "api/core/v1alpha1/instance_types.go\ncontract/VERSION\n",
 			wantCode: 0,
 			wantOut:  "notice: Labelled contract-change; touches api/core/v1alpha1/instance_types.go, contract/VERSION.\n",
 		},
 		{
 			name:     "API change denied",
-			args:     []string{"-base-version", "2.0.0", "-head-version", "2.0.1-dev", "-files", "testdata/files-api.txt", "-label", labelNoChange},
+			args:     []string{"-base-version", "2.0.0", "-head-version", "2.1.0-alpha.0", "-files", "testdata/files-api.txt", "-label", labelNoChange},
 			wantCode: 1,
 			wantOut:  "error: This pull request is labelled no-contract-change, but it changes the contract",
 		},
@@ -349,15 +349,25 @@ func TestIsDevelopment(t *testing.T) {
 	t.Parallel()
 
 	var vectors struct {
-		Order []string `json:"order"`
+		Order       []string `json:"order"`
+		Development []struct {
+			Version string `json:"version"`
+		} `json:"development"`
 	}
 	require.NoError(t, json.Unmarshal(contract.OrderVectors, &vectors))
-	versions := slices.Concat(vectors.Order, []string{"2.0.1-dev", "2.0.0-alpha.1.dev+build", "2.0.0+dev", "2.0.0-develop", "2.0.0-alpha-dev.1"})
-	for _, v := range versions {
-		assert.Equal(t, contract.IsDevelopment(v), isDevelopment(v), v)
+	versions := slices.Clone(vectors.Order)
+	for _, d := range vectors.Development {
+		versions = append(versions, d.Version)
 	}
-	assert.True(t, isDevelopment("2.0.0-alpha.1.dev"))
-	assert.True(t, isDevelopment("2.0.1-dev"))
+	for _, v := range versions {
+		// It reads contract/VERSION, which gen-contract writes valid.
+		if contract.Valid(v) {
+			assert.Equal(t, contract.IsDevelopment(v), isDevelopment(v), v)
+		}
+	}
+	assert.True(t, isDevelopment("2.0.0-alpha.1.next"))
+	assert.True(t, isDevelopment("2.1.0-alpha.0"))
+	assert.False(t, isDevelopment("2.0.0-dev.4"))
 	assert.False(t, isDevelopment("2.0.0"))
 }
 

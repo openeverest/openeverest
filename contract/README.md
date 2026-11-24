@@ -8,12 +8,16 @@ The contract version is the SemVer of the last core release that changed the con
 
 A core serves extensions built for any contract version in its window `[MinVersion, Version]`. Extensions never pick a number: their tooling stamps each build with the `Version` of the core it was built against, and every enforcement point checks `MinVersion ≤ stamp ≤ Version` by plain SemVer 2.0.0 precedence (`Check`).
 
-Between releases, the version is a development value that sorts after the last release and before any release that can follow it, so nobody has to guess the next release's name:
+Between releases, the version is a development value that sorts after the last release and before any release `main` can build next, so nobody has to guess the next release's name:
 
-- after a pre-release R, `R.dev`, e.g. `2.0.0-alpha.1.dev`;
-- after a release X.Y.Z, `X.Y.(Z+1)-dev`, e.g. `2.0.1-dev`.
+| Last release | Development value | Example | Why |
+|---|---|---|---|
+| a pre-release R | `R.next` | `2.0.0-alpha.1.next` | SemVer sorts nothing between two pre-releases but R with more identifiers, which is also how Go pseudo-versions (`v2.0.0-alpha.1.0.<time>-<hash>`) and Kubernetes CI builds (`v1.34.0-alpha.1.123+<sha>`) name what follows a pre-release. |
+| a release X.Y.Z | `X.(Y+1).0-alpha.0` | `2.1.0-alpha.0` | Patch releases come from release branches, so `main` builds the next minor release; Kubernetes tags its main branch `vX.(Y+1).0-alpha.0` when it cuts a release branch. It sorts above every X.Y patch release and below `X.(Y+1).0-alpha.1`. |
 
-An extension stamped with a development value was built against an unreleased core and must not be published.
+`IsDevelopment` recognises a development value by its last pre-release identifier being `next`, or its pre-release being exactly `alpha.0`, and nothing else, so no release can be named either way. The word is `next`, not `dev`: `dev` means *before* a release in Python's and Maven's versions, and core dev builds such as `2.0.0-dev.4` are versions users can install, which sort above every `2.0.0` alpha. A word after a release would not work either: `2.1.0-next` sorts above `2.1.0-alpha.1`.
+
+An extension stamped with a development value was built against an unreleased core and must not be published. Messages to users never show these values: they say "an unreleased OpenEverest build".
 
 ## How the version moves
 
@@ -60,7 +64,7 @@ The latest record is the one with the highest `version`. While the fingerprint e
 
 So a pull request that changes the contract after a release moves `VERSION` to the development value, and CI's check that `make gen` leaves no diff makes sure the regenerated files are committed. Further changes keep that value until the next release.
 
-The first record, `2.0.0-alpha.1`, predates fingerprinting, so its fingerprint is empty and never matches: until the next release records one, `Version` is `2.0.0-alpha.1.dev`.
+The first record, `2.0.0-alpha.1`, predates fingerprinting, so its fingerprint is empty and never matches: until the next release records one, `Version` is `2.0.0-alpha.1.next`.
 
 On a release branch, `make check-contract-release` (`go run ./hack/gen-contract -check-release`) fails when the fingerprint differs from the latest record's, since a patch release must not change the contract. A record without a fingerprint (the seed) has nothing to compare with, so the check passes until the first fingerprinted release.
 
@@ -80,7 +84,7 @@ then run `make gen-contract`. Every line of the file is part of the fingerprint,
 
 ## The decision labels
 
-The fingerprint cannot see a change like the one above, so a person has to say whether there is one. While the contract is unchanged since the last release (`VERSION` on the base branch is a release value, without `dev`), a pull request that touches a **contract-adjacent** path needs exactly one of these labels:
+The fingerprint cannot see a change like the one above, so a person has to say whether there is one. While the contract is unchanged since the last release (`VERSION` on the base branch is a release value, not a development value), a pull request that touches a **contract-adjacent** path needs exactly one of these labels:
 
 | Label | Means | Requires |
 |---|---|---|

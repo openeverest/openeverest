@@ -218,15 +218,20 @@ func checkRelease(releases []release, fp string) error {
 }
 
 // developmentAfter returns the development value that follows the release
-// v: v.dev after a pre-release, X.Y.(Z+1)-dev after a release X.Y.Z. It
-// sorts after v and before every release that can follow it, so nobody has
-// to guess the name of the next release.
+// v, which sorts after v and before every release main can build next, so
+// nobody has to guess the name of the next release:
+//
+//   - v.next after a pre-release, since SemVer sorts nothing between two
+//     pre-releases but v with more identifiers;
+//   - X.(Y+1).0-alpha.0 after a release X.Y.Z, since patch releases come
+//     from release branches and main builds the next minor release. It
+//     sorts above every X.Y patch release and below X.(Y+1).0-alpha.1.
 func developmentAfter(v string) string {
 	parsed := semver.MustParse(v)
 	if len(parsed.Pre) > 0 {
-		return v + ".dev"
+		return v + ".next"
 	}
-	return fmt.Sprintf("%d.%d.%d-dev", parsed.Major, parsed.Minor, parsed.Patch+1)
+	return fmt.Sprintf("%d.%d.0-alpha.0", parsed.Major, parsed.Minor+1)
 }
 
 // compare compares two valid SemVer 2.0.0 versions by precedence.
@@ -234,11 +239,18 @@ func compare(a, b string) int {
 	return semver.MustParse(a).Compare(semver.MustParse(b))
 }
 
-// isDevelopment reports whether v has a "dev" pre-release identifier, the
-// mark of a development value. The contract package has the same rule;
-// this command must not import that package, which it generates.
+// isDevelopment reports whether v is a development value: its last
+// pre-release identifier is next, or its pre-release is exactly alpha.0.
+// The contract package has the same rule; this command must not import
+// that package, which it generates.
 func isDevelopment(v semver.Version) bool {
-	return slices.ContainsFunc(v.Pre, func(id semver.PRVersion) bool {
-		return !id.IsNum && id.VersionStr == "dev"
-	})
+	if len(v.Pre) == 0 {
+		return false
+	}
+	if last := v.Pre[len(v.Pre)-1]; !last.IsNum && last.VersionStr == "next" {
+		return true
+	}
+	return len(v.Pre) == 2 &&
+		!v.Pre[0].IsNum && v.Pre[0].VersionStr == "alpha" &&
+		v.Pre[1].IsNum && v.Pre[1].VersionNum == 0
 }

@@ -15,11 +15,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -53,11 +55,13 @@ func TestDevelopmentAfter(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]string{
-		"2.0.0-alpha.1":  "2.0.0-alpha.1.dev",
-		"2.0.0-alpha.10": "2.0.0-alpha.10.dev",
-		"2.0.0-rc.1":     "2.0.0-rc.1.dev",
-		"2.0.0":          "2.0.1-dev",
-		"2.1.3":          "2.1.4-dev",
+		"2.0.0-alpha.1":   "2.0.0-alpha.1.next",
+		"2.0.0-alpha.1.1": "2.0.0-alpha.1.1.next",
+		"2.0.0-alpha.10":  "2.0.0-alpha.10.next",
+		"2.0.0-rc.1":      "2.0.0-rc.1.next",
+		"2.0.0":           "2.1.0-alpha.0",
+		"2.1.3":           "2.2.0-alpha.0",
+		"2.9.0":           "2.10.0-alpha.0",
 	}
 	for release, want := range tests {
 		t.Run(release, func(t *testing.T) {
@@ -72,21 +76,57 @@ func TestDevelopmentAfter(t *testing.T) {
 }
 
 // TestDevelopmentValuesSortBeforeTheNextRelease checks that the development
-// value after a release sorts before every release that can follow it.
+// value after a release sorts before every release main can build next.
 func TestDevelopmentValuesSortBeforeTheNextRelease(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct{ release, next string }{
 		{"2.0.0-alpha.1", "2.0.0-alpha.2"},
 		{"2.0.0-alpha.1", "2.0.0-beta.1"},
+		{"2.0.0-alpha.1", "2.0.0-dev.4"},
 		{"2.0.0-alpha.1", "2.0.0"},
 		{"2.0.0-rc.1", "2.0.0"},
-		{"2.0.0", "2.0.1"},
 		{"2.0.0", "2.1.0-alpha.1"},
+		{"2.0.0", "2.1.0"},
 		{"2.0.0", "3.0.0-alpha.1"},
+		{"2.0.1", "2.1.0-alpha.1"},
 	}
 	for _, tt := range tests {
 		assert.Negative(t, contract.Compare(developmentAfter(tt.release), tt.next), "%s → %s", tt.release, tt.next)
+	}
+}
+
+// TestDevelopmentValueAfterAReleaseSortsAboveItsPatches checks that main,
+// which builds the next minor release, sorts above every patch release of
+// the release it follows, which release branches build.
+func TestDevelopmentValueAfterAReleaseSortsAboveItsPatches(t *testing.T) {
+	t.Parallel()
+
+	for _, patch := range []string{"2.0.1", "2.0.9", "2.0.10-rc.1"} {
+		assert.Positive(t, contract.Compare(developmentAfter("2.0.0"), patch), patch)
+	}
+	assert.Equal(t, developmentAfter("2.0.0"), developmentAfter("2.0.1"), "a patch release leaves main's value as it was")
+}
+
+// TestIsDevelopment checks the rule against the contract package's, which
+// this command does not import.
+func TestIsDevelopment(t *testing.T) {
+	t.Parallel()
+
+	var vectors struct {
+		Development []struct {
+			Version     string `json:"version"`
+			Development bool   `json:"development"`
+		} `json:"development"`
+	}
+	require.NoError(t, json.Unmarshal(contract.OrderVectors, &vectors))
+	require.NotEmpty(t, vectors.Development)
+	for _, tc := range vectors.Development {
+		parsed, err := semver.Parse(tc.Version)
+		if err != nil {
+			continue
+		}
+		assert.Equal(t, tc.Development, isDevelopment(parsed), tc.Version)
 	}
 }
 
@@ -105,7 +145,7 @@ func TestDecide(t *testing.T) {
 			name:           "seed without fingerprint",
 			records:        map[string]string{"2.0.0-alpha.1.yaml": testSeedRelease},
 			fp:             fpA,
-			wantVersion:    "2.0.0-alpha.1.dev",
+			wantVersion:    "2.0.0-alpha.1.next",
 			wantMinVersion: "2.0.0-alpha.1",
 		},
 		{
@@ -125,7 +165,7 @@ func TestDecide(t *testing.T) {
 				"2.0.0-alpha.2.yaml": record("2.0.0-alpha.2", "2.0.0-alpha.2", "2.0.0-alpha.1", "upgradable", "[2.0.0-alpha.1]", fpA),
 			},
 			fp:             fpB,
-			wantVersion:    "2.0.0-alpha.2.dev",
+			wantVersion:    "2.0.0-alpha.2.next",
 			wantMinVersion: "2.0.0-alpha.1",
 		},
 		{
@@ -145,7 +185,7 @@ func TestDecide(t *testing.T) {
 				"2.1.0.yaml": record("2.1.0", "2.1.0", "2.0.0", "upgradable", "[2.0.0]", fpA),
 			},
 			fp:             fpB,
-			wantVersion:    "2.1.1-dev",
+			wantVersion:    "2.2.0-alpha.0",
 			wantMinVersion: "2.0.0",
 		},
 		{
@@ -166,7 +206,7 @@ func TestDecide(t *testing.T) {
 				"2.1.1.yaml": record("2.1.1", "2.1.0", "2.0.0", "upgradable", "[2.1.0]", fpA),
 			},
 			fp:             fpB,
-			wantVersion:    "2.1.2-dev",
+			wantVersion:    "2.2.0-alpha.0",
 			wantMinVersion: "2.0.0",
 		},
 		{
@@ -232,8 +272,8 @@ func TestReadReleasesErrors(t *testing.T) {
 		},
 		{
 			name:    "development value",
-			records: map[string]string{"2.0.0.yaml": record("2.0.0", "2.0.0", "2.0.0-alpha.1.dev", "fresh-install", "[]", "")},
-			wantErr: "minContractVersion: \"2.0.0-alpha.1.dev\" is a development value",
+			records: map[string]string{"2.0.0.yaml": record("2.0.0", "2.0.0", "2.0.0-alpha.1.next", "fresh-install", "[]", "")},
+			wantErr: "minContractVersion: \"2.0.0-alpha.1.next\" is a development value",
 		},
 		{
 			name:    "contract after release",

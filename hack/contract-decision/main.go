@@ -342,10 +342,11 @@ func describeFiles(files []string) string {
 	return fmt.Sprintf("%s and %d more", strings.Join(files[:maxListed], ", "), len(files)-maxListed)
 }
 
-// isDevelopment reports whether v has a "dev" pre-release identifier, the
-// mark of a development value, as contract.IsDevelopment does.
+// isDevelopment reports whether the valid version v is a development value,
+// as contract.IsDevelopment does: its last pre-release identifier is next,
+// or its pre-release is exactly alpha.0.
 func isDevelopment(v string) bool {
 	v, _, _ = strings.Cut(v, "+")
 	_, pre, ok := strings.Cut(v, "-")
-	return ok && slices.Contains(strings.Split(pre, "."), "dev")
+	return ok && (pre == "next" || strings.HasSuffix(pre, ".next") || pre == "alpha.0")
 }
