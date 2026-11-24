@@ -294,11 +294,18 @@ jobs:
           git diff --exit-code
 
       # A patch release must not change what core and its extensions share,
-      # so a pull request into a release branch keeps the contract the
-      # branch's latest release was cut with. See contract/README.md.
-      - name: Check that the contract is the one the latest release was cut with
+      # so once release-X.Y has a final release, a pull request into it keeps
+      # the contract that release was cut with; before, after a pre-release,
+      # the check passes with a notice. It prints the diff when the tag of the
+      # latest release is here. See contract/README.md.
+      - name: Check that a patch release would keep the contract
         if: ${{ (github.event_name == 'pull_request' && startsWith(github.base_ref, 'release-')) || (github.event_name == 'merge_group' && startsWith(github.event.merge_group.base_ref, 'refs/heads/release-')) }}
-        run: make check-contract-release
+        env:
+          BASE_REF: ${{ github.base_ref || github.event.merge_group.base_ref }}
+        run: |
+          tag="v$(go run ./hack/gen-contract latest)"
+          git fetch --no-tags --depth=1 origin "refs/tags/$tag:refs/tags/$tag" || true
+          make check-contract-release CONTRACT_BRANCH="${BASE_REF#refs/heads/}"
 
       # Intentional on push/nightly: merging a chart/pending-labelled PR turns
       # main red until the go.mod pin bump lands, which must follow immediately

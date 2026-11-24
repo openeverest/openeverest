@@ -118,6 +118,9 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           token: ${{ secrets.ROBOT_TOKEN }}
+          # A re-run tags the commit that recorded the release, which it finds
+          # in the history of the release branch.
+          fetch-depth: 0
 
       - name: Check out release branch
         run: |
@@ -143,49 +146,98 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      # The record holds the fingerprint of the release's contract and the
+      # The record holds the fingerprints of the release's contract and the
       # window and upgrade path chosen above; make gen-contract then publishes
       # them in contract/VERSION and on the CRDs the tag ships. A re-run of a
       # release keeps the record its first run wrote. See contract/README.md.
       - name: Record the release in the contract
+        id: record
         if: steps.validate.outputs.record == 'true'
         run: |
+          set -euo pipefail
+
           if [[ ! -d contract/releases ]]; then
             echo "::notice::$BRANCH_NAME predates contract records, so $VERSION gets none."
             exit 0
           fi
           if [[ -f contract/releases/$VERSION.yaml ]]; then
             echo "::notice::contract/releases/$VERSION.yaml exists already: this run repeats release $VERSION and keeps its record."
+            echo "rerun=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
+          # A patch release of a final release must keep the contract of its
+          # line; any other release may change it, and the check says so.
+          go run ./hack/gen-contract -check-release -version "$VERSION"
+
           args=(-version "$VERSION" -type "$RELEASE_TYPE")
           if [[ $RELEASE_TYPE == upgradable ]]; then
-            args+=(-min "$MIN_CONTRACT_VERSION" -upgradable-from "$UPGRADABLE_FROM")
+            # The records of the releases it is upgraded from come from their
+            # tags: one cut on another branch has no record on this one yet.
+            # A missing tag fails the release.
+            IFS=, read -ra upgradable_from <<< "$UPGRADABLE_FROM"
+            for v in "${upgradable_from[@]}"; do
+              v=${v// /}
+              git fetch --no-tags origin "refs/tags/v$v:refs/tags/v$v"
+            done
+            args+=(-min "$MIN_CONTRACT_VERSION" -upgradable-from "$UPGRADABLE_FROM" -tag-repo .)
           fi
           go run ./hack/gen-contract release "${args[@]}"
           make gen-contract
 
       - name: Commit and tag the release
+        env:
+          ACTOR: ${{ github.actor }}
+          RERUN: ${{ steps.record.outputs.rerun }}
         run: |
-          sed -i "s/RELEASE_VERSION ?=.*/RELEASE_VERSION ?= v$VERSION/g" Makefile
+          set -euo pipefail
 
-          if [[ -n $(git status --porcelain) ]]; then
-            if git tag --list | grep -q "^$GH_TAG$"; then
-              echo "The tag is already present in github. Please create a different RC/Release"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          tag_exists=false
+          if git ls-remote --exit-code --tags origin "refs/tags/$GH_TAG" > /dev/null; then
+            tag_exists=true
+          fi
+
+          if [[ $RERUN == true ]]; then
+            if [[ $tag_exists == true ]]; then
+              echo "::notice::$GH_TAG exists already: nothing to tag."
+              exit 0
+            fi
+            # An earlier run recorded the release without tagging it. The
+            # record describes the commit that added it, so that is the commit
+            # to tag, if its contract is still the one the record holds;
+            # otherwise this version can no longer be released.
+            record=contract/releases/$VERSION.yaml
+            commit=$(git log -1 --diff-filter=A --format=%H -- "$record")
+            git worktree add --detach "$RUNNER_TEMP/recorded" "$commit"
+            if ! (cd "$RUNNER_TEMP/recorded" && go run ./hack/gen-contract -check-release -version "$VERSION"); then
+              echo "::error::$commit, which recorded $VERSION, does not hold the contract its record says, so it cannot be tagged $GH_TAG. Release a new patch version instead."
               exit 1
             fi
-            git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git config --global user.name "github-actions[bot]"
-
-            if [[ -d contract/releases ]]; then
-              git add contract/releases
-            fi
-            git commit -a -m "update version tag" -m "Triggered by ${{ github.actor }}"
-            git push origin $BRANCH_NAME
-
-            git tag $GH_TAG
-            git push origin $GH_TAG
+            git tag "$GH_TAG" "$commit"
+            git push origin "refs/tags/$GH_TAG"
+            exit 0
           fi
+
+          sed -i "s/RELEASE_VERSION ?=.*/RELEASE_VERSION ?= v$VERSION/g" Makefile
+          if [[ -z $(git status --porcelain) ]]; then
+            exit 0
+          fi
+          if [[ $tag_exists == true ]]; then
+            echo "The tag is already present in github. Please create a different RC/Release"
+            exit 1
+          fi
+          if [[ -d contract/releases ]]; then
+            git add contract/releases
+          fi
+          git commit -a -m "update version tag" -m "Triggered by $ACTOR"
+
+          # Tag first, then push the branch and the tag at once: the branch
+          # never carries a record without its tag, and a refused push leaves
+          # neither behind.
+          git tag "$GH_TAG"
+          git push --atomic origin "$BRANCH_NAME" "refs/tags/$GH_TAG"
 
   # main works out its contract version from the latest release it has a
   # record of, so it must learn every release; until it does, it keeps
@@ -217,7 +269,10 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      # Re-running it updates the same branch and pull request.
+      # Re-running it starts again from the current main, and updates the
+      # same branch and pull request. That is the fix when another record
+      # pull request merges first: the generated files of this one are then
+      # stale, so CI's make gen check fails and the merge queue drops it.
       - name: Open a pull request recording the release on main
         env:
           # A pull request opened with GITHUB_TOKEN starts no workflow, so CI
@@ -226,19 +281,34 @@ jobs:
           GH_TOKEN: ${{ secrets.ROBOT_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          set -euo pipefail
+
           record=contract/releases/$VERSION.yaml
-          git fetch --depth=1 origin "refs/tags/v$VERSION"
-          if ! git cat-file -e "FETCH_HEAD:$record" 2>/dev/null; then
-            echo "::notice::v$VERSION carries no contract record, so main has nothing to learn."
+          tag=v$VERSION
+          git fetch --no-tags --depth=1 origin "refs/tags/$tag:refs/tags/$tag"
+          if ! git cat-file -e "$tag:$record" 2>/dev/null; then
+            echo "::notice::$tag carries no contract record, so main has nothing to learn."
             exit 0
           fi
 
           git checkout -B "$PR_BRANCH"
-          git show "FETCH_HEAD:$record" > "$record"
+          git show "$tag:$record" > "$record"
+          tag_schemes=$(sed -n 's/^  \(c[1-9][0-9]*\):.*$/\1/p' "$record" | paste -sd, -)
+          # The record holds the fingerprints the release branch computed. When
+          # main computes them under another scheme, it could not compare with
+          # the record, so rebaseline adds main's, computed from the tag, which
+          # is here. It changes nothing when the record holds them already.
+          go run ./hack/gen-contract rebaseline -version "$VERSION"
           make gen-contract
+          main_scheme=$(sed -n 's/^\tFingerprintScheme = "\(.*\)"$/\1/p' contract/zz_generated.version.go)
           if [[ -z $(git status --porcelain) ]]; then
             echo "::notice::main has the record of release $VERSION already."
             exit 0
+          fi
+          if [[ ,$tag_schemes, == *,$main_scheme,* ]]; then
+            schemes="The record holds fingerprints under scheme $tag_schemes, which main computes too, so it is the one $tag carries."
+          else
+            schemes="The record $tag carries holds fingerprints under scheme $tag_schemes; main computes them under $main_scheme, so \`gen-contract rebaseline\` added $main_scheme, computed from $tag. Nothing else changed."
           fi
 
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -246,35 +316,48 @@ jobs:
           git add "$record"
           git commit -a -s -m "chore(contract): record release $VERSION" \
             -m "main works out its contract version from the latest release it has
-          a record of. This adds the record v$VERSION carries and regenerates
-          what make gen-contract derives from it." \
+          a record of. This adds the record $tag carries, with fingerprints
+          under main's scheme ($main_scheme), and regenerates what
+          make gen-contract derives from it." \
             -m "Opened by the Release workflow: $RUN_URL"
           git push --force origin "$PR_BRANCH"
 
-          if [[ -z $(gh pr list --head "$PR_BRANCH" --base main --state open --json number --jq '.[].number') ]]; then
-            body=$(cat <<EOF
-          Records core release $VERSION in \`$record\`, as the tag v$VERSION carries it, and regenerates what \`make gen-contract\` derives from it.
+          body=$(cat <<EOF
+          Records core release $VERSION in \`$record\`, as the tag $tag carries it, and regenerates what \`make gen-contract\` derives from it.
+
+          $schemes
 
           main works out its contract version from the latest release it has a record of: while its contract is the one $VERSION was cut with, main has the contract version of $VERSION, and once it differs, the development value after $VERSION. Until this is merged, main keeps counting from the release before. See \`contract/README.md\`.
 
-          Opened by the [Release workflow]($RUN_URL). Merge it as it is: the record must stay the one the tag carries.
+          Opened by the [Release workflow]($RUN_URL), with auto-merge on: required reviews and checks still apply. Merge it as it is: the record must stay the one the tag carries, which CI checks. If another record pull request merges first, re-run the workflow's "Record the release on main" job, which starts again from main.
           EOF
-            )
+          )
+          if [[ -z $(gh pr list --head "$PR_BRANCH" --base main --state open --json number --jq '.[].number') ]]; then
             gh pr create --base main --head "$PR_BRANCH" --title "chore(contract): record release $VERSION" --body "$body"
+          else
+            gh pr edit "$PR_BRANCH" --body "$body"
           fi
 
           # The record moves main's contract version by itself, so the
           # contract decision is not a reviewer's to make: the label says what
           # contract/VERSION says: a development value, R.next after a
           # pre-release R or X.Y.0-alpha.0 after a release, as
-          # contract.IsDevelopment decides, means the contract changed.
+          # contract.IsDevelopment decides, means the contract changed. A
+          # re-run may flip it, so the other label goes.
           version=$(cat contract/VERSION)
           label=no-contract-change
+          opposite=contract-change
           if [[ $version == *-* && ( .${version#*-} == *.next || ${version#*-} == alpha.0 ) ]]; then
             label=contract-change
+            opposite=no-contract-change
           fi
-          gh pr edit "$PR_BRANCH" --add-label "$label" \
+          gh pr edit "$PR_BRANCH" --add-label "$label" --remove-label "$opposite" \
             || echo "::warning::Could not label the pull request $label; label it by hand."
+
+          # Merge once reviews and checks pass. With the merge queue, the queue
+          # checks it against the main it lands on.
+          gh pr merge "$PR_BRANCH" --auto --squash \
+            || echo "::warning::Could not enable auto-merge; merge the pull request once it is approved."
 
   build:
     name: Build (${{ matrix.arch }})
