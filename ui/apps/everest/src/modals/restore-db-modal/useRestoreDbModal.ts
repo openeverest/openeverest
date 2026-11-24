@@ -64,7 +64,7 @@ export const useRestoreDbModal = ({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { data: backups = [], isLoading } = useBackupsList(
+  const { data: backups = [], isLoading: isBackupsLoading } = useBackupsList(
     clusterName,
     namespace,
     instanceName,
@@ -85,36 +85,25 @@ export const useRestoreDbModal = ({
       ),
     [instance]
   );
-  const pitrStorageObjects = useMemo(
-    () =>
-      pitrCandidateStorages.map((storage) => `${namespace}/${storage.name}`),
-    [namespace, pitrCandidateStorages]
-  );
-  const { allowedObjects: readableStorageObjects } = useRBACAllowedObjects(
+  const { allowedObjects, isPermissionsLoading } = useRBACAllowedObjects(
     'read',
     'backup-storages',
-    pitrStorageObjects
-  );
-  const readableStorageNames = useMemo(
-    () =>
-      new Set(
-        readableStorageObjects.map((object) =>
-          object.slice(object.lastIndexOf('/') + 1)
-        )
-      ),
-    [readableStorageObjects]
+    pitrCandidateStorages.map((storage) => `${namespace}/${storage.name}`)
   );
 
-  const pitrStorages = useMemo<RestorePitrStorageOption[]>(
-    () =>
-      pitrCandidateStorages
-        .filter((storage) => readableStorageNames.has(storage.name))
-        .map((storage) => ({
-          name: storage.name,
-          window: resolvePitrWindow(storage.pitr),
-        })),
-    [pitrCandidateStorages, readableStorageNames]
-  );
+  const pitrStorages = useMemo<RestorePitrStorageOption[]>(() => {
+    const readable = new Set(allowedObjects);
+    return pitrCandidateStorages
+      .filter((storage) => readable.has(`${namespace}/${storage.name}`))
+      .map((storage) => ({
+        name: storage.name,
+        window: resolvePitrWindow(storage.pitr),
+      }));
+  }, [allowedObjects, namespace, pitrCandidateStorages]);
+
+  // The instance has PITR, but every storage holding it is unreadable.
+  const isPitrHiddenByPermissions =
+    pitrCandidateStorages.length > 0 && pitrStorages.length === 0;
 
   const succeededBackups = useMemo<RestorableBackupOption[]>(
     () =>
@@ -186,7 +175,8 @@ export const useRestoreDbModal = ({
   };
 
   return {
-    isLoading,
+    isLoading: isBackupsLoading || isPermissionsLoading,
+    isPitrHiddenByPermissions,
     succeededBackups,
     pitrStorages,
     submitting,

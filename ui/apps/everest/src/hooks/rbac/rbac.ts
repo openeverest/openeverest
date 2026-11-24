@@ -98,12 +98,14 @@ export const useRBACPermissions = (
 // Returns the subset of specificResources the caller is allowed to act on.
 // useRBACPermissions uses canAll and is unsuitable for filtering a list.
 export const useRBACAllowedObjects = (
-  action: RBACStandardAction,
+  action: RBACAction,
   resource: RBACResource,
   specificResources: string[]
 ) => {
   const [allowedObjects, setAllowedObjects] = useState<string[]>([]);
   const cluster = useClusterName();
+  // Key on contents so a fresh array with the same items (e.g. instance refetch)
+  // does not re-run the permission check.
   const specificResourcesKey = specificResources.join('\0');
 
   const checkPermissions = useCallback(async () => {

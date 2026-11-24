@@ -16,13 +16,12 @@ import rbacModel from '/src/static/model.conf?raw';
 
 export const getRBACPolicies = vi.fn();
 
-// Loads v2 policy rules (resource, action, object) into the real Casbin authorizer.
-export const grantRBAC = async (...rules: string[][]) => {
-  getRBACPolicies.mockResolvedValue({
-    enabled: true,
-    m: rbacModel,
-    p: rules.map((rule) => ['p', 'alice', ...rule]),
-  });
+const applyPolicies = async (next: {
+  enabled: boolean;
+  m: string;
+  p: string[][];
+}) => {
+  getRBACPolicies.mockResolvedValue(next);
   // Imported lazily: utils/rbac imports this module, so a static import would be circular.
   const { AuthorizerObservable, getPolicies, initializeAuthorizerFetchLoop } =
     await import('utils/rbac');
@@ -38,4 +37,22 @@ export const grantRBAC = async (...rules: string[][]) => {
     await rebuilt;
   }
   AuthorizerObservable.unsubscribe(onRebuilt);
+};
+
+// Loads v2 policy rules (resource, action, object) into the real Casbin authorizer.
+export const grantRBAC = async (...rules: string[][]) => {
+  await applyPolicies({
+    enabled: true,
+    m: rbacModel,
+    p: rules.map((rule) => ['p', 'alice', ...rule]),
+  });
+};
+
+// Restores the default disabled-RBAC policy so later tests are not stuck as alice.
+export const resetRBAC = async () => {
+  await applyPolicies({
+    enabled: false,
+    m: '',
+    p: [],
+  });
 };

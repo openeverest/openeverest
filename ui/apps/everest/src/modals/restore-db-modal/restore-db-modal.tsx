@@ -28,6 +28,7 @@ const RestoreDbModal = ({
 }: RestoreDbModalProps) => {
   const {
     isLoading,
+    isPitrHiddenByPermissions,
     succeededBackups,
     pitrStorages,
     submitting,
@@ -62,6 +63,7 @@ const RestoreDbModal = ({
         header={isNewClusterMode ? Messages.subHeadCreate : Messages.subHead}
         succeededBackups={succeededBackups}
         pitrStorages={pitrStorages}
+        isPitrHiddenByPermissions={isPitrHiddenByPermissions}
       />
     </FormDialog>
   );

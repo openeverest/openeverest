@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { renderHook, waitFor } from '@testing-library/react';
-import { grantRBAC } from 'api/__mocks__/policies';
+import { grantRBAC, resetRBAC } from 'api/__mocks__/policies';
 import { BackupStatus } from 'shared-types/backups.types';
 import { getRestoresListQueryKey } from 'hooks/api/restores/useInstanceRestores';
 import { stopAuthorizerFetchLoop } from 'utils/rbac';
@@ -78,6 +78,29 @@ vi.mock('./resolve-restore-action', () => ({
     mockResolveRestoreAction(...args),
 }));
 
+const availablePitr = {
+  available: true,
+  earliest: '2026-07-29T08:00:00Z',
+  latest: '2026-07-29T10:00:00Z',
+};
+
+const renderRestoreHook = async (
+  params: Partial<Parameters<typeof useRestoreDbModal>[0]> = {}
+) => {
+  const { result } = renderHook(() =>
+    useRestoreDbModal({
+      instanceName: 'source-db',
+      namespace: 'ns-a',
+      isNewClusterMode: false,
+      closeModal: mockCloseModal,
+      ...params,
+    })
+  );
+
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  return result;
+};
+
 describe('useRestoreDbModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -95,20 +118,13 @@ describe('useRestoreDbModal', () => {
     stopAuthorizerFetchLoop();
   });
 
-  it('navigates to create-db flow for navigate-new action', () => {
+  it('navigates to create-db flow for navigate-new action', async () => {
     mockResolveRestoreAction.mockReturnValue({
       kind: 'navigate-new',
       dataSource: { type: 'Backup', backupName: 'daily-1' },
     });
 
-    const { result } = renderHook(() =>
-      useRestoreDbModal({
-        instanceName: 'source-db',
-        namespace: 'ns-a',
-        isNewClusterMode: true,
-        closeModal: mockCloseModal,
-      })
-    );
+    const result = await renderRestoreHook({ isNewClusterMode: true });
 
     result.current.onSubmit({} as never);
 
@@ -123,7 +139,7 @@ describe('useRestoreDbModal', () => {
     expect(mockMutate).not.toHaveBeenCalled();
   });
 
-  it('creates restore and performs success side-effects for restore action', () => {
+  it('creates restore and performs success side-effects for restore action', async () => {
     mockResolveRestoreAction.mockReturnValue({
       kind: 'restore',
       variables: {
@@ -144,14 +160,7 @@ describe('useRestoreDbModal', () => {
       }
     );
 
-    const { result } = renderHook(() =>
-      useRestoreDbModal({
-        instanceName: 'source-db',
-        namespace: 'ns-a',
-        isNewClusterMode: false,
-        closeModal: mockCloseModal,
-      })
-    );
+    const result = await renderRestoreHook();
 
     result.current.onSubmit({} as never);
 
@@ -173,17 +182,10 @@ describe('useRestoreDbModal', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('does nothing when restore action resolves to none', () => {
+  it('does nothing when restore action resolves to none', async () => {
     mockResolveRestoreAction.mockReturnValue({ kind: 'none' });
 
-    const { result } = renderHook(() =>
-      useRestoreDbModal({
-        instanceName: 'source-db',
-        namespace: 'ns-a',
-        isNewClusterMode: true,
-        closeModal: mockCloseModal,
-      })
-    );
+    const result = await renderRestoreHook({ isNewClusterMode: true });
 
     result.current.onSubmit({} as never);
 
@@ -194,7 +196,7 @@ describe('useRestoreDbModal', () => {
     expect(mockCloseModal).not.toHaveBeenCalled();
   });
 
-  it('preselects backup name in form defaults and sorts succeeded backups by startedAt', () => {
+  it('preselects backup name in form defaults and sorts succeeded backups by startedAt', async () => {
     mockUseBackupsList.mockReturnValue({
       isLoading: false,
       data: [
@@ -217,15 +219,10 @@ describe('useRestoreDbModal', () => {
       ],
     });
 
-    const { result } = renderHook(() =>
-      useRestoreDbModal({
-        instanceName: 'source-db',
-        namespace: 'ns-a',
-        isNewClusterMode: true,
-        preselectedBackupName: 'newer',
-        closeModal: mockCloseModal,
-      })
-    );
+    const result = await renderRestoreHook({
+      isNewClusterMode: true,
+      preselectedBackupName: 'newer',
+    });
 
     expect(result.current.formDefaultValues[RestoreDbFields.backupName]).toBe(
       'newer'
@@ -235,9 +232,29 @@ describe('useRestoreDbModal', () => {
       'older',
     ]);
   });
+});
+
+// Isolated: grantRBAC enables RBAC for alice and would leak into later tests
+// without resetRBAC.
+describe('useRestoreDbModal RBAC filtering', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockUseClusterName.mockReturnValue('main');
+    mockUseBackupsList.mockReturnValue({ data: [], isLoading: false });
+    mockUseDbInstance.mockReturnValue({ data: undefined });
+    mockUseCreateInstanceRestore.mockReturnValue({
+      mutate: mockMutate,
+      isPending: false,
+    });
+  });
+
+  afterEach(async () => {
+    await resetRBAC();
+    stopAuthorizerFetchLoop();
+  });
 
   it('only offers PITR storages the user can read', async () => {
-    mockUseClusterName.mockReturnValue('main');
     mockUseDbInstance.mockReturnValue({
       data: {
         status: {
@@ -245,44 +262,47 @@ describe('useRestoreDbModal', () => {
             storages: [
               {
                 name: 'readable-storage',
-                pitr: {
-                  available: true,
-                  earliest: '2026-07-29T08:00:00Z',
-                  latest: '2026-07-29T10:00:00Z',
-                },
+                pitr: availablePitr,
               },
               {
                 name: 'unreadable-storage',
-                pitr: {
-                  available: true,
-                  earliest: '2026-07-29T08:00:00Z',
-                  latest: '2026-07-29T10:00:00Z',
-                },
+                pitr: availablePitr,
               },
             ],
           },
         },
       },
     });
-    await grantRBAC([
-      'backup-storages',
-      'read',
-      'main/ns-a/readable-storage',
+    await grantRBAC(['backup-storages', 'read', 'main/ns-a/readable-storage']);
+
+    const result = await renderRestoreHook();
+
+    expect(result.current.pitrStorages.map((storage) => storage.name)).toEqual([
+      'readable-storage',
     ]);
+    expect(result.current.isPitrHiddenByPermissions).toBe(false);
+  });
 
-    const { result } = renderHook(() =>
-      useRestoreDbModal({
-        instanceName: 'source-db',
-        namespace: 'ns-a',
-        isNewClusterMode: false,
-        closeModal: mockCloseModal,
-      })
-    );
+  it('hides PITR when the instance has storages but none are readable', async () => {
+    mockUseDbInstance.mockReturnValue({
+      data: {
+        status: {
+          backup: {
+            storages: [
+              {
+                name: 'unreadable-storage',
+                pitr: availablePitr,
+              },
+            ],
+          },
+        },
+      },
+    });
+    await grantRBAC(['backup-storages', 'read', 'main/ns-a/other-storage']);
 
-    await waitFor(() =>
-      expect(result.current.pitrStorages.map((storage) => storage.name)).toEqual(
-        ['readable-storage']
-      )
-    );
+    const result = await renderRestoreHook();
+
+    expect(result.current.pitrStorages).toEqual([]);
+    expect(result.current.isPitrHiddenByPermissions).toBe(true);
   });
 });

@@ -53,11 +53,7 @@ describe('RBAC hooks with v2 policies', () => {
   });
 
   it('filters specific objects down to those the grant covers', async () => {
-    await grantRBAC([
-      'backup-storages',
-      'read',
-      'main/ns1/readable-storage',
-    ]);
+    await grantRBAC(['backup-storages', 'read', 'main/ns1/readable-storage']);
 
     const { result } = renderHook(() =>
       useRBACAllowedObjects('read', 'backup-storages', [

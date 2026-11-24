@@ -39,4 +39,6 @@ export interface ModalContentProps {
   header: string;
   succeededBackups: RestorableBackupOption[];
   pitrStorages: RestorePitrStorageOption[];
+  // RBAC forbids every PITR storage: omit the option instead of greying it out.
+  isPitrHiddenByPermissions: boolean;
 }
