@@ -131,6 +131,17 @@ const (
 	// FlagInstanceDryRun previews create or update: "client" prints the request, "server" sends it with dryRun=All.
 	FlagInstanceDryRun = "dry-run"
 
+	// `cluster-preset` flags (cluster-scoped ClusterInstancePreset).
+
+	// FlagClusterPresetName is the name of the cluster instance preset name flag.
+	FlagClusterPresetName = "name"
+	// FlagClusterPresetCluster is the name of the cluster flag.
+	FlagClusterPresetCluster = "cluster"
+	// FlagClusterPresetContext overrides the active context for this command.
+	FlagClusterPresetContext = "context"
+	// FlagClusterPresetProvider filters list to presets of that provider.
+	FlagClusterPresetProvider = "provider"
+
 	// shared flags.
 
 	// FlagYes skips the confirmation prompt. Used by instance delete and uninstall.
