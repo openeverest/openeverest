@@ -31,6 +31,15 @@ func (k *Kubernetes) ListCRDs(ctx context.Context, opts ...ctrlclient.ListOption
 	return result, nil
 }
 
+// GetCRD returns the CRD with the given name.
+func (k *Kubernetes) GetCRD(ctx context.Context, name string) (*apiextv1.CustomResourceDefinition, error) {
+	result := &apiextv1.CustomResourceDefinition{}
+	if err := k.k8sClient.Get(ctx, ctrlclient.ObjectKey{Name: name}, result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // DeleteCRD deletes a CRD that matches the criteria.
 func (k *Kubernetes) DeleteCRD(ctx context.Context, obj *apiextv1.CustomResourceDefinition) error {
 	return k.k8sClient.Delete(ctx, obj)

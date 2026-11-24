@@ -31,9 +31,11 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/chart"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/openeverest/openeverest/v2/contract"
 	"github.com/openeverest/openeverest/v2/pkg/cli/helm"
 	helmutils "github.com/openeverest/openeverest/v2/pkg/cli/helm/utils"
 	"github.com/openeverest/openeverest/v2/pkg/cli/steps"
@@ -54,6 +56,9 @@ const (
 	legacyMonitoringComponent     = "monitoring"
 	legacyMonitoringComponentType = "pmm"
 	legacyMonitoringRBACResource  = "monitoring-configs"
+
+	// coreVersionCRD is the core CRD whose openeverest.io/version label records the installed release.
+	coreVersionCRD = "providers.core.openeverest.io"
 )
 
 // inClusterConfig is read from environment variables when the upgrade
@@ -104,9 +109,11 @@ type (
 		helmInstaller     *helm.Installer
 	}
 
-	requirementsCheck struct {
-		operatorName string
-		constraints  goversion.Constraints
+	// upgradeChart is what the in-place upgrade check reads from Helm: the chart of the target
+	// release and the chart version of the deployed one.
+	upgradeChart interface {
+		ChartMetadata() *chart.Metadata
+		DeployedChartVersion() (string, error)
 	}
 )
 
@@ -116,6 +123,7 @@ var (
 	ErrDowngradeNotAllowed                    = errors.New("downgrade not allowed")
 	ErrCannotUpgradeByMoreThanOneMinorVersion = errors.New("cannot upgrade by more than one minor version")
 	ErrLegacyMonitoringInUse                  = errors.New("legacy monitoring is still in use")
+	ErrFreshInstallRequired                   = errors.New("requires a fresh install")
 )
 
 // NewUpgrade returns a new Upgrade struct.
@@ -168,7 +176,8 @@ func (u *Upgrade) Run(ctx context.Context) error {
 		out = io.Discard
 	}
 
-	if err := u.setVersionInfo(ctx, everestVersion); err != nil {
+	meta, err := u.setVersionInfo(ctx, everestVersion)
+	if err != nil {
 		if errors.Is(err, ErrNoUpdateAvailable) {
 			u.l.Info("You're running the latest version of Everest")
 			_, _ = fmt.Fprintln(out, "\n", output.Rocket("You're running the latest version of Everest"))
@@ -177,16 +186,22 @@ func (u *Upgrade) Run(ctx context.Context) error {
 		return err
 	}
 
-	if u.config.DryRun {
-		return nil
-	}
-
 	if err := u.setKubernetesEnv(ctx); err != nil {
 		return fmt.Errorf("could not detect Kubernetes environment: %w", err)
 	}
 
+	// The chart of the target release declares which releases it upgrades from in place,
+	// so it is resolved before the checks run, dry run included.
 	if err := u.setupHelmInstaller(ctx); err != nil {
 		return fmt.Errorf("could not initialize Helm installer: %w", err)
+	}
+
+	if err := u.verifyRequirements(ctx, meta); err != nil {
+		return err
+	}
+
+	if u.config.DryRun {
+		return nil
 	}
 
 	u.l.Infof("Upgrading Everest to %s in namespace %s", u.upgradeToVersion, u.kubeConnector.Namespace())
@@ -207,13 +222,18 @@ func (u *Upgrade) Run(ctx context.Context) error {
 	return u.printPostUpgradeMessage(ctx, out)
 }
 
-func (u *Upgrade) setVersionInfo(ctx context.Context, everestVersion *goversion.Version) error {
-	upgradeEverestTo, err := u.canUpgrade(ctx, everestVersion)
+// setVersionInfo picks the version to upgrade to and returns its version service metadata.
+func (u *Upgrade) setVersionInfo(ctx context.Context, everestVersion *goversion.Version) (*version.MetadataVersion, error) {
+	u.l.Infof("Current Everest version is %s", everestVersion)
+
+	upgradeEverestTo, meta, err := u.versionToUpgradeTo(ctx, everestVersion)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	u.l.Infof("Found available upgrade to Everest version %s", upgradeEverestTo)
 	u.upgradeToVersion = upgradeEverestTo.String()
-	return nil
+	return meta, nil
 }
 
 func (u *Upgrade) setKubernetesEnv(ctx context.Context) error {
@@ -271,29 +291,6 @@ func (u *Upgrade) newUpgradeSteps() []steps.Step {
 		u.newStepEnsureEverestOperator(),
 		u.newStepEnsureCatalogSource(),
 	}
-}
-
-// ensureManagedByLabelOnDBNamespaces ensures that all database namespaces have the managed-by label set.
-// canUpgrade checks if there's a new Everest version available and if we can upgrade to it
-// based on minimum requirements.
-func (u *Upgrade) canUpgrade(ctx context.Context, everestVersion *goversion.Version) (*goversion.Version, error) {
-	u.l.Infof("Current Everest version is %s", everestVersion)
-
-	// Determine version to upgrade to.
-	upgradeEverestTo, meta, err := u.versionToUpgradeTo(ctx, everestVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	u.l.Infof("Found available upgrade to Everest version %s", upgradeEverestTo)
-
-	// Check requirements.
-	u.l.Infof("Checking requirements for upgrade to Everest %s", upgradeEverestTo)
-	if err := u.verifyRequirements(ctx, meta); err != nil {
-		return nil, err
-	}
-
-	return upgradeEverestTo, nil
 }
 
 func validateVersionToUpgrade(
@@ -438,31 +435,99 @@ func (u *Upgrade) findNextMinorVersion(
 	return upgradeTo, meta
 }
 
+// verifyRequirements refuses the upgrade to u.upgradeToVersion when the cluster or this CLI does not meet
+// its requirements. It needs the chart of the target release, resolved by setupHelmInstaller.
 func (u *Upgrade) verifyRequirements(ctx context.Context, meta *version.MetadataVersion) error {
+	u.l.Infof("Checking requirements for upgrade to Everest %s", u.upgradeToVersion)
+
+	// First: when the target release can only be installed fresh, no other requirement matters.
+	if err := u.checkInPlaceUpgrade(ctx, u.helmInstaller); err != nil {
+		return err
+	}
+
 	supVer, err := common.NewSupportedVersion(meta)
 	if err != nil {
 		return err
 	}
-
-	if err := u.checkRequirements(ctx, supVer); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (u *Upgrade) checkRequirements(ctx context.Context, supVer *common.SupportedVersion) error {
-	// TODO: olm, catalog to be implemented.
-
 	if err := cliutils.VerifyCLIVersion(supVer); err != nil {
-		return err
-	}
-	// Operator version check.
-	if err := u.checkOperatorRequirements(ctx, supVer); err != nil {
 		return err
 	}
 
 	return u.checkLegacyMonitoring(ctx)
+}
+
+// checkInPlaceUpgrade refuses the upgrade unless the chart of the target release lists the installed release
+// as one it upgrades from in place.
+func (u *Upgrade) checkInPlaceUpgrade(ctx context.Context, c upgradeChart) error {
+	installed, err := u.installedCoreVersion(ctx, c)
+	if err != nil {
+		return err
+	}
+	return checkUpgradableFrom(u.upgradeToVersion, installed, c.ChartMetadata().Annotations)
+}
+
+// installedCoreVersion returns the installed release: the openeverest.io/version label of the core CRDs, which
+// is there whatever installed them (everestctl, Helm under any release name, a GitOps tool that only renders
+// the chart). The chart version of the deployed Helm release stands in for CRDs that predate the label.
+func (u *Upgrade) installedCoreVersion(ctx context.Context, c upgradeChart) (string, error) {
+	crd, err := u.kubeConnector.GetCRD(ctx, coreVersionCRD)
+	switch {
+	case err == nil:
+		if v := crd.GetLabels()[contract.CoreVersionKey]; v != "" {
+			return v, nil
+		}
+	case !k8serrors.IsNotFound(err):
+		return "", fmt.Errorf("could not get CRD %s: %w", coreVersionCRD, err)
+	}
+
+	v, err := c.DeployedChartVersion()
+	if err != nil {
+		return "", fmt.Errorf(
+			"could not tell which OpenEverest release is installed: the core CRDs carry no %s label and the deployed Helm release cannot be read: %w",
+			contract.CoreVersionKey, err,
+		)
+	}
+	return v, nil
+}
+
+// checkUpgradableFrom refuses an in-place upgrade from the installed release to target unless the annotations
+// of the target chart list the installed release in openeverest.io/upgradable-from. An empty list means target
+// can only be installed fresh; a chart without the annotation predates in-place upgrades, and every release
+// before them required a fresh install.
+func checkUpgradableFrom(target, installed string, chartAnnotations map[string]string) error {
+	hint := fmt.Sprintf(
+		"To move to %s, uninstall OpenEverest with \"everestctl uninstall\", which deletes every instance "+
+			"and its data, then install %s",
+		target, target,
+	)
+
+	upgradableFrom, declared := chartAnnotations[contract.UpgradableFromAnnotation]
+	if !declared {
+		return fmt.Errorf(
+			"OpenEverest %s %w; upgrading from %s is not supported: its chart predates in-place upgrades "+
+				"(it has no %s annotation), and every release before them required a fresh install.\n%s",
+			target, ErrFreshInstallRequired, installed, contract.UpgradableFromAnnotation, hint,
+		)
+	}
+
+	var releases []string
+	for r := range strings.SplitSeq(upgradableFrom, ",") {
+		if r = strings.TrimSpace(r); r != "" {
+			releases = append(releases, r)
+		}
+	}
+	if slices.Contains(releases, installed) {
+		return nil
+	}
+
+	var only string
+	if len(releases) > 0 {
+		only = fmt.Sprintf(" (it upgrades in place from %s only)", strings.Join(releases, ", "))
+	}
+	return fmt.Errorf(
+		"OpenEverest %s %w; upgrading from %s is not supported%s.\n%s",
+		target, ErrFreshInstallRequired, installed, only, hint,
+	)
 }
 
 // checkLegacyMonitoring refuses the upgrade while MonitoringConfigs, Instances with a "pmm"
@@ -545,42 +610,4 @@ func (u *Upgrade) legacyMonitoringPolicyLines(ctx context.Context, key types.Nam
 		}
 	}
 	return lines, nil
-}
-
-func (u *Upgrade) checkOperatorRequirements(ctx context.Context, supVer *common.SupportedVersion) error {
-	nss, err := u.kubeConnector.GetDBNamespaces(ctx)
-	if err != nil {
-		return err
-	}
-
-	cfg := []requirementsCheck{
-		{common.MySQLOperatorName, supVer.PXCOperator},
-		{common.PostgreSQLOperatorName, supVer.PGOperator},
-		{common.MongoDBOperatorName, supVer.PSMBDOperator},
-	}
-	for _, ns := range nss.Items {
-		u.l.Infof("Checking operator requirements in namespace %s", ns)
-
-		for _, c := range cfg {
-			v, err := u.kubeConnector.GetInstalledOperatorVersion(ctx, types.NamespacedName{Namespace: ns.GetName(), Name: c.operatorName})
-			if err != nil && !errors.Is(err, kubernetes.ErrOperatorNotInstalled) {
-				return err
-			}
-
-			if v == nil {
-				u.l.Debugf("Operator %s not found", c.operatorName)
-				continue
-			}
-
-			u.l.Debugf("Found operator %s version %s. Checking contraints %q", c.operatorName, v, c.constraints.String())
-			if !c.constraints.Check(v) {
-				return fmt.Errorf(
-					"%s version %q does not meet minimum requirements of %q",
-					c.operatorName, v, c.constraints.String(),
-				)
-			}
-			u.l.Debugf("Finished requirements check for operator %s", c.operatorName)
-		}
-	}
-	return nil
 }

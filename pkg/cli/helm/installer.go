@@ -154,6 +154,20 @@ func (i *Installer) GetParsedValues() *utils.Values {
 	return i.allParsedValues
 }
 
+// ChartMetadata returns the metadata (Chart.yaml) of the chart resolved by Init.
+func (i *Installer) ChartMetadata() *chart.Metadata {
+	return i.chart.Metadata
+}
+
+// DeployedChartVersion returns the chart version of the last deployed revision of the release.
+func (i *Installer) DeployedChartVersion() (string, error) {
+	rel, err := i.cfg.Releases.Deployed(i.ReleaseName)
+	if err != nil {
+		return "", err
+	}
+	return rel.Chart.Metadata.Version, nil
+}
+
 // RenderTemplates renders the Helm templates from the provided chart.
 // If the chart has been installed, it returns the rendered templates from the installed release.
 // If the chart has not been installed, it returns the rendered templates from a dry-run install.

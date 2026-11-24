@@ -10,13 +10,8 @@ import (
 
 // SupportedVersion provides a list of contraints per component.
 type SupportedVersion struct {
-	Catalog       goversion.Constraints
-	Cli           goversion.Constraints
-	Kubernetes    goversion.Constraints
-	Olm           goversion.Constraints
-	PGOperator    goversion.Constraints
-	PXCOperator   goversion.Constraints
-	PSMBDOperator goversion.Constraints
+	Cli        goversion.Constraints
+	Kubernetes goversion.Constraints
 }
 
 type version interface {
@@ -77,13 +72,8 @@ func NewSupportedVersion(meta *versionpb.MetadataVersion) (*SupportedVersion, er
 
 	// Parse MetadataVersion into supportedVersion struct.
 	config := map[string]*goversion.Constraints{
-		"cli":           &supVer.Cli,
-		"olm":           &supVer.Olm,
-		"catalog":       &supVer.Catalog,
-		"kubernetes":    &supVer.Kubernetes,
-		"pgOperator":    &supVer.PGOperator,
-		"pxcOperator":   &supVer.PXCOperator,
-		"psmdbOperator": &supVer.PSMBDOperator,
+		"cli":        &supVer.Cli,
+		"kubernetes": &supVer.Kubernetes,
 	}
 	for key, ref := range config {
 		if s, ok := meta.GetSupported()[key]; ok {

@@ -26,28 +26,31 @@ import (
 	"testing"
 
 	version "github.com/Percona-Lab/percona-version-service/versionpb"
-	"github.com/blang/semver/v4"
 	goversion "github.com/hashicorp/go-version"
-	olmversion "github.com/operator-framework/api/pkg/lib/version"
-	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/storage/driver"
 	corev1 "k8s.io/api/core/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	versionservice "github.com/openeverest/openeverest/v2/pkg/version_service"
 )
 
-func TestUpgrade_canUpgrade(t *testing.T) {
+func TestUpgrade_setVersionInfo(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -216,7 +219,7 @@ func TestUpgrade_canUpgrade(t *testing.T) {
 			everestVersion, err := goversion.NewVersion(tt.everestVersion)
 			require.NoError(t, err)
 
-			upgradeTo, err := u.canUpgrade(context.Background(), everestVersion)
+			_, err = u.setVersionInfo(context.Background(), everestVersion)
 			if err != nil && !errors.Is(err, tt.wantErrIs) {
 				t.Errorf("error = %v, wantErrIs %v", err, tt.wantErrIs)
 				return
@@ -226,7 +229,7 @@ func TestUpgrade_canUpgrade(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, tt.wantUpgradeTo, upgradeTo.String())
+			assert.Equal(t, tt.wantUpgradeTo, u.upgradeToVersion)
 		})
 	}
 }
@@ -292,134 +295,6 @@ func TestUpgrade_ValidateVersionToUpgrade(t *testing.T) {
 			} else if err != nil {
 				t.Errorf("error = %v", err)
 			}
-		})
-	}
-}
-
-func TestUpgrade_checkOperatorRequirements(t *testing.T) {
-	t.Parallel()
-
-	// GetDBNamespaces filters out the system namespace, so the DB namespace must differ from it.
-	const dbNamespace = "db-ns"
-
-	pxcConstraint, err := goversion.NewConstraint(">= 1.10.0")
-	require.NoError(t, err)
-	pgConstraint, err := goversion.NewConstraint(">= 2.4.0")
-	require.NoError(t, err)
-	psmdbConstraint, err := goversion.NewConstraint(">= 1.15.0")
-	require.NoError(t, err)
-
-	supVer := &common.SupportedVersion{
-		PXCOperator:   pxcConstraint,
-		PGOperator:    pgConstraint,
-		PSMBDOperator: psmdbConstraint,
-	}
-
-	tests := []struct {
-		name          string
-		sub           *olmv1alpha1.Subscription
-		csv           *olmv1alpha1.ClusterServiceVersion
-		expectedError string
-	}{
-		{
-			name: "PostgreSQL operator fails requirement",
-			sub: &olmv1alpha1.Subscription{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      common.PostgreSQLOperatorName,
-					Namespace: dbNamespace,
-				},
-				Status: olmv1alpha1.SubscriptionStatus{
-					InstalledCSV: "pg-operator.v2.2.0",
-				},
-			},
-			csv: &olmv1alpha1.ClusterServiceVersion{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "pg-operator.v2.2.0",
-					Namespace: dbNamespace,
-				},
-				Spec: olmv1alpha1.ClusterServiceVersionSpec{
-					Version: olmversion.OperatorVersion{
-						Version: semver.MustParse("2.2.0"),
-					},
-				},
-			},
-			expectedError: `percona-postgresql-operator version "2.2.0" does not meet minimum requirements of ">= 2.4.0"`,
-		},
-		{
-			name: "MongoDB operator fails requirement",
-			sub: &olmv1alpha1.Subscription{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      common.MongoDBOperatorName,
-					Namespace: dbNamespace,
-				},
-				Status: olmv1alpha1.SubscriptionStatus{
-					InstalledCSV: "psmdb-operator.v1.12.0",
-				},
-			},
-			csv: &olmv1alpha1.ClusterServiceVersion{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "psmdb-operator.v1.12.0",
-					Namespace: dbNamespace,
-				},
-				Spec: olmv1alpha1.ClusterServiceVersionSpec{
-					Version: olmversion.OperatorVersion{
-						Version: semver.MustParse("1.12.0"),
-					},
-				},
-			},
-			expectedError: `percona-server-mongodb-operator version "1.12.0" does not meet minimum requirements of ">= 1.15.0"`,
-		},
-		{
-			name: "PXC operator fails requirement",
-			sub: &olmv1alpha1.Subscription{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      common.MySQLOperatorName,
-					Namespace: dbNamespace,
-				},
-				Status: olmv1alpha1.SubscriptionStatus{
-					InstalledCSV: "pxc-operator.v1.9.0",
-				},
-			},
-			csv: &olmv1alpha1.ClusterServiceVersion{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "pxc-operator.v1.9.0",
-					Namespace: dbNamespace,
-				},
-				Spec: olmv1alpha1.ClusterServiceVersionSpec{
-					Version: olmversion.OperatorVersion{
-						Version: semver.MustParse("1.9.0"),
-					},
-				},
-			},
-			expectedError: `percona-xtradb-cluster-operator version "1.9.0" does not meet minimum requirements of ">= 1.10.0"`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			ns := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   dbNamespace,
-					Labels: map[string]string{common.KubernetesManagedByLabel: common.Everest},
-				},
-			}
-
-			client := fakeclient.NewClientBuilder().
-				WithScheme(kubernetes.CreateScheme()).
-				WithObjects(ns, tt.sub, tt.csv).
-				Build()
-
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "everest").WithKubernetesClient(client)
-			u := &Upgrade{
-				l:             zap.NewNop().Sugar(),
-				kubeConnector: k,
-			}
-
-			err := u.checkOperatorRequirements(context.Background(), supVer)
-			require.Error(t, err)
-			assert.Equal(t, tt.expectedError, err.Error())
 		})
 	}
 }
@@ -588,6 +463,252 @@ func TestUpgrade_checkLegacyMonitoring(t *testing.T) {
 			assert.ElementsMatch(t, tt.wantCommands, commands)
 			assert.Contains(t, err.Error(), "install a monitoring extension")
 			assert.Contains(t, err.Error(), "spec.monitoring.destinations[]")
+		})
+	}
+}
+
+func TestCheckUpgradableFrom(t *testing.T) {
+	t.Parallel()
+
+	const (
+		target    = "2.0.0-alpha.3"
+		installed = "2.0.0-alpha.2"
+		hint      = `To move to 2.0.0-alpha.3, uninstall OpenEverest with "everestctl uninstall", ` +
+			"which deletes every instance and its data, then install 2.0.0-alpha.3"
+	)
+
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		wantErr     string
+	}{
+		{
+			name:        "chart without annotations",
+			annotations: nil,
+			wantErr: "OpenEverest 2.0.0-alpha.3 requires a fresh install; upgrading from 2.0.0-alpha.2 is not supported: " +
+				"its chart predates in-place upgrades (it has no openeverest.io/upgradable-from annotation), " +
+				"and every release before them required a fresh install.\n" + hint,
+		},
+		{
+			name: "annotation absent",
+			annotations: map[string]string{
+				contract.CoreVersionKey:    target,
+				contract.VersionAnnotation: target,
+			},
+			wantErr: "OpenEverest 2.0.0-alpha.3 requires a fresh install; upgrading from 2.0.0-alpha.2 is not supported: " +
+				"its chart predates in-place upgrades (it has no openeverest.io/upgradable-from annotation), " +
+				"and every release before them required a fresh install.\n" + hint,
+		},
+		{
+			name:        "annotation empty: fresh install only",
+			annotations: map[string]string{contract.UpgradableFromAnnotation: ""},
+			wantErr:     "OpenEverest 2.0.0-alpha.3 requires a fresh install; upgrading from 2.0.0-alpha.2 is not supported.\n" + hint,
+		},
+		{
+			name:        "annotation lists the installed release",
+			annotations: map[string]string{contract.UpgradableFromAnnotation: "2.0.0-alpha.2"},
+		},
+		{
+			name:        "annotation lists the installed release among others",
+			annotations: map[string]string{contract.UpgradableFromAnnotation: "2.0.0-alpha.1, 2.0.0-alpha.2,2.0.0-alpha.2.1"},
+		},
+		{
+			name:        "annotation does not list the installed release",
+			annotations: map[string]string{contract.UpgradableFromAnnotation: "2.0.0-alpha.1,2.0.0-alpha.2.1,2.0.0-alpha.20"},
+			wantErr: "OpenEverest 2.0.0-alpha.3 requires a fresh install; upgrading from 2.0.0-alpha.2 is not supported " +
+				"(it upgrades in place from 2.0.0-alpha.1, 2.0.0-alpha.2.1, 2.0.0-alpha.20 only).\n" + hint,
+		},
+		{
+			name:        "annotation with only separators",
+			annotations: map[string]string{contract.UpgradableFromAnnotation: " , "},
+			wantErr:     "OpenEverest 2.0.0-alpha.3 requires a fresh install; upgrading from 2.0.0-alpha.2 is not supported.\n" + hint,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := checkUpgradableFrom(target, installed, tt.annotations)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, ErrFreshInstallRequired)
+			assert.EqualError(t, err, tt.wantErr)
+		})
+	}
+}
+
+type fakeUpgradeChart struct {
+	annotations     map[string]string
+	deployedVersion string
+	deployedErr     error
+}
+
+func (f fakeUpgradeChart) ChartMetadata() *chart.Metadata {
+	return &chart.Metadata{Annotations: f.annotations}
+}
+
+func (f fakeUpgradeChart) DeployedChartVersion() (string, error) {
+	return f.deployedVersion, f.deployedErr
+}
+
+func TestUpgrade_installedCoreVersion(t *testing.T) {
+	t.Parallel()
+
+	coreCRD := func(labels map[string]string) *apiextv1.CustomResourceDefinition {
+		return &apiextv1.CustomResourceDefinition{ObjectMeta: metav1.ObjectMeta{Name: coreVersionCRD, Labels: labels}}
+	}
+	tests := []struct {
+		name    string
+		objects []ctrlclient.Object
+		getErr  error
+		release fakeUpgradeChart
+		want    string
+		isErr   func(error) bool
+	}{
+		{
+			name:    "label on the core CRD",
+			objects: []ctrlclient.Object{coreCRD(map[string]string{contract.CoreVersionKey: "2.0.0-alpha.2"})},
+			release: fakeUpgradeChart{deployedVersion: "2.0.0-alpha.1"},
+			want:    "2.0.0-alpha.2",
+		},
+		{
+			name:    "label missing: Helm release chart version",
+			objects: []ctrlclient.Object{coreCRD(map[string]string{"everest.percona.com/version": "2.0.0-alpha.1"})},
+			release: fakeUpgradeChart{deployedVersion: "2.0.0-alpha.1"},
+			want:    "2.0.0-alpha.1",
+		},
+		{
+			name:    "label empty: Helm release chart version",
+			objects: []ctrlclient.Object{coreCRD(map[string]string{contract.CoreVersionKey: ""})},
+			release: fakeUpgradeChart{deployedVersion: "2.0.0-alpha.1"},
+			want:    "2.0.0-alpha.1",
+		},
+		{
+			name:    "core CRD missing: Helm release chart version",
+			release: fakeUpgradeChart{deployedVersion: "1.17.1"},
+			want:    "1.17.1",
+		},
+		{
+			name:    "label missing and no deployed Helm release",
+			objects: []ctrlclient.Object{coreCRD(nil)},
+			release: fakeUpgradeChart{deployedErr: driver.NewErrNoDeployedReleases("everest-system")},
+			isErr:   func(err error) bool { return errors.Is(err, driver.ErrNoDeployedReleases) },
+		},
+		{
+			name:    "core CRD cannot be read",
+			getErr:  k8serrors.NewForbidden(apiextv1.Resource("customresourcedefinitions"), coreVersionCRD, errors.New("no access")),
+			release: fakeUpgradeChart{deployedVersion: "2.0.0-alpha.1"},
+			isErr:   k8serrors.IsForbidden,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			builder := fakeclient.NewClientBuilder().
+				WithScheme(kubernetes.CreateScheme()).
+				WithObjects(tt.objects...)
+			if tt.getErr != nil {
+				builder = builder.WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(context.Context, ctrlclient.WithWatch, ctrlclient.ObjectKey, ctrlclient.Object, ...ctrlclient.GetOption) error {
+						return tt.getErr
+					},
+				})
+			}
+			u := &Upgrade{
+				l:             zap.NewNop().Sugar(),
+				kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), "everest-system").WithKubernetesClient(builder.Build()),
+			}
+
+			got, err := u.installedCoreVersion(context.Background(), tt.release)
+			if tt.isErr != nil {
+				require.Error(t, err)
+				assert.True(t, tt.isErr(err), "unexpected error: %v", err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestUpgrade_checkInPlaceUpgrade(t *testing.T) {
+	t.Parallel()
+
+	// Each case gets its own CRD: the fake client writes the
+	// resourceVersion of the objects it is built with, and the cases run
+	// in parallel.
+	coreCRD := func() *apiextv1.CustomResourceDefinition {
+		return &apiextv1.CustomResourceDefinition{ObjectMeta: metav1.ObjectMeta{
+			Name:   coreVersionCRD,
+			Labels: map[string]string{contract.CoreVersionKey: "2.0.0-alpha.2"},
+		}}
+	}
+
+	tests := []struct {
+		name    string
+		objects []ctrlclient.Object
+		chart   fakeUpgradeChart
+		wantErr string
+	}{
+		{
+			name:    "target upgrades from the release on the core CRDs",
+			objects: []ctrlclient.Object{coreCRD()},
+			chart: fakeUpgradeChart{
+				annotations:     map[string]string{contract.UpgradableFromAnnotation: "2.0.0-alpha.2"},
+				deployedVersion: "2.0.0-alpha.1",
+			},
+		},
+		{
+			name:    "target upgrades from the deployed chart version only",
+			objects: []ctrlclient.Object{coreCRD()},
+			chart: fakeUpgradeChart{
+				annotations:     map[string]string{contract.UpgradableFromAnnotation: "2.0.0-alpha.1"},
+				deployedVersion: "2.0.0-alpha.1",
+			},
+			wantErr: "upgrading from 2.0.0-alpha.2 is not supported (it upgrades in place from 2.0.0-alpha.1 only)",
+		},
+		{
+			name: "CRDs without the label: deployed chart version",
+			chart: fakeUpgradeChart{
+				annotations:     map[string]string{contract.UpgradableFromAnnotation: "2.0.0-alpha.2"},
+				deployedVersion: "2.0.0-alpha.1",
+			},
+			wantErr: "upgrading from 2.0.0-alpha.1 is not supported (it upgrades in place from 2.0.0-alpha.2 only)",
+		},
+		{
+			name:    "target chart predates the annotation",
+			objects: []ctrlclient.Object{coreCRD()},
+			chart:   fakeUpgradeChart{deployedVersion: "2.0.0-alpha.2"},
+			wantErr: "upgrading from 2.0.0-alpha.2 is not supported: its chart predates in-place upgrades",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			client := fakeclient.NewClientBuilder().
+				WithScheme(kubernetes.CreateScheme()).
+				WithObjects(tt.objects...).
+				Build()
+			u := &Upgrade{
+				l:                zap.NewNop().Sugar(),
+				kubeConnector:    kubernetes.NewEmpty(zap.NewNop().Sugar(), "everest-system").WithKubernetesClient(client),
+				upgradeToVersion: "2.0.0-alpha.3",
+			}
+
+			err := u.checkInPlaceUpgrade(context.Background(), tt.chart)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, ErrFreshInstallRequired)
+			assert.Contains(t, err.Error(), "OpenEverest 2.0.0-alpha.3 requires a fresh install; "+tt.wantErr)
 		})
 	}
 }
