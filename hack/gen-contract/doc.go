@@ -17,16 +17,30 @@
 // package: VERSION and MIN_VERSION, which tools that do not build Go, such
 // as release workflows, read from any git ref, and zz_generated.version.go.
 //
-// Nobody picks the version. The command fingerprints the contract artifacts
-// (see inputs) and compares the fingerprint with the one recorded for the
-// latest release in contract/releases: while they are equal the version is
-// that release's contract version, and once they differ it is the
-// development value after that release. The minimum moves only at a
-// release.
+// Nobody picks the version. The command computes a digest of each input of
+// the contract (see inputs) under the current fingerprint scheme, and
+// compares them with the digests the latest release record in
+// contract/releases holds under that scheme: while every input the record
+// holds is the same, the version is that release's contract version, and
+// once one differs it is the development value after that release. The
+// minimum moves only at a release. It fails, rather than guess, when the
+// latest record has no digests under the current scheme; the seed record
+// is exempt by name.
 //
-// With -check-release it only checks that the contract is the one the
-// latest release was cut with, as a release branch must.
+// With -check-release it only checks that a release of the line it is
+// given keeps the contract, when that release is a patch release of the
+// latest one, as a release branch must. Its commands:
 //
-// It imports nothing from this module, so it runs whatever state the
-// contract package is in, the file it generates included.
+//	rebaseline     add the digests of the current scheme, computed from the
+//	               tag of a release, to its record
+//	diff           show how the canonical form of each input changed since
+//	               a ref, or print the bytes a digest hashes
+//	verify         check that the latest record holds the digests this
+//	               generator computes from the tag of its release
+//	check-records  check that release records are frozen
+//	latest         print the latest release recorded
+//
+// Commands that read a tag use git, and none fetches: make gen never needs
+// the network. It imports nothing from this module, so it runs whatever
+// state the contract package is in, the file it generates included.
 package main
