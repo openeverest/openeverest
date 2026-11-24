@@ -170,7 +170,7 @@ For each input, `make contract-diff` (`go run ./hack/gen-contract diff`) prints 
 
 ### Release branches
 
-A patch release must not change the contract. `isPatchOf(latest, v)` decides when that applies: the latest record is a final release `X.Y.Z`, without a pre-release, and `v` has the same `X.Y`. Then `make check-contract-release` (`go run ./hack/gen-contract -check-release -branch release-X.Y`, or `-version X.Y.Z`) fails when a compared input differs from the latest record, and prints the diff when the tag of that release is here. Otherwise, after a pre-release or for the first release of a new minor, the release may change the contract, and the check passes with a notice.
+A patch release must not change the contract. `isPatchOf(latest, v)` decides when that applies: the latest record is a final release `X.Y.Z`, without a pre-release, and `v` has the same `X.Y`. Then `make check-contract-release` (`go run ./hack/gen-contract -check-release -branch release-X.Y`, or `-version X.Y.Z`) fails when a compared input differs from the latest record, and prints the diff when the tag of that release is here. Otherwise, after a pre-release or for the first release of a new minor, the release may change the contract, and the check passes with a notice. CI runs it on every pull request into a `release-*` branch; see [At a release](#at-a-release).
 
 ### Branches without the contract
 
@@ -201,6 +201,39 @@ The helm-charts repository builds its CRDs and built-in classes from `config/crd
 `GET /v1/version` does not repeat the window. It would report the constants of the API server's binary, which can disagree with the CRDs the cluster serves, and the releases a core can be upgraded from matter only before an upgrade, from the release being upgraded to, never from the running one.
 
 The stamps are metadata, which the fingerprint ignores, so stamping cannot move the version. A reader that sees several CRDs takes their intersection (`Intersect`): the lowest `contract-version` and the highest `min-contract-version`, so it never claims more than every CRD serves while an upgrade is under way.
+
+## At a release
+
+The [Release workflow](../.github/workflows/release.yml) records every core release on its release branch, before it tags it. Whoever cuts the release says, in the workflow's inputs, how users get to it:
+
+| Inputs | The release | Its record |
+|---|---|---|
+| `release_type: fresh-install`, the default | Users install it fresh; nothing can be upgraded to it in place. | `minContractVersion` is the release itself, so extensions built for an earlier core must be rebuilt for it, and `upgradableFrom` is empty. |
+| `release_type: upgradable`, `min_contract_version`, `upgradable_from` | It can be upgraded to in place from the releases `upgradable_from` lists, comma-separated. | `minContractVersion` is `min_contract_version`, and `upgradableFrom` the list. |
+
+The workflow checks the format of the inputs first, then runs, on the release branch:
+
+```sh
+go run ./hack/gen-contract release -version 2.1.0 -type upgradable -min 2.0.0 -upgradable-from 2.0.0,2.0.1
+make gen-contract
+```
+
+The first command writes `releases/2.1.0.yaml` with the fingerprint of the branch's contract. The second finds that fingerprint in the latest record, so `VERSION` becomes the release's contract version and the CRDs carry its window and `upgradable-from`. The workflow commits both with the version it sets in the `Makefile`, and tags that commit, so the tag ships the window. Nothing is pushed until the record is written. `release` refuses:
+
+- a version that is not SemVer 2.0.0, carries build metadata, or is a development value;
+- a release that has a record already, or is not newer than the latest release recorded on the branch, since every record is worked out from the one before;
+- `-min` or `-upgradable-from` for a fresh-install release, and an upgradable release without both;
+- an upgradable release from a release that has no record on the branch: a release cut on another branch since this one forked needs its record merged first;
+- an upgradable release whose minimum is above the contract version of the latest release, or of a release it is upgraded from. Users upgrade core first and their extensions after, so the extensions they run, and those published for the latest release, must keep working on the new core;
+- a window that goes below the latest release's.
+
+A dev build, such as `2.0.0-dev.5`, is a snapshot, not a release. It sorts above every alpha and beta of its version, so its record would stay the latest until the first release candidate: it gets none.
+
+**The contract version of a release is the release itself**, even when the fingerprint shows the contract is the one the latest release was cut with. Keeping the latest release's contract version would tell extensions built against the new release that they also run on the one before, and the fingerprint is not evidence of that: it only shows that no artifact changed and that nobody recorded a change in `CHANGES`. The evidence will come from a job that runs the extensions built against each release candidate on the release before it, and records every break it finds in `CHANGES`. From then on, an equal fingerprint means no break, and `release` will keep the latest release's contract version, so that a release that does not change the contract strands no extension.
+
+**`main` learns every release.** `main` works out its version from the latest release it has a record of, so after tagging, the workflow opens a pull request against `main` from the branch `contract/record-v<version>`, with the record and what `make gen-contract` derives from it on `main`. It labels the pull request with the [decision](#the-decision-labels) its `VERSION` implies. Running the workflow again for the same version keeps the record and updates the same branch and pull request.
+
+**A patch release does not change the contract.** CI runs `make check-contract-release` on every pull request into a `release-*` branch. Change the contract on `main`, and ship it in the next minor release. When `main` is merged into a release branch, as it is before each pre-release of a major version, the files `make gen-contract` writes can conflict: take `main`'s and run `make gen-contract` on the result.
 
 ## `CHANGES`: changes no artifact shows
 

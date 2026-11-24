@@ -293,6 +293,13 @@ jobs:
           git status
           git diff --exit-code
 
+      # A patch release must not change what core and its extensions share,
+      # so a pull request into a release branch keeps the contract the
+      # branch's latest release was cut with. See contract/README.md.
+      - name: Check that the contract is the one the latest release was cut with
+        if: ${{ (github.event_name == 'pull_request' && startsWith(github.base_ref, 'release-')) || (github.event_name == 'merge_group' && startsWith(github.event.merge_group.base_ref, 'refs/heads/release-')) }}
+        run: make check-contract-release
+
       # Intentional on push/nightly: merging a chart/pending-labelled PR turns
       # main red until the go.mod pin bump lands, which must follow immediately
       # after any helm-charts merge - the postsubmit is the reminder. Merge

@@ -43,6 +43,13 @@
 //	show           print a fact of the contract, such as its version, the
 //	               scheme or whether a version is a development value,
 //	               for tools that do not build Go (see runShow)
+//	release        record a core release in contract/releases, with the
+//	               fingerprints of its contract and the window and upgrade
+//	               path the person who cuts it chooses; the release
+//	               workflow runs it, then the command itself, before it
+//	               tags the release:
+//
+//	gen-contract release -version 2.1.0 -type upgradable -min 2.0.0 -upgradable-from 2.0.0,2.0.1
 //
 // Commands that read a tag use git, and none fetches: make gen never needs
 // the network. It imports nothing from this module, so it runs whatever

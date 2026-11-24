@@ -6,6 +6,21 @@ on:
       version:
         description: "The version to release, e.g. X.Y.Z for a release or X.Y.Z-<suffix> (e.g. X.Y.Z-rc1, X.Y.Z-dev) for a dev build"
         required: true
+      release_type:
+        description: "fresh-install: users must install this release fresh. upgradable: it can be upgraded to in place from the releases in upgradable_from. See contract/README.md"
+        type: choice
+        options:
+          - fresh-install
+          - upgradable
+        default: fresh-install
+      min_contract_version:
+        description: "upgradable only: the oldest contract version it serves, at most the contract version of the latest release and of each release in upgradable_from"
+        required: false
+        default: ""
+      upgradable_from:
+        description: "upgradable only: the core releases it can be upgraded from in place, comma-separated, e.g. 2.1.0,2.1.1"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -22,12 +37,18 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      record: ${{ steps.validate.outputs.record }}
     env:
       VERSION: ${{ github.event.inputs.version }}
+      RELEASE_TYPE: ${{ github.event.inputs.release_type }}
+      MIN_CONTRACT_VERSION: ${{ github.event.inputs.min_contract_version }}
+      UPGRADABLE_FROM: ${{ github.event.inputs.upgradable_from }}
       BRANCH_NAME: ""
       GH_TAG: ""
     steps:
       - name: Validate input
+        id: validate
         run: |
           if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9][a-zA-Z0-9.-]*)?$ ]]; then
             echo "Wrong version format provided, please use \"X.Y.Z\" for a release or \"X.Y.Z-<suffix>\" (e.g. X.Y.Z-rc1, X.Y.Z-dev) for a dev build"
@@ -37,6 +58,56 @@ jobs:
             echo "::error::$VERSION is not a v2 version. v1 releases use the \"Release v1\" workflow, run from v1.x."
             exit 1
           fi
+
+          # Every release gets a record of its contract in contract/releases,
+          # which hack/gen-contract checks against the earlier records before
+          # anything is pushed. Malformed input fails here, before checkout.
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*)?$'
+          if [[ ! $VERSION =~ $semver ]]; then
+            echo "::error::$VERSION is not a SemVer 2.0.0 version: numbers have no leading zeros and no identifier is empty."
+            exit 1
+          fi
+
+          # A dev build such as X.Y.Z-dev sorts above every alpha and beta of
+          # X.Y.Z, so its record would stay the latest until the first release
+          # candidate. It is a snapshot, not a release: it gets none.
+          if [[ $VERSION == *-* && .${VERSION#*-}. == *.dev.* ]]; then
+            if [[ $RELEASE_TYPE != fresh-install || -n $MIN_CONTRACT_VERSION || -n $UPGRADABLE_FROM ]]; then
+              echo "::error::$VERSION is a dev build, not a release: it gets no contract record, so leave release_type, min_contract_version and upgradable_from at their defaults."
+              exit 1
+            fi
+            echo "::notice::$VERSION is a dev build, not a release: it gets no contract record."
+            echo "record=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          case $RELEASE_TYPE in
+            fresh-install)
+              if [[ -n $MIN_CONTRACT_VERSION || -n $UPGRADABLE_FROM ]]; then
+                echo "::error::min_contract_version and upgradable_from are for an upgradable release only: a fresh-install release serves only the extensions built for it, and nothing can be upgraded to it."
+                exit 1
+              fi
+              ;;
+            upgradable)
+              if [[ -z $MIN_CONTRACT_VERSION || -z $UPGRADABLE_FROM ]]; then
+                echo "::error::An upgradable release needs min_contract_version, the oldest contract version it serves, and upgradable_from, the releases it can be upgraded from in place."
+                exit 1
+              fi
+              IFS=, read -ra upgradable_from <<< "$UPGRADABLE_FROM"
+              for v in "$MIN_CONTRACT_VERSION" "${upgradable_from[@]}"; do
+                v=${v// /}
+                if [[ ! $v =~ $semver ]]; then
+                  echo "::error::\"$v\" is not a core release such as 2.1.0 or 2.1.0-rc.1, without a v."
+                  exit 1
+                fi
+              done
+              ;;
+            *)
+              echo "::error::release_type is \"$RELEASE_TYPE\", neither fresh-install nor upgradable."
+              exit 1
+              ;;
+          esac
+          echo "record=true" >> "$GITHUB_OUTPUT"
 
       - name: Set environment variables
         run: |
@@ -48,17 +119,54 @@ jobs:
         with:
           token: ${{ secrets.ROBOT_TOKEN }}
 
-      - name: Create and update release branch
+      - name: Check out release branch
         run: |
           git fetch
           check_branch=$(git ls-remote --heads origin ${BRANCH_NAME})
 
+          # A new branch is pushed with the release commit below, so a release
+          # whose record is refused leaves no branch behind.
           if [[ -z ${check_branch} ]]; then
             git checkout -b $BRANCH_NAME
-            git push origin $BRANCH_NAME
           fi
           git checkout $BRANCH_NAME
 
+      - name: Enable /mnt (big volume) to be used by runner
+        if: steps.validate.outputs.record == 'true'
+        run: |
+          sudo chown -v runner:runner /mnt
+
+      - name: Set up Go release
+        if: steps.validate.outputs.record == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      # The record holds the fingerprint of the release's contract and the
+      # window and upgrade path chosen above; make gen-contract then publishes
+      # them in contract/VERSION and on the CRDs the tag ships. A re-run of a
+      # release keeps the record its first run wrote. See contract/README.md.
+      - name: Record the release in the contract
+        if: steps.validate.outputs.record == 'true'
+        run: |
+          if [[ ! -d contract/releases ]]; then
+            echo "::notice::$BRANCH_NAME predates contract records, so $VERSION gets none."
+            exit 0
+          fi
+          if [[ -f contract/releases/$VERSION.yaml ]]; then
+            echo "::notice::contract/releases/$VERSION.yaml exists already: this run repeats release $VERSION and keeps its record."
+            exit 0
+          fi
+          args=(-version "$VERSION" -type "$RELEASE_TYPE")
+          if [[ $RELEASE_TYPE == upgradable ]]; then
+            args+=(-min "$MIN_CONTRACT_VERSION" -upgradable-from "$UPGRADABLE_FROM")
+          fi
+          go run ./hack/gen-contract release "${args[@]}"
+          make gen-contract
+
+      - name: Commit and tag the release
+        run: |
           sed -i "s/RELEASE_VERSION ?=.*/RELEASE_VERSION ?= v$VERSION/g" Makefile
 
           if [[ -n $(git status --porcelain) ]]; then
@@ -69,12 +177,102 @@ jobs:
             git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git config --global user.name "github-actions[bot]"
 
+            if [[ -d contract/releases ]]; then
+              git add contract/releases
+            fi
             git commit -a -m "update version tag" -m "Triggered by ${{ github.actor }}"
             git push origin $BRANCH_NAME
 
             git tag $GH_TAG
             git push origin $GH_TAG
           fi
+
+  # main works out its contract version from the latest release it has a
+  # record of, so it must learn every release; until it does, it keeps
+  # counting from the release before. This job does not hold up the images.
+  record-release-on-main:
+    name: Record the release on main
+    needs: setup-release-branch
+    if: needs.setup-release-branch.outputs.record == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ github.event.inputs.version }}
+      PR_BRANCH: contract/record-v${{ github.event.inputs.version }}
+    steps:
+      - name: Enable /mnt (big volume) to be used by runner
+        run: |
+          sudo chown -v runner:runner /mnt
+
+      - name: Check out main
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          token: ${{ secrets.ROBOT_TOKEN }}
+
+      - name: Set up Go release
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      # Re-running it updates the same branch and pull request.
+      - name: Open a pull request recording the release on main
+        env:
+          # A pull request opened with GITHUB_TOKEN starts no workflow, so CI
+          # would never report on it. The robot account, which pushed the tag,
+          # opens it instead.
+          GH_TOKEN: ${{ secrets.ROBOT_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          record=contract/releases/$VERSION.yaml
+          git fetch --depth=1 origin "refs/tags/v$VERSION"
+          if ! git cat-file -e "FETCH_HEAD:$record" 2>/dev/null; then
+            echo "::notice::v$VERSION carries no contract record, so main has nothing to learn."
+            exit 0
+          fi
+
+          git checkout -B "$PR_BRANCH"
+          git show "FETCH_HEAD:$record" > "$record"
+          make gen-contract
+          if [[ -z $(git status --porcelain) ]]; then
+            echo "::notice::main has the record of release $VERSION already."
+            exit 0
+          fi
+
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add "$record"
+          git commit -a -s -m "chore(contract): record release $VERSION" \
+            -m "main works out its contract version from the latest release it has
+          a record of. This adds the record v$VERSION carries and regenerates
+          what make gen-contract derives from it." \
+            -m "Opened by the Release workflow: $RUN_URL"
+          git push --force origin "$PR_BRANCH"
+
+          if [[ -z $(gh pr list --head "$PR_BRANCH" --base main --state open --json number --jq '.[].number') ]]; then
+            body=$(cat <<EOF
+          Records core release $VERSION in \`$record\`, as the tag v$VERSION carries it, and regenerates what \`make gen-contract\` derives from it.
+
+          main works out its contract version from the latest release it has a record of: while its contract is the one $VERSION was cut with, main has the contract version of $VERSION, and once it differs, the development value after $VERSION. Until this is merged, main keeps counting from the release before. See \`contract/README.md\`.
+
+          Opened by the [Release workflow]($RUN_URL). Merge it as it is: the record must stay the one the tag carries.
+          EOF
+            )
+            gh pr create --base main --head "$PR_BRANCH" --title "chore(contract): record release $VERSION" --body "$body"
+          fi
+
+          # The record moves main's contract version by itself, so the
+          # contract decision is not a reviewer's to make: the label says what
+          # contract/VERSION says.
+          version=$(cat contract/VERSION)
+          label=no-contract-change
+          if [[ $version == *-* && .${version#*-}. == *.dev.* ]]; then
+            label=contract-change
+          fi
+          gh pr edit "$PR_BRANCH" --add-label "$label" \
+            || echo "::warning::Could not label the pull request $label; label it by hand."
 
   build:
     name: Build (${{ matrix.arch }})

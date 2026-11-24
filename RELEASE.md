@@ -44,13 +44,15 @@ There is no fixed schedule. Minor releases ship when their features are ready, r
 
 ## Core Release Steps
 
-1. **Prepare.** Make sure CI on the source branch is green, including the nightly [release e2e](.github/workflows/release-e2e.yml) run. Patches are merged to `main` or `v1.x` first and cherry-picked to the `release-X.Y` branch.
+1. **Prepare.** Make sure CI on the source branch is green, including the nightly [release e2e](.github/workflows/release-e2e.yml) run. Patches are merged to `main` or `v1.x` first and cherry-picked to the `release-X.Y` branch. For v2, a pull request into a `release-X.Y` branch must not change the contract between core and its extensions, so that patch releases never do: CI runs `make check-contract-release` on it (see [contract/README.md](contract/README.md#at-a-release)).
    Check that all issues and pull requests in the release [milestone](https://github.com/openeverest/openeverest/milestones) are done or moved to a later milestone.
 2. **Pre-release.** Run the release workflow with the pre-release version, such as `X.Y.Z-rcN` or, for a major release, `X.0.0-alphaN` / `X.0.0-betaN`:
    - v2: [Release](.github/workflows/release.yml) from `main`;
    - v1: **Release v1** from the `v1.x` branch.
 
    The workflow creates or updates the `release-X.Y` branch and the tag, builds multi-arch images, and pushes them to GHCR with provenance and SBOM attestations. For v1, it also builds signed `everestctl` binaries and creates a draft GitHub release.
+
+   For v2, also say how users get to the release: `release_type` `fresh-install` (the default) when they must install it fresh, or `upgradable` with `min_contract_version`, the oldest contract version it serves, and `upgradable_from`, the releases it can be upgraded from in place. Before tagging, the workflow records the release in [contract/releases](contract/releases), which publishes its window on the CRDs the tag ships, then opens a pull request against `main` with the record. Merge that pull request: `main` works out its contract version from the latest release it has a record of. A dev build gets no record. See [contract/README.md](contract/README.md#at-a-release).
 3. **Test.** Validate the pre-release (e2e and upgrade from the previous release). Fix issues and cut a new pre-release if needed.
 4. **Release.** Run the same workflow with version `X.Y.Z`.
 5. **Helm chart.** Run [Everest Chart Release](https://github.com/openeverest/helm-charts/actions/workflows/release.yaml) in `openeverest/helm-charts` with the same version.
