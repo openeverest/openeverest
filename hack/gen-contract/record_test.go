@@ -53,10 +53,11 @@ func TestReleaseCommand(t *testing.T) {
 	_, err = execute([]string{"-root", root, "-check-release", "-version", "2.0.0-alpha.2"}, io.Discard, io.Discard)
 	require.NoError(t, err, "the release branch holds the contract it just recorded")
 
-	msg, err = execute([]string{
+	args := []string{
 		"-root", root, "release", "-version", "2.0.0-alpha.3", "-type", "upgradable",
 		"-min", "2.0.0-alpha.2", "-upgradable-from", " 2.0.0-alpha.2 ",
-	}, io.Discard, io.Discard)
+	}
+	msg, err = execute(args, io.Discard, io.Discard)
 	require.NoError(t, err)
 	wantMsg = "recorded release 2.0.0-alpha.3 in contract/releases/2.0.0-alpha.3.yaml: upgradable, " +
 		"serving contract versions [2.0.0-alpha.2, 2.0.0-alpha.3], upgradable from 2.0.0-alpha.2; run make gen-contract to publish it"
@@ -90,8 +91,8 @@ func assertRecord(t *testing.T, want, got string) {
 }
 
 // testReleases are the records of a 2.0.0 release that can only be
-// installed fresh and of a 2.0.1 patch release that can be upgraded to
-// from it, with the window [2.0.0, 2.0.1].
+// installed fresh and of a 2.0.1 release that can be upgraded to from it,
+// with the window [2.0.0, 2.0.1].
 func testReleases(t *testing.T) []release {
 	t.Helper()
 
@@ -128,10 +129,16 @@ func TestNewRelease(t *testing.T) {
 			want: newRecord("2.1.0", "2.1.0", "2.1.0", typeFreshInstall, []string{}, fpB),
 		},
 		{
-			name: "fresh install of an unchanged contract",
+			name: "minor release of an unchanged contract records itself",
+			fp:   fpA,
+			req:  releaseRequest{version: "2.1.0", typ: typeFreshInstall},
+			want: newRecord("2.1.0", "2.1.0", "2.1.0", typeFreshInstall, []string{}, fpA),
+		},
+		{
+			name: "fresh-install patch release keeps the contract version of its line",
 			fp:   fpA,
 			req:  releaseRequest{version: "2.0.2", typ: typeFreshInstall},
-			want: newRecord("2.0.2", "2.0.2", "2.0.2", typeFreshInstall, []string{}, fpA),
+			want: newRecord("2.0.2", "2.0.1", "2.0.1", typeFreshInstall, []string{}, fpA),
 		},
 		{
 			name: "upgradable from the latest release, serving its extensions only",
@@ -146,10 +153,16 @@ func TestNewRelease(t *testing.T) {
 			want: newRecord("2.1.0", "2.1.0", "2.0.0", typeUpgradable, []string{"2.0.0", "2.0.1"}, fpB),
 		},
 		{
-			name: "upgradable from an older release only",
+			name: "patch release upgradable from an older release only",
 			fp:   fpA,
 			req:  releaseRequest{version: "2.0.2", typ: typeUpgradable, minVersion: "2.0.0", upgradableFrom: []string{"2.0.0"}},
-			want: newRecord("2.0.2", "2.0.2", "2.0.0", typeUpgradable, []string{"2.0.0"}, fpA),
+			want: newRecord("2.0.2", "2.0.1", "2.0.0", typeUpgradable, []string{"2.0.0"}, fpA),
+		},
+		{
+			name: "minimum below the latest minimum",
+			fp:   fpB,
+			req:  releaseRequest{version: "2.1.0", typ: typeUpgradable, minVersion: "2.0.0-rc.1", upgradableFrom: []string{"2.0.1"}},
+			want: newRecord("2.1.0", "2.1.0", "2.0.0-rc.1", typeUpgradable, []string{"2.0.1"}, fpB),
 		},
 		{
 			name: "pre-release",
@@ -176,8 +189,11 @@ func TestNewReleaseErrors(t *testing.T) {
 		return releaseRequest{version: "2.1.0", typ: typeUpgradable, minVersion: minVersion, upgradableFrom: from}
 	}
 	tests := []struct {
-		name     string
-		req      releaseRequest
+		name string
+		req  releaseRequest
+		// fp is every digest of the contract; fpA, those of the latest
+		// release, by default.
+		fp       string
 		wantErrs []string
 	}{
 		{
@@ -224,6 +240,15 @@ func TestNewReleaseErrors(t *testing.T) {
 			name:     "older than the latest release",
 			req:      releaseRequest{version: "2.0.1-rc.1", typ: typeFreshInstall},
 			wantErrs: []string{"release 2.0.1-rc.1 is not newer than 2.0.1, the latest release recorded here"},
+		},
+		{
+			name: "patch release that changes the contract",
+			req:  releaseRequest{version: "2.0.2", typ: typeFreshInstall},
+			fp:   fpB,
+			wantErrs: []string{
+				"release 2.0.2 is a patch release of 2.0.1, so it must keep its contract, " +
+					"but the contract changed since release 2.0.1: crds, http-api, go-api, vectors, changes differ",
+			},
 		},
 		{
 			name:     "no type",
@@ -301,7 +326,10 @@ func TestNewReleaseErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := newRelease(testReleases(t), digests(fpA), tt.req)
+			if tt.fp == "" {
+				tt.fp = fpA
+			}
+			_, err := newRelease(testReleases(t), digests(tt.fp), tt.req)
 			require.Error(t, err)
 			for _, want := range tt.wantErrs {
 				assert.ErrorContains(t, err, want)
@@ -377,6 +405,82 @@ func TestMarshalRelease(t *testing.T) {
 		want += "    " + name + ": " + fpA + "\n"
 	}
 	assert.Equal(t, want, string(marshalRelease(testReleases(t)[1])))
+}
+
+// TestReleaseFromTags checks that -tag-repo reads the records of the
+// releases an upgradable release is upgraded from out of their tags, as
+// the release workflow does: a release cut on another branch has no record
+// here until a pull request brings it.
+func TestReleaseFromTags(t *testing.T) {
+	t.Parallel()
+
+	files := testRepo()
+	files[recordPath("2.0.0")] = record("2.0.0", "2.0.0", "2.0.0", "fresh-install", "[]", testFingerprints(t, files))
+	root := gitRepo(t, files, "v2.0.0")
+	// 2.0.1 was cut from another branch: its tag carries its record, this
+	// branch does not.
+	writeFile(t, root, recordPath("2.0.1"), record("2.0.1", "2.0.0", "2.0.0", "upgradable", "[2.0.0]", testFingerprints(t, files)))
+	commit(t, root, "release 2.0.1", "v2.0.1")
+	runGit(t, root, "rm", "-q", recordPath("2.0.1"))
+	commit(t, root, "this branch")
+
+	args := []string{"-root", root, "release", "-version", "2.1.0", "-type", "upgradable", "-min", "2.0.0", "-upgradable-from", "2.0.0,2.0.1"}
+	_, err := execute(args, io.Discard, io.Discard)
+	require.ErrorContains(t, err, "release 2.0.1 has no record in contract/releases; read the records of releases cut on another branch from their tags with -tag-repo")
+
+	msg, err := execute(append(args, "-tag-repo", root), io.Discard, io.Discard)
+	require.NoError(t, err)
+	assert.Contains(t, msg, "upgradable from 2.0.0, 2.0.1")
+
+	// The minimum must serve the extensions of 2.0.1, whose contract
+	// version its tag says.
+	files = testRepo()
+	files[recordPath("2.0.0")] = record("2.0.0", "2.0.0", "2.0.0", "fresh-install", "[]", testFingerprints(t, files))
+	root = gitRepo(t, files, "v2.0.0")
+	args = []string{
+		"-root", root, "release", "-version", "2.1.0", "-type", "upgradable", "-min", "2.0.0",
+		"-upgradable-from", "2.0.0,2.0.1", "-tag-repo", root,
+	}
+	_, err = execute(args, io.Discard, io.Discard)
+	require.ErrorContains(t, err, "-upgradable-from: tag v2.0.1 is not here; fetch it")
+
+	runGit(t, root, "tag", "v2.0.1")
+	args = []string{
+		"-root", root, "release", "-version", "2.1.0", "-type", "upgradable", "-min", "2.0.0",
+		"-upgradable-from", "2.0.1", "-tag-repo", root,
+	}
+	_, err = execute(args, io.Discard, io.Discard)
+	require.ErrorContains(t, err, "-upgradable-from: v2.0.1 carries no record of release 2.0.1")
+
+	// The seed, which no tag carries, comes from the records here.
+	args = []string{
+		"-root", root, "release", "-version", "2.1.0", "-type", "upgradable", "-min", seedVersion,
+		"-upgradable-from", seedVersion, "-tag-repo", root,
+	}
+	_, err = execute(args, io.Discard, io.Discard)
+	require.NoError(t, err)
+}
+
+// TestCheckReleaseOfTheLatestRelease checks -check-release -version for the
+// release recorded last, which a re-run of the release workflow tags: the
+// tree must be the one it was recorded from, whatever release it is.
+func TestCheckReleaseOfTheLatestRelease(t *testing.T) {
+	t.Parallel()
+
+	files := testRepo()
+	files[recordPath("2.1.0-rc.1")] = record("2.1.0-rc.1", "2.1.0-rc.1", "2.1.0-rc.1", "fresh-install", "[]", testFingerprints(t, files))
+	root := writeRepo(t, files)
+	msg, err := execute([]string{"-root", root, "-check-release", "-version", "2.1.0-rc.1"}, io.Discard, io.Discard)
+	require.NoError(t, err)
+	assert.Contains(t, msg, "the contract is the one release 2.1.0-rc.1 was cut with")
+
+	writeFile(t, root, changesFile, testChanges+"- #9: a change.\n")
+	_, err = execute([]string{"-root", root, "-check-release", "-version", "2.1.0-rc.1"}, io.Discard, io.Discard)
+	require.ErrorContains(t, err, "changes differs from its record (fingerprint scheme "+scheme+"), so this tree is not the one release 2.1.0-rc.1 was recorded from")
+
+	msg, err = execute([]string{"-root", root, "-check-release", "-version", "2.1.0-rc.2"}, io.Discard, io.Discard)
+	require.NoError(t, err, "a later pre-release may change the contract")
+	assert.Contains(t, msg, "is not a patch release of 2.1.0-rc.1")
 }
 
 func TestWriteNew(t *testing.T) {

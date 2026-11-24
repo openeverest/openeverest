@@ -49,7 +49,7 @@
 //	               workflow runs it, then the command itself, before it
 //	               tags the release:
 //
-//	gen-contract release -version 2.1.0 -type upgradable -min 2.0.0 -upgradable-from 2.0.0,2.0.1
+//	gen-contract release -version 2.1.0 -type upgradable -min 2.0.0 -upgradable-from 2.0.0,2.0.1 -tag-repo .
 //
 // Commands that read a tag use git, and none fetches: make gen never needs
 // the network. It imports nothing from this module, so it runs whatever

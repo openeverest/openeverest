@@ -33,6 +33,9 @@ type releaseRequest struct {
 	// minVersion and upgradableFrom are for an upgradable release only.
 	minVersion     string
 	upgradableFrom []string
+	// fromRecords are the records of the releases in upgradableFrom, read
+	// from their tags; when nil, they are read from the records here.
+	fromRecords map[string]release
 }
 
 // runRelease records a core release in the release records of the
@@ -43,6 +46,7 @@ func runRelease(root string, args []string) (string, error) {
 	typ := fs.String("type", "", typeFreshInstall+" or "+typeUpgradable)
 	minVersion := fs.String("min", "", "for an "+typeUpgradable+" release: the oldest contract version it serves")
 	from := fs.String("upgradable-from", "", "for an "+typeUpgradable+" release: the core releases it can be upgraded from in place, comma-separated")
+	tagRepo := fs.String("tag-repo", "", "a git repository holding the tags of the releases in -upgradable-from, to read their records from those tags")
 	if err := fs.Parse(args); err != nil {
 		return "", err
 	}
@@ -64,6 +68,11 @@ func runRelease(root string, args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if *tagRepo != "" {
+		if req.fromRecords, err = tagRecords(*tagRepo, req.upgradableFrom, releases); err != nil {
+			return "", err
+		}
+	}
 	r, err := newRelease(releases, fps, req)
 	if err != nil {
 		return "", err
@@ -79,6 +88,50 @@ func runRelease(root string, args []string) (string, error) {
 		msg += ", upgradable from " + strings.Join(r.UpgradableFrom, ", ")
 	}
 	return msg + "; run make gen-contract to publish it", nil
+}
+
+// tagRecords returns the records of the releases versions, read from their
+// tags in the git repository repo, which must hold them. A release cut on
+// another branch since this one forked has no record here until a pull
+// request brings it, but its tag carries it. The seed, which no tag
+// carries, is read from records, the records here.
+func tagRecords(repo string, versions []string, records []release) (map[string]release, error) {
+	out := make(map[string]release, len(versions))
+	var errs []error
+	for _, v := range versions {
+		if releaseVersion(v) != nil {
+			continue
+		}
+		if v == seedVersion {
+			if i := slices.IndexFunc(records, release.isSeed); i >= 0 {
+				out[v] = records[i]
+			}
+			continue
+		}
+		tag := "v" + v
+		if !hasRef(repo, tag) {
+			errs = append(errs, fmt.Errorf("-upgradable-from: %w", requireTag(repo, tag)))
+			continue
+		}
+		data, ok, err := showFile(repo, tag, recordPath(v))
+		switch {
+		case err != nil:
+			return nil, err
+		case !ok:
+			errs = append(errs, fmt.Errorf("-upgradable-from: %s carries no record of release %s", tag, v))
+			continue
+		}
+		r, err := decodeRecord(data)
+		switch {
+		case err != nil:
+			errs = append(errs, fmt.Errorf("-upgradable-from: the record %s carries: %w", tag, err))
+		case r.Version != v:
+			errs = append(errs, fmt.Errorf("-upgradable-from: the record %s carries is of release %s", tag, r.Version))
+		default:
+			out[v] = r
+		}
+	}
+	return out, errors.Join(errs...)
 }
 
 // newRelease returns the record of the release req describes, cut from a
@@ -102,21 +155,15 @@ func newRelease(releases []release, fps map[string]string, req releaseRequest) (
 		return release{}, fmt.Errorf("release %s is not newer than %s, the latest release recorded here", req.version, latest.Version)
 	}
 
+	contractVersion, err := releaseContractVersion(latest, fps, req.version)
+	if err != nil {
+		return release{}, err
+	}
 	r := release{
-		APIVersion: recordAPIVersion,
-		Kind:       recordKind,
-		Version:    req.version,
-		// The contract version of a release is the release itself, even
-		// when the contract is the one the latest release was cut with.
-		// Keeping the latest release's contract version would tell
-		// extensions built against this release that they also run on
-		// that one, and an equal fingerprint only shows that no artifact
-		// changed and nobody recorded a change in CHANGES. That becomes
-		// evidence once a job runs the extensions built against each
-		// candidate on the release before it and records every break it
-		// finds in CHANGES: then an equal fingerprint means no break, and
-		// this is where the record keeps latest.ContractVersion.
-		ContractVersion: req.version,
+		APIVersion:      recordAPIVersion,
+		Kind:            recordKind,
+		Version:         req.version,
+		ContractVersion: contractVersion,
 		Type:            req.typ,
 		UpgradableFrom:  []string{},
 		Fingerprints:    map[string]map[string]string{scheme: fps},
@@ -129,7 +176,9 @@ func newRelease(releases []release, fps map[string]string, req releaseRequest) (
 				typeUpgradable, typeFreshInstall,
 			)
 		}
-		r.MinContractVersion = req.version
+		// It serves only the extensions built for it, which are stamped
+		// with its contract version.
+		r.MinContractVersion = r.ContractVersion
 	case typeUpgradable:
 		if err := checkUpgradable(recorded, latest, req); err != nil {
 			return release{}, err
@@ -150,6 +199,38 @@ func newRelease(releases []release, fps map[string]string, req releaseRequest) (
 	return r, nil
 }
 
+// releaseContractVersion returns the contract version of the release v,
+// cut from a core whose contract has the fingerprints fps, after latest.
+//
+// A patch release of a final release keeps the contract version of its
+// line, so extensions built against it run on every release of the line;
+// it must keep the contract for that, which the release branch checks on
+// every pull request and which is checked again here. Any other release, a
+// pre-release or a new minor or major release, is the contract version of
+// its own contract, even when the fingerprints are those of latest: equal
+// fingerprints only show that no artifact changed and that nobody
+// recorded a change in CHANGES, not that extensions built against the new
+// release run on the one before. That becomes evidence once a job runs the
+// extensions built against each candidate on the release before it and
+// records every break it finds in CHANGES; then a release whose contract
+// is unchanged could keep the contract version of the one before too.
+func releaseContractVersion(latest release, fps map[string]string, v string) (string, error) {
+	if !isPatchOf(latest.Version, v) {
+		return v, nil
+	}
+	c, err := compareWith(latest, fps)
+	if err != nil {
+		return "", err
+	}
+	if !c.equal() {
+		return "", fmt.Errorf("release %s is a patch release of %s, so it must keep its contract, but %s. "+
+			"Revert the change, or ship it in a minor release; make contract-diff shows it",
+			v, latest.Version, c.summary(),
+		)
+	}
+	return latest.ContractVersion, nil
+}
+
 // checkUpgradable checks the window of an upgradable release against the
 // releases recorded before it, the latest of which is latest.
 func checkUpgradable(recorded map[string]release, latest release, req releaseRequest) error {
@@ -162,12 +243,19 @@ func checkUpgradable(recorded map[string]release, latest release, req releaseReq
 	if len(req.upgradableFrom) == 0 {
 		errs = append(errs, fmt.Errorf("-upgradable-from is required for an %s release: the releases it can be upgraded from in place", typeUpgradable))
 	}
+	contractOf := func(v string) (string, bool) {
+		r, ok := recorded[v]
+		if req.fromRecords != nil && v != latest.Version {
+			r, ok = req.fromRecords[v]
+		}
+		return r.ContractVersion, ok
+	}
 	for _, from := range req.upgradableFrom {
 		if err := releaseVersion(from); err != nil {
 			errs = append(errs, fmt.Errorf("-upgradable-from: %w", err))
-		} else if _, ok := recorded[from]; !ok {
+		} else if _, ok := contractOf(from); !ok {
 			errs = append(errs, fmt.Errorf("-upgradable-from: release %s has no record in %s; "+
-				"a release cut on another branch after this one forked needs its record merged here first",
+				"read the records of releases cut on another branch from their tags with -tag-repo",
 				from, releasesDir,
 			))
 		}
@@ -181,7 +269,7 @@ func checkUpgradable(recorded map[string]release, latest release, req releaseReq
 	// it is upgraded from, and those built for the latest release, which
 	// are the ones published when it ships.
 	for _, from := range slices.Concat([]string{latest.Version}, req.upgradableFrom) {
-		if c := recorded[from].ContractVersion; compare(req.minVersion, c) > 0 {
+		if c, _ := contractOf(from); compare(req.minVersion, c) > 0 {
 			return fmt.Errorf("-min %s is above %s, the contract version of release %s: "+
 				"extensions built for %s would stop working as soon as core is upgraded, before users can update them. "+
 				"An %s release serves the extensions of the releases before it; lower -min, or cut a %s release",
@@ -198,13 +286,14 @@ func checkUpgradable(recorded map[string]release, latest release, req releaseReq
 // the release decided it. Every value is a SemVer version or a digest,
 // which YAML reads as the string it is.
 func marshalRelease(r release) []byte {
+	const computed, decided = "computed", "decided"
 	from := "[" + strings.Join(r.UpgradableFrom, ", ") + "]"
 	fields := []struct{ key, value, origin string }{
-		{"version", r.Version, "computed"},
-		{"contractVersion", r.ContractVersion, "computed"},
-		{"minContractVersion", r.MinContractVersion, "decided"},
-		{"type", r.Type, "decided"},
-		{"upgradableFrom", from, "decided"},
+		{"version", r.Version, computed},
+		{"contractVersion", r.ContractVersion, computed},
+		{"minContractVersion", r.MinContractVersion, decided},
+		{"type", r.Type, decided},
+		{"upgradableFrom", from, decided},
 	}
 	// The comments line up as in the first record, or further right.
 	width := 29

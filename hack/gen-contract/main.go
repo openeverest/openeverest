@@ -66,7 +66,7 @@ const usage = `usage: gen-contract [-root dir]
        gen-contract [-root dir] check-records -changes file | -all
        gen-contract [-root dir] latest
        gen-contract [-root dir] show version|min-version|scheme|development|record-schemes [-version V] [-ref R]
-       gen-contract [-root dir] release -version X -type fresh-install|upgradable [-min M] [-upgradable-from R1,R2]
+       gen-contract [-root dir] release -version X -type fresh-install|upgradable [-min M] [-upgradable-from R1,R2 [-tag-repo dir]]
 
 `
 
