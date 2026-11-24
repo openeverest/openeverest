@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,8 +31,14 @@ import (
 type vectors struct {
 	Order       []string            `json:"order"`
 	Invalid     []string            `json:"invalid"`
+	Development []developmentVector `json:"development"`
 	Check       []checkVector       `json:"check"`
 	Acknowledge []acknowledgeVector `json:"acknowledge"`
+}
+
+type developmentVector struct {
+	Version     string `json:"version"`
+	Development bool   `json:"development"`
 }
 
 type checkVector struct {
@@ -58,6 +65,7 @@ func loadVectors(t *testing.T) vectors {
 	require.NoError(t, dec.Decode(&v))
 	require.NotEmpty(t, v.Order)
 	require.NotEmpty(t, v.Invalid)
+	require.NotEmpty(t, v.Development)
 	require.NotEmpty(t, v.Check)
 	require.NotEmpty(t, v.Acknowledge)
 	return v
@@ -97,6 +105,51 @@ func TestInvalidVectorsAreRejected(t *testing.T) {
 		assert.Equal(t, contract.Result{Status: metav1.ConditionUnknown, Reason: contract.ReasonInvalidVersion},
 			contract.Check(valid, valid, v), "current %q", v,
 		)
+	}
+}
+
+func TestDevelopmentVectors(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range loadVectors(t).Development {
+		assert.Equal(t, tc.Development, contract.IsDevelopment(tc.Version), "IsDevelopment(%q)", tc.Version)
+	}
+}
+
+func TestDevelopmentVectorsCoverEveryCase(t *testing.T) {
+	t.Parallel()
+
+	pre := func(v developmentVector) string {
+		v.Version, _, _ = strings.Cut(v.Version, "+")
+		_, p, _ := strings.Cut(v.Version, "-")
+		return p
+	}
+	cases := []struct {
+		name  string
+		match func(v developmentVector) bool
+	}{
+		{
+			name:  "the value after a pre-release",
+			match: func(v developmentVector) bool { return v.Development && strings.HasSuffix(pre(v), ".next") },
+		},
+		{
+			name:  "the value after a release",
+			match: func(v developmentVector) bool { return v.Development && pre(v) == "alpha.0" },
+		},
+		{
+			name: "a core dev build, which users can install",
+			match: func(v developmentVector) bool {
+				return !v.Development && contract.Valid(v.Version) && strings.HasPrefix(pre(v), "dev.")
+			},
+		},
+		{
+			name:  "an invalid version",
+			match: func(v developmentVector) bool { return !v.Development && !contract.Valid(v.Version) },
+		},
+	}
+	devs := loadVectors(t).Development
+	for _, c := range cases {
+		assert.True(t, slices.ContainsFunc(devs, c.match), "no development vector for %s", c.name)
 	}
 }
 

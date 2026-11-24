@@ -36,11 +36,26 @@
 // statement of what it serves.
 //
 // Between releases Version holds a development value that sorts after the
-// last release and before any release that can follow it, so nobody has to
-// guess the name of the next release: R.dev after a pre-release R (for
-// example 2.0.0-alpha.1.dev) and X.Y.(Z+1)-dev after a release X.Y.Z (for
-// example 2.0.1-dev). An extension stamped with a development value was
-// built against an unreleased core and is not meant to be published.
+// last release R and before any release main can build next, so nobody has
+// to guess the name of the next release:
+//
+//   - R.next after a pre-release R, for example 2.0.0-alpha.1.next. SemVer
+//     sorts nothing between two pre-releases but R with more identifiers,
+//     which is also how Go pseudo-versions and Kubernetes CI builds name
+//     what follows a pre-release. The word is next rather than dev because
+//     dev means before a release in Python's and Maven's versions, and core
+//     dev builds such as 2.0.0-dev.4 are versions users can install, which
+//     sort above every 2.0.0 alpha;
+//   - X.(Y+1).0-alpha.0 after a release X.Y.Z, for example 2.1.0-alpha.0.
+//     Patch releases come from release branches, so main builds the next
+//     minor release, and Kubernetes marks its main branch the same way when
+//     it cuts a release branch. It sorts above every X.Y patch release and
+//     below X.(Y+1).0-alpha.1, whereas a word such as 2.1.0-next would sort
+//     above that alpha.
+//
+// IsDevelopment recognises both. An extension stamped with a development
+// value was built against an unreleased core and is not meant to be
+// published, and Message never shows one to users.
 //
 // A user can run an extension outside the window anyway by acknowledging the
 // incompatibility on a core release. The acknowledgement holds until a core
@@ -49,7 +64,7 @@
 // publish.
 //
 // OrderVectors holds the cases that pin the ordering, the accepted syntax,
-// the results of Check and when an acknowledgement holds, so that every
-// other implementation, such as Helm templates or the UI, runs the same
-// cases.
+// which versions are development values, the results of Check and when an
+// acknowledgement holds, so that every other implementation, such as Helm
+// templates or the UI, runs the same cases.
 package contract

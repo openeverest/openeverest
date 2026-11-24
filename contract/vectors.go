@@ -18,10 +18,12 @@ import _ "embed"
 
 // OrderVectors is the JSON document of the cases every implementation of the
 // check must pass, so that a Helm template, the UI or a CEL rule decides
-// exactly as Check and AcknowledgementHolds do:
+// exactly as Check, IsDevelopment and AcknowledgementHolds do:
 //
 //   - "order" lists valid versions in strictly ascending precedence;
 //   - "invalid" lists values Valid rejects;
+//   - "development" lists objects with the fields "version", the argument
+//     of IsDevelopment, and "development", its result;
 //   - "check" lists objects with the fields "ext", "min" and "cur", the
 //     arguments of Check, and "status" and "reason", its Result;
 //   - "acknowledge" lists objects with the fields "ack", "contractVersion"

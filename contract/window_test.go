@@ -36,10 +36,10 @@ func TestWindowFromAnnotations(t *testing.T) {
 			name: "both",
 			annotations: map[string]string{
 				contract.MinVersionAnnotation: "2.0.0-alpha.1",
-				contract.VersionAnnotation:    "2.0.0-alpha.1.dev",
+				contract.VersionAnnotation:    "2.0.0-alpha.1.next",
 				"other":                       "ignored",
 			},
-			want:   contract.Window{Min: "2.0.0-alpha.1", Current: "2.0.0-alpha.1.dev"},
+			want:   contract.Window{Min: "2.0.0-alpha.1", Current: "2.0.0-alpha.1.next"},
 			wantOK: true,
 		},
 		{
@@ -103,9 +103,9 @@ func TestIntersect(t *testing.T) {
 			ws: []contract.Window{
 				{Min: "2.0.0", Current: "2.2.0"},
 				{Min: "2.1.0", Current: "2.3.0"},
-				{Min: "2.0.0-alpha.1", Current: "2.2.0-alpha.1.dev"},
+				{Min: "2.0.0-alpha.1", Current: "2.2.0-alpha.1.next"},
 			},
-			want: contract.Window{Min: "2.1.0", Current: "2.2.0-alpha.1.dev"},
+			want: contract.Window{Min: "2.1.0", Current: "2.2.0-alpha.1.next"},
 		},
 		{
 			name: "precedence, not bytes",

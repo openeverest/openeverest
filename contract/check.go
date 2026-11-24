@@ -16,7 +16,6 @@ package contract
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/blang/semver/v4"
@@ -113,18 +112,25 @@ func Compare(a, b string) int {
 	}
 }
 
-// IsDevelopment reports whether v is a development value, a version with a
-// "dev" pre-release identifier such as 2.0.0-alpha.1.dev or 2.0.1-dev. No
-// release carries one, so a stamp with such a value names a core nobody can
-// install.
+// IsDevelopment reports whether v is a development value, the version core
+// has between releases: a Valid version whose last pre-release identifier
+// is next, such as 2.0.0-alpha.1.next, or whose pre-release is exactly
+// alpha.0, such as 2.1.0-alpha.0. No release carries one, so a stamp with
+// such a value names a core nobody can install. A pre-release of next
+// alone, as in 2.0.0-next, is one too, so no release can be named that
+// way either. Core dev builds such as 2.0.0-dev.4 are not development
+// values: users can install them.
 func IsDevelopment(v string) bool {
 	parsed, err := semver.Parse(v)
-	if err != nil {
+	if err != nil || len(parsed.Pre) == 0 {
 		return false
 	}
-	return slices.ContainsFunc(parsed.Pre, func(id semver.PRVersion) bool {
-		return !id.IsNum && id.VersionStr == "dev"
-	})
+	if last := parsed.Pre[len(parsed.Pre)-1]; !last.IsNum && last.VersionStr == "next" {
+		return true
+	}
+	return len(parsed.Pre) == 2 &&
+		!parsed.Pre[0].IsNum && parsed.Pre[0].VersionStr == "alpha" &&
+		parsed.Pre[1].IsNum && parsed.Pre[1].VersionNum == 0
 }
 
 // Acknowledge returns r after a user chose to run the extension anyway. The

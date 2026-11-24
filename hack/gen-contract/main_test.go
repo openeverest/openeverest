@@ -55,11 +55,11 @@ func TestRender(t *testing.T) {
 		minVersion string
 		wantErr    string
 	}{
-		{name: "window", version: "2.1.0-alpha.1.dev\n", minVersion: "2.0.0\n"},
+		{name: "window", version: "2.1.0-alpha.1.next\n", minVersion: "2.0.0\n"},
 		{name: "single version", version: "2.0.0\n", minVersion: "2.0.0\n"},
 		{name: "no trailing newline", version: "2.0.0", minVersion: "2.0.0"},
 		{name: "minimum above version", version: "2.0.0\n", minVersion: "2.1.0\n", wantErr: "MIN_VERSION 2.1.0 is above VERSION 2.0.0"},
-		{name: "development minimum above its release", version: "2.0.0\n", minVersion: "2.0.1-dev\n", wantErr: "is above"},
+		{name: "development minimum above its release", version: "2.0.0\n", minVersion: "2.1.0-alpha.0\n", wantErr: "is above"},
 		{name: "v prefix", version: "v2.0.0\n", minVersion: "2.0.0\n", wantErr: `VERSION: "v2.0.0" is not a SemVer 2.0.0 version`},
 		{name: "short form", version: "2.0.0\n", minVersion: "2.0\n", wantErr: `MIN_VERSION: "2.0" is not a SemVer 2.0.0 version`},
 		{name: "empty", version: "", minVersion: "2.0.0\n", wantErr: `VERSION: "" is not a SemVer 2.0.0 version`},
@@ -87,10 +87,10 @@ func TestRender(t *testing.T) {
 func TestRenderValues(t *testing.T) {
 	t.Parallel()
 
-	dir, header := contractDir(t, "2.1.0-alpha.1.dev\n", "2.0.0\n")
+	dir, header := contractDir(t, "2.1.0-alpha.1.next\n", "2.0.0\n")
 	src, err := render(dir, header)
 	require.NoError(t, err)
-	assert.Contains(t, string(src), "\tVersion = \"2.1.0-alpha.1.dev\"\n")
+	assert.Contains(t, string(src), "\tVersion = \"2.1.0-alpha.1.next\"\n")
 	assert.Contains(t, string(src), "\tMinVersion = \"2.0.0\"\n")
 }
 
@@ -108,7 +108,7 @@ func TestRenderMissingFiles(t *testing.T) {
 func TestRunIsIdempotent(t *testing.T) {
 	t.Parallel()
 
-	dir, header := contractDir(t, "2.0.0-alpha.1.dev\n", "2.0.0-alpha.1\n")
+	dir, header := contractDir(t, "2.0.0-alpha.1.next\n", "2.0.0-alpha.1\n")
 	require.NoError(t, run(dir, header))
 	first := readGenerated(t, dir)
 	require.NoError(t, run(dir, header))

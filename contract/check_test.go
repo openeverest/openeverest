@@ -32,8 +32,9 @@ func assertUserFacing(t *testing.T, msg string) {
 
 	assert.NotEmpty(t, msg)
 	assert.NotContains(t, strings.ToLower(msg), "contract")
-	assert.NotContains(t, msg, ".dev")
-	assert.NotContains(t, msg, "-dev")
+	for word := range strings.FieldsSeq(msg) {
+		assert.False(t, contract.IsDevelopment(strings.Trim(word, `"';,`)), "%q shows the development value %s", msg, word)
+	}
 }
 
 func TestGeneratedWindow(t *testing.T) {
@@ -53,8 +54,8 @@ func TestValid(t *testing.T) {
 		want bool
 	}{
 		{v: "2.0.0", want: true},
-		{v: "2.0.0-alpha.1.dev", want: true},
-		{v: "2.0.1-dev", want: true},
+		{v: "2.0.0-alpha.1.next", want: true},
+		{v: "2.1.0-alpha.0", want: true},
 		{v: "2.0.0-alpha-1", want: true},
 		{v: "2.0.0+build.01", want: true},
 		{v: "2.0.0-rc.1+build.5", want: true},
@@ -92,32 +93,6 @@ func TestCompare(t *testing.T) {
 			t.Parallel()
 
 			assert.Equal(t, tt.want, contract.Compare(tt.a, tt.b))
-		})
-	}
-}
-
-func TestIsDevelopment(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		v    string
-		want bool
-	}{
-		{v: "2.0.0-alpha.1.dev", want: true},
-		{v: "2.0.1-dev", want: true},
-		{v: "2.0.0-dev.4", want: true},
-		{v: "2.0.0-alpha.1", want: false},
-		{v: "2.0.0", want: false},
-		{v: "2.0.0-devel", want: false},
-		{v: "2.0.0+dev", want: false},
-		{v: "v2.0.1-dev", want: false},
-		{v: "", want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.v, func(t *testing.T) {
-			t.Parallel()
-
-			assert.Equal(t, tt.want, contract.IsDevelopment(tt.v))
 		})
 	}
 }
@@ -162,7 +137,7 @@ func TestMessage(t *testing.T) {
 	t.Parallel()
 
 	released := contract.Window{Min: "2.0.0", Current: "2.1.0"}
-	unreleased := contract.Window{Min: "2.1.0-alpha.1.dev", Current: "2.1.0-alpha.1.dev"}
+	unreleased := contract.Window{Min: "2.1.0-alpha.1.next", Current: "2.1.0-alpha.1.next"}
 	tests := []struct {
 		name string
 		ext  string
@@ -182,8 +157,13 @@ func TestMessage(t *testing.T) {
 		},
 		{
 			name: "core too old for a stamp of an unreleased core",
-			ext:  "2.1.1-dev", w: released,
+			ext:  "2.2.0-alpha.0", w: released,
 			want: "needs a newer, unreleased OpenEverest build; install a version of it built for a released OpenEverest",
+		},
+		{
+			name: "core too old for a stamp of a dev build",
+			ext:  "2.0.0-dev.4", w: contract.Window{Min: "2.0.0-alpha.1", Current: "2.0.0-alpha.2"},
+			want: "needs OpenEverest 2.0.0-dev.4 or later",
 		},
 		{
 			name: "core too old, acknowledged",

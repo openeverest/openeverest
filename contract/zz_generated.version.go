@@ -22,7 +22,7 @@ const (
 	// Version is the contract version of this core: the core release that
 	// last changed the contract, or the development value that follows the
 	// last release when the contract has changed since.
-	Version = "2.0.0-alpha.1.dev"
+	Version = "2.0.0-alpha.1.next"
 
 	// MinVersion is the oldest contract version this core serves.
 	// Extensions stamped with an older one are ExtensionTooOld.
