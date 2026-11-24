@@ -16,6 +16,7 @@
 package backupstorage
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -123,4 +124,13 @@ func TestBackupStorageGet_NoActiveContext(t *testing.T) {
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no active context")
+}
+
+func TestBackupStorageGet_YAMLOutput(t *testing.T) {
+	t.Parallel()
+
+	bs := backupStorageFromJSON(t, `{"metadata":{"name":"s3-primary"}}`)
+	var buf bytes.Buffer
+	require.NoError(t, NewGetRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, bs))
+	assert.Contains(t, buf.String(), "metadata:\n  name: s3-primary\n")
 }

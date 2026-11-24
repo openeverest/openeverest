@@ -16,6 +16,7 @@
 package restore
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -125,4 +126,13 @@ func TestRestoreGet_NoActiveContext(t *testing.T) {
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no active context")
+}
+
+func TestRestoreGet_YAMLOutput(t *testing.T) {
+	t.Parallel()
+
+	r := restoreFromJSON(t, `{"metadata":{"name":"restore-1"}}`)
+	var buf bytes.Buffer
+	require.NoError(t, NewGetRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, r))
+	assert.Contains(t, buf.String(), "metadata:\n  name: restore-1\n")
 }

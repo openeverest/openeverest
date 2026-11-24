@@ -18,6 +18,7 @@ package restore
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 
@@ -62,7 +63,11 @@ func (gr *GetRunner) Run(ctx context.Context, opts GetOptions, cfgPath string) e
 	if err != nil {
 		return err
 	}
-	return cli.Encode(os.Stdout, restore, gr.config.YAML)
+	return gr.render(os.Stdout, restore)
+}
+
+func (gr *GetRunner) render(w io.Writer, restore *client.Restore) error {
+	return cli.Encode(w, restore, gr.config.YAML)
 }
 
 func (gr *GetRunner) fetch(ctx context.Context, c *client.ClientWithResponses, opts GetOptions) (*client.Restore, error) {

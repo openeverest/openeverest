@@ -16,6 +16,7 @@
 package backupclass
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -26,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
@@ -119,4 +121,14 @@ func TestBackupClassGet_NoActiveContext(t *testing.T) {
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no active context")
+}
+
+func TestBackupClassGet_YAMLOutput(t *testing.T) {
+	t.Parallel()
+
+	var bc client.BackupClass
+	require.NoError(t, json.Unmarshal([]byte(`{"metadata":{"name":"pg-backup"}}`), &bc))
+	var buf bytes.Buffer
+	require.NoError(t, NewGetRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, &bc))
+	assert.Contains(t, buf.String(), "metadata:\n  name: pg-backup\n")
 }

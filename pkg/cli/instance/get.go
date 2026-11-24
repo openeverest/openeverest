@@ -18,6 +18,7 @@ package instance
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 
@@ -62,7 +63,11 @@ func (gr *GetRunner) Run(ctx context.Context, opts GetOptions, cfgPath string) e
 	if err != nil {
 		return err
 	}
-	return cli.Encode(os.Stdout, inst, gr.config.YAML)
+	return gr.render(os.Stdout, inst)
+}
+
+func (gr *GetRunner) render(w io.Writer, inst *client.Instance) error {
+	return cli.Encode(w, inst, gr.config.YAML)
 }
 
 func (gr *GetRunner) fetch(ctx context.Context, c *client.ClientWithResponses, opts GetOptions) (*client.Instance, error) {

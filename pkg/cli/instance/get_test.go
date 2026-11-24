@@ -16,6 +16,7 @@
 package instance
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -128,25 +129,8 @@ func TestInstanceGet_NoActiveContext(t *testing.T) {
 func TestInstanceGet_YAMLOutput(t *testing.T) {
 	t.Parallel()
 
-	item := newTestInstance("my-mongo", "everest", "percona-server-mongodb", "Ready", "8.0.12")
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(item)
-	}))
-	defer srv.Close()
-
-	cfg := newTestConfig(srv.URL)
-	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
-	require.NoError(t, cfg.Save(cfgPath))
-
-	runner := NewGetRunner(Config{Pretty: false, YAML: true}, zap.NewNop().Sugar())
-	err := runner.Run(t.Context(), GetOptions{
-		Name:      "my-mongo",
-		Namespace: "everest",
-		Cluster:   "main",
-	}, cfgPath,
-	)
-	require.NoError(t, err)
+	inst := instanceFromJSON(`{"metadata":{"name":"my-mongo"}}`)
+	var buf bytes.Buffer
+	require.NoError(t, NewGetRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, inst))
+	assert.Contains(t, buf.String(), "metadata:\n  name: my-mongo\n")
 }

@@ -16,6 +16,7 @@
 package backup
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -125,4 +126,13 @@ func TestBackupGet_NoActiveContext(t *testing.T) {
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no active context")
+}
+
+func TestBackupGet_YAMLOutput(t *testing.T) {
+	t.Parallel()
+
+	b := backupFromJSON(t, `{"metadata":{"name":"pre-upgrade"}}`)
+	var buf bytes.Buffer
+	require.NoError(t, NewGetRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, b))
+	assert.Contains(t, buf.String(), "metadata:\n  name: pre-upgrade\n")
 }
