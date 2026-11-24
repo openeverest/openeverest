@@ -306,7 +306,7 @@ func TestCheckRelease(t *testing.T) {
 	require.ErrorContains(t, err, fpB)
 
 	seed := []release{{Version: "2.0.0-alpha.1", ContractVersion: "2.0.0-alpha.1", MinContractVersion: "2.0.0-alpha.1", Type: typeFreshInstall}}
-	require.ErrorContains(t, checkRelease(seed, fpA), "the record of release 2.0.0-alpha.1 has no fingerprint")
+	require.NoError(t, checkRelease(seed, fpA), "a release that predates fingerprinting has nothing to compare with")
 }
 
 // TestSeedRelease checks the record of the first release, which predates

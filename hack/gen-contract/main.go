@@ -138,6 +138,9 @@ func runCheckRelease(root string) (string, error) {
 	if err := checkRelease(releases, fp); err != nil {
 		return "", err
 	}
+	if latest := releases[len(releases)-1]; latest.Fingerprint == "" {
+		return fmt.Sprintf("release %s predates fingerprinting, so there is no recorded contract to compare with", latest.Version), nil
+	}
 	return fmt.Sprintf("the contract is the one release %s was cut with (%s)", releases[len(releases)-1].Version, fp), nil
 }
 

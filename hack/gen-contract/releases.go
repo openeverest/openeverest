@@ -200,14 +200,14 @@ func decide(releases []release, fp string) window {
 
 // checkRelease returns an error unless the contract with the fingerprint fp
 // is the one the latest release was cut with. Release branches check it,
-// so a patch release cannot change the contract.
+// so a patch release cannot change the contract. A release that predates
+// fingerprinting has nothing to compare with, so it passes; the first
+// fingerprinted release closes that gap.
 func checkRelease(releases []release, fp string) error {
 	latest := releases[len(releases)-1]
 	switch latest.Fingerprint {
-	case fp:
+	case fp, "":
 		return nil
-	case "":
-		return fmt.Errorf("the record of release %s has no fingerprint, so this contract cannot be compared with it", latest.Version)
 	default:
 		return fmt.Errorf("the contract changed since release %s (fingerprint %s, recorded %s): "+
 			"a patch release must not change what core and extensions share; "+

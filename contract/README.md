@@ -62,7 +62,7 @@ So a pull request that changes the contract after a release moves `VERSION` to t
 
 The first record, `2.0.0-alpha.1`, predates fingerprinting, so its fingerprint is empty and never matches: until the next release records one, `Version` is `2.0.0-alpha.1.dev`.
 
-On a release branch, `make check-contract-release` (`go run ./hack/gen-contract -check-release`) fails when the fingerprint differs from the latest record's, since a patch release must not change the contract.
+On a release branch, `make check-contract-release` (`go run ./hack/gen-contract -check-release`) fails when the fingerprint differs from the latest record's, since a patch release must not change the contract. A record without a fingerprint (the seed) has nothing to compare with, so the check passes until the first fingerprinted release.
 
 When the JSON Schema of the `uiSchema` lands, it joins the fingerprint's inputs.
 
