@@ -32,32 +32,33 @@ const (
 	contractPath = "contract/keys.go"
 )
 
-func testFingerprint(t *testing.T, files map[string]string) string {
+func testFingerprints(t *testing.T, files map[string]string) map[string]string {
 	t.Helper()
 
-	fp, err := fingerprint(writeRepo(t, files), inputs)
+	fps, err := fingerprints(writeRepo(t, files))
 	require.NoError(t, err)
-	return fp
+	return fps
 }
 
-func TestFingerprintIsStable(t *testing.T) {
+func TestFingerprintsAreStable(t *testing.T) {
 	t.Parallel()
 
-	fp := testFingerprint(t, testRepo())
-	assert.Regexp(t, fingerprintPattern, fp)
-	assert.Equal(t, fp, testFingerprint(t, testRepo()))
+	fps := testFingerprints(t, testRepo())
+	assert.Len(t, fps, len(inputs))
+	for name, d := range fps {
+		assert.Regexp(t, digestPattern, d, name)
+	}
+	assert.Equal(t, fps, testFingerprints(t, testRepo()))
 }
 
-// TestFingerprintNormalisation checks that the fingerprint changes with the
-// contract, and only with it.
 func TestFingerprintNormalisation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name   string
 		mutate func(t *testing.T, files map[string]string)
-		// changes is whether the mutation changes the contract.
-		changes bool
+		// input is the input whose digest the mutation changes, if any.
+		input string
 	}{
 		// CRDs.
 		{name: "CRD description", mutate: func(t *testing.T, f map[string]string) {
@@ -94,43 +95,43 @@ func TestFingerprintNormalisation(t *testing.T) {
 			replace(t, f, crdPath, "  group: test.openeverest.io\n", "  scope: \"Namespaced\"\n  group: test.openeverest.io\n")
 			f[crdPath] = strings.ReplaceAll(f[crdPath], "\n", "\r\n")
 		}},
-		{name: "CRD property", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "CRD property", input: "crds", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, crdPath, "              size:\n", "              color:\n                type: string\n              size:\n")
 		}},
-		{name: "CRD property named description", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "CRD property named description", input: "crds", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, crdPath, "              description:\n                type: string\n                description: Description is free text.\n", "")
 		}},
-		{name: "CRD type", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "CRD type", input: "crds", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, crdPath, "                type: integer\n", "                type: number\n")
 		}},
-		{name: "CRD maximum", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "CRD maximum", input: "crds", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, crdPath, "maximum: 10", "maximum: 9")
 		}},
-		{name: "CRD default", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "CRD default", input: "crds", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, crdPath, "default: 1", "default: 2")
 		}},
-		{name: "CRD validation rule", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "CRD validation rule", input: "crds", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, crdPath, "rule: has(self.size)", "rule: self.size > 0")
 		}},
-		{name: "CRD served", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "CRD served", input: "crds", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, crdPath, "served: true", "served: false")
 		}},
-		{name: "CRD subresource", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "CRD subresource", input: "crds", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, crdPath, "      status: {}\n", "      scale:\n        specReplicasPath: .spec.size\n        statusReplicasPath: .status.size\n      status: {}\n")
 		}},
-		{name: "CRD scope", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "CRD scope", input: "crds", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, crdPath, "scope: Namespaced", "scope: Cluster")
 		}},
-		{name: "CRD added", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "CRD added", input: "crds", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			f["config/crd/bases/test.openeverest.io_gizmos.yaml"] = strings.NewReplacer("widget", "gizmo", "Widget", "Gizmo").Replace(f[crdPath])
 		}},
@@ -146,23 +147,23 @@ func TestFingerprintNormalisation(t *testing.T) {
 			replace(t, f, httpAPIPath, "value: {name: a}", "value: {name: b}")
 			replace(t, f, httpAPIPath, "description: A summary of the widget.", "description: What the widget is.")
 		}},
-		{name: "HTTP API operation", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "HTTP API operation", input: "http-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, httpAPIPath, "operationId: listWidgets", "operationId: getWidgets")
 		}},
-		{name: "HTTP API parameter", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "HTTP API parameter", input: "http-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, httpAPIPath, "required: false", "required: true")
 		}},
-		{name: "HTTP API path", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "HTTP API path", input: "http-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, httpAPIPath, "  /widgets:\n", "  /gadgets:\n")
 		}},
-		{name: "HTTP API property named summary", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "HTTP API property named summary", input: "http-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, httpAPIPath, "        summary:\n          type: string\n          description: A summary of the widget.\n", "")
 		}},
-		{name: "CRD schemas of the HTTP API", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "CRD schemas of the HTTP API", input: "http-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, crdsGenPath, "type: integer", "type: string")
 		}},
@@ -177,15 +178,15 @@ func TestFingerprintNormalisation(t *testing.T) {
 			replace(t, f, classPath, "message: parameters are required", "message: set the parameters")
 			replace(t, f, classPath, "  name: s3\n", "  name: s3\n  annotations:\n    openeverest.io/contract-version: 2.0.0\n")
 		}},
-		{name: "class parameter", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "class parameter", input: "storage-classes", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, classPath, "          type: string\n", "          type: string\n          maxLength: 63\n")
 		}},
-		{name: "class validation", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "class validation", input: "storage-classes", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, classPath, "expression: has(self.parameters)", "expression: has(self.parameters.region)")
 		}},
-		{name: "class credentials", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "class credentials", input: "storage-classes", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, classPath, "      - AWS_ACCESS_KEY_ID\n", "      - AWS_ACCESS_KEY_ID\n      - AWS_SESSION_TOKEN\n")
 		}},
@@ -224,35 +225,35 @@ func TestFingerprintNormalisation(t *testing.T) {
 			t.Helper()
 			f["contract/testdata/x.go"] = "package x\n\nfunc Exported() {}\n"
 		}},
-		{name: "Go signature", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "Go signature", input: "go-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, contractPath, "func Check(ext, minimum, current string) Result {", "func Check(ext, minimum, current string, strict bool) Result {\n\t_ = strict")
 		}},
-		{name: "Go constant value", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "Go constant value", input: "go-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, contractPath, `"openeverest.io/contract-version"`, `"openeverest.io/contract"`)
 		}},
-		{name: "Go iota order", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "Go iota order", input: "go-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, contractPath, "\tKindA Kind = iota\n\tKindB\n", "\tKindB Kind = iota\n\tKindA\n")
 		}},
-		{name: "Go exported field", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "Go exported field", input: "go-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, contractPath, "\tReason string\n", "\tReason string\n\tMessage string\n")
 		}},
-		{name: "Go struct tag", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "Go struct tag", input: "go-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, contractPath, `json:"status"`, `json:"state"`)
 		}},
-		{name: "Go exported function", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "Go exported function", input: "go-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, contractPath, "func helper() {}", "func Helper() {}")
 		}},
-		{name: "Go subpackage", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "Go subpackage", input: "go-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			f["contract/references/errors.go"] = "package references\n\nimport \"errors\"\n\nvar ErrNotFound = errors.New(\"not found\")\n"
 		}},
-		{name: "Go class package", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "Go class package", input: "go-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, "backupstorageclasses/s3/s3.go", `"s3"`, `"s3v2"`)
 		}},
@@ -262,28 +263,34 @@ func TestFingerprintNormalisation(t *testing.T) {
 			t.Helper()
 			f[changesFile] = "\n" + strings.ReplaceAll(f[changesFile], "\n", "  \r\n\n")
 		}},
-		{name: "CHANGES entry", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "CHANGES comments", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
-			f[changesFile] += "#1234: provider webhooks must declare sideEffects None or NoneOnDryRun.\n"
+			replace(t, f, changesFile, "# Changes no artifact shows.", "# Contract changes no artifact shows.\n#")
 		}},
-		{name: "CHANGES preamble", changes: true, mutate: func(t *testing.T, f map[string]string) {
+		{name: "CHANGES missing", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
-			replace(t, f, changesFile, "Changes", "Contract changes")
+			delete(f, changesFile)
+		}},
+		{name: "CHANGES entry", input: "changes", mutate: func(t *testing.T, f map[string]string) {
+			t.Helper()
+			f[changesFile] += "- #1234: provider webhooks must declare sideEffects None or NoneOnDryRun.\n"
 		}},
 	}
 
-	base := testFingerprint(t, testRepo())
+	base := testFingerprints(t, testRepo())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
 			files := cloneRepo(testRepo())
 			tt.mutate(t, files)
-			got := testFingerprint(t, files)
-			if tt.changes {
-				assert.NotEqual(t, base, got, "a change to the contract must change the fingerprint")
-			} else {
-				assert.Equal(t, base, got, "a change outside the contract must not change the fingerprint")
+			got := testFingerprints(t, files)
+			for _, name := range inputNames() {
+				if name == tt.input {
+					assert.NotEqual(t, base[name], got[name], "a change to %s must change its digest", name)
+				} else {
+					assert.Equal(t, base[name], got[name], "a change outside %s must not change its digest", name)
+				}
 			}
 		})
 	}
@@ -297,19 +304,7 @@ func TestFingerprintErrors(t *testing.T) {
 		mutate  func(files map[string]string)
 		wantErr string
 	}{
-		{name: "no CRDs", wantErr: "config/crd/bases/*.yaml: no contract artifact found", mutate: func(f map[string]string) {
-			delete(f, crdPath)
-		}},
-		{name: "no HTTP API", wantErr: "api/openapi/http-api.yaml: no contract artifact found", mutate: func(f map[string]string) {
-			delete(f, httpAPIPath)
-		}},
-		{name: "no CHANGES", wantErr: "contract/CHANGES:", mutate: func(f map[string]string) {
-			delete(f, changesFile)
-		}},
-		{name: "no Go package", wantErr: "backupstorageclasses/...:", mutate: func(f map[string]string) {
-			delete(f, "backupstorageclasses/s3/s3.go")
-		}},
-		{name: "not a CRD", wantErr: "kind ConfigMap is not CustomResourceDefinition", mutate: func(f map[string]string) {
+		{name: "not a CRD", wantErr: "crds: config/crd/bases/*.yaml: config/crd/bases/cm.yaml: kind ConfigMap is not CustomResourceDefinition", mutate: func(f map[string]string) {
 			f["config/crd/bases/cm.yaml"] = "apiVersion: v1\nkind: ConfigMap\n"
 		}},
 		{name: "two documents", wantErr: "holds more than one YAML document", mutate: func(f map[string]string) {
@@ -318,7 +313,7 @@ func TestFingerprintErrors(t *testing.T) {
 		{name: "empty file", wantErr: "holds no YAML document", mutate: func(f map[string]string) {
 			f[crdPath] = "---\n"
 		}},
-		{name: "same CRD twice", wantErr: "two artifacts are named widgets.test.openeverest.io", mutate: func(f map[string]string) {
+		{name: "same CRD twice", wantErr: "crds: two artifacts are named widgets.test.openeverest.io", mutate: func(f map[string]string) {
 			f["config/crd/bases/copy.yaml"] = testCRD
 		}},
 		{name: "not OpenAPI", wantErr: "not an OpenAPI document", mutate: func(f map[string]string) {
@@ -327,8 +322,11 @@ func TestFingerprintErrors(t *testing.T) {
 		{name: "not a class", wantErr: "kind BackupClass is not BackupStorageClass", mutate: func(f map[string]string) {
 			f[classPath] = strings.Replace(testBackupStorageClass, "kind: BackupStorageClass", "kind: BackupClass", 1)
 		}},
-		{name: "invalid Go", wantErr: "contract/keys.go", mutate: func(f map[string]string) {
+		{name: "invalid Go", wantErr: "contract/keys.go:3:6: expected 'IDENT'", mutate: func(f map[string]string) {
 			f[contractPath] = "package contract\n\nfunc {\n"
+		}},
+		{name: "CHANGES entry without its bullet", wantErr: `changes: contract/CHANGES: line 4 is neither a comment`, mutate: func(f map[string]string) {
+			f[changesFile] += "#1234: a change.\n"
 		}},
 	}
 	for _, tt := range tests {
@@ -337,23 +335,143 @@ func TestFingerprintErrors(t *testing.T) {
 
 			files := cloneRepo(testRepo())
 			tt.mutate(files)
-			_, err := fingerprint(writeRepo(t, files), inputs)
+			_, err := fingerprints(writeRepo(t, files))
 			require.ErrorContains(t, err, tt.wantErr)
 		})
 	}
 }
 
-// TestFingerprintOfThisRepository checks that the fingerprint covers every
-// input in this repository, and that every input pattern names something.
+// TestAbsentInputs checks the inputs a tree can lack, as a tag that
+// predates them does: an input none of whose artifacts exist has no
+// digest, and a missing CHANGES is the empty log, never absent.
+func TestAbsentInputs(t *testing.T) {
+	t.Parallel()
+
+	base := testFingerprints(t, testRepo())
+	tests := []struct {
+		name       string
+		delete     []string
+		wantAbsent string
+	}{
+		{name: "CRDs", delete: []string{crdPath}, wantAbsent: "crds"},
+		{name: "HTTP API", delete: []string{httpAPIPath, crdsGenPath}, wantAbsent: "http-api"},
+		{name: "classes", delete: []string{classPath}, wantAbsent: "storage-classes"},
+		{name: "Go API", delete: []string{contractPath, "backupstorageclasses/s3/s3.go"}, wantAbsent: "go-api"},
+		{name: "CHANGES", delete: []string{changesFile}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			files := cloneRepo(testRepo())
+			for _, f := range tt.delete {
+				require.Contains(t, files, f)
+				delete(files, f)
+			}
+			got := testFingerprints(t, files)
+			for _, name := range inputNames() {
+				if name == tt.wantAbsent {
+					assert.NotContains(t, got, name)
+				} else {
+					assert.Equal(t, base[name], got[name], name)
+				}
+			}
+		})
+	}
+
+	// One part of an input is enough for it to be present.
+	files := cloneRepo(testRepo())
+	delete(files, contractPath)
+	got := testFingerprints(t, files)
+	assert.Contains(t, got, "go-api")
+	assert.NotEqual(t, base["go-api"], got["go-api"])
+}
+
+func TestParseChanges(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		content string
+		want    []string
+		wantErr string
+	}{
+		{name: "empty", content: ""},
+		{name: "comments only", content: "# A comment.\n#\n\n# - #1: commented out.\n"},
+		{
+			name:    "entries",
+			content: "# Header.\n- #12: first.  \r\n\n- #3: second, with # inside.\n",
+			want:    []string{"#12: first.", "#3: second, with # inside."},
+		},
+		{name: "prose", content: "# Header.\nA change.\n", wantErr: `line 2 is neither a comment ("# ...") nor an entry`},
+		{name: "entry without bullet", content: "#12: a change.\n", wantErr: "line 1"},
+		{name: "entry without pull request", content: "- a change.\n", wantErr: "line 1"},
+		{name: "pull request zero", content: "- #0: a change.\n", wantErr: "line 1"},
+		{name: "empty entry", content: "- #12: \n", wantErr: "line 1"},
+		{name: "indented entry", content: "  - #12: a change.\n", wantErr: "line 1"},
+		{name: "comment without space", content: "#comment\n", wantErr: "line 1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := parseChanges([]byte(tt.content))
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestStream checks the canonical stream of an input, which a digest
+// hashes and diff -raw prints.
+func TestStream(t *testing.T) {
+	t.Parallel()
+
+	got := stream([]entry{{key: "a", data: []byte("x\ny")}, {key: "b"}})
+	assert.Equal(t, "a 3\nx\ny\nb 0\n\n", string(got))
+	assert.Equal(t, "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", digest(nil))
+}
+
+// TestFingerprintOfThisRepository checks that every input is present in
+// this repository, so a pattern that names nothing cannot drop an input.
 func TestFingerprintOfThisRepository(t *testing.T) {
 	t.Parallel()
 
-	root := filepath.Join("..", "..")
-	for _, in := range inputs {
-		entries, err := in.entries(root, in.pattern)
-		require.NoError(t, err, in.pattern)
-		assert.NotEmpty(t, entries, in.pattern)
-	}
-	_, err := os.Stat(filepath.Join(root, filepath.FromSlash(changesFile)))
+	fps, err := fingerprints(filepath.Join("..", ".."))
 	require.NoError(t, err)
+	assert.Equal(t, inputNames(), sortedInputs(fps))
+	_, err = os.Stat(filepath.Join("..", "..", filepath.FromSlash(changesFile)))
+	require.NoError(t, err)
+}
+
+// TestInputsAreContractAdjacent checks that the paths of every input are
+// in the contract-adjacent block of CODEOWNERS, so a pull request that
+// changes them needs a contract decision and the owners of the contract.
+func TestInputsAreContractAdjacent(t *testing.T) {
+	t.Parallel()
+
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "CODEOWNERS"))
+	require.NoError(t, err)
+	block := string(data)
+	start := strings.Index(block, "# BEGIN contract-adjacent")
+	end := strings.Index(block, "# END contract-adjacent")
+	require.True(t, start >= 0 && end > start, "CODEOWNERS has no contract-adjacent block")
+	var patterns []string
+	for line := range strings.Lines(block[start:end]) {
+		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "#") {
+			patterns = append(patterns, strings.Fields(line)[0])
+		}
+	}
+	for _, prefix := range inputPrefixes() {
+		covered := false
+		for _, p := range patterns {
+			p = strings.TrimPrefix(p, "/")
+			covered = covered || prefix == strings.TrimSuffix(p, "/") || strings.HasPrefix(prefix, strings.TrimSuffix(p, "/")+"/")
+		}
+		assert.True(t, covered, "%s is an input of the fingerprint but not in the contract-adjacent block of .github/CODEOWNERS", prefix)
+	}
 }

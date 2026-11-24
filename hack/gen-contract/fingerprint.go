@@ -23,8 +23,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"maps"
 	"os"
+	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -32,35 +36,108 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const fingerprintPrefix = "sha256:"
+// scheme names the way this command fingerprints the contract: the inputs
+// below, what each strips and the canonical stream it hashes. A record
+// keeps its digests under the name of the scheme that computed them, as
+// go.sum names its hash, so a digest is only ever compared with one
+// computed the same way, and a new scheme adds digests next to the old
+// ones instead of rewriting them.
+//
+// Any change that can change the digest of an unchanged contract, such as
+// an input added, removed or regrouped, a rule of what an input strips or
+// the canonical form, must come with a new scheme name (c2, c3, ...), its
+// golden files in testdata/golden and a rebaseline of the latest release
+// record. TestGolden fails until it does.
+const scheme = "c1"
 
-// An input is a set of contract artifacts the fingerprint covers.
+const digestPrefix = "sha256:"
+
+// An input is a logical part of the contract, which a release record
+// fingerprints under its name. The name says what it is, not where it
+// lives, so moving a file does not rename an input.
 type input struct {
+	name  string
+	parts []part
+}
+
+// A part is a set of contract artifacts of an input.
+type part struct {
 	// pattern names the artifacts, relative to the repository root: a glob
 	// of files, or a directory followed by /... for every Go package in it.
 	pattern string
-	// entries returns the canonical form of each artifact named by pattern.
+	// entries returns the canonical form of each artifact named by pattern,
+	// or none when there is no such artifact.
 	entries func(root, pattern string) ([]entry, error)
 }
 
-// inputs are every artifact core and extensions share, in the order they
-// are hashed. When the JSON Schema of the uiSchema lands, it joins them.
+// inputs are every artifact core and extensions share, by input. When the
+// JSON Schema of the uiSchema lands, it joins them under a new scheme. A
+// change that adds an input also adds its paths to the contract-adjacent
+// block of .github/CODEOWNERS.
 //
 //nolint:gochecknoglobals // immutable list, the one place the inputs are declared
 var inputs = []input{
 	// The CRDs, which the API server serves to every client.
-	{pattern: "config/crd/bases/*.yaml", entries: yamlEntries(canonicalCRD)},
+	{name: "crds", parts: []part{{pattern: "config/crd/bases/*.yaml", entries: yamlEntries(canonicalCRD)}}},
 	// The HTTP API, and the CRD-derived schemas it refers to.
-	{pattern: "api/openapi/http-api.yaml", entries: yamlEntries(canonicalOpenAPI)},
-	{pattern: "api/openapi/crds.gen.yaml", entries: yamlEntries(canonicalOpenAPI)},
+	{name: "http-api", parts: []part{
+		{pattern: "api/openapi/http-api.yaml", entries: yamlEntries(canonicalOpenAPI)},
+		{pattern: "api/openapi/crds.gen.yaml", entries: yamlEntries(canonicalOpenAPI)},
+	}},
 	// The built-in BackupStorageClasses, whose storages every backup
 	// executor writes to.
-	{pattern: "config/backupstorageclasses/*.yaml", entries: yamlEntries(canonicalBackupStorageClass)},
+	{name: "storage-classes", parts: []part{{pattern: "config/backupstorageclasses/*.yaml", entries: yamlEntries(canonicalBackupStorageClass)}}},
 	// The Go identifiers and rules both sides link.
-	{pattern: "contract/...", entries: goAPIEntries},
-	{pattern: "backupstorageclasses/...", entries: goAPIEntries},
-	// The changes no artifact shows.
-	{pattern: changesFile, entries: changesEntries},
+	{name: "go-api", parts: []part{
+		{pattern: "contract/...", entries: goAPIEntries},
+		{pattern: "backupstorageclasses/...", entries: goAPIEntries},
+	}},
+	// The changes no artifact shows. It is never absent: a tree without
+	// the log has the empty one.
+	{name: "changes", parts: []part{{pattern: changesFile, entries: changesEntries}}},
+}
+
+// inputNames returns the names of the inputs, in the order they are
+// declared.
+func inputNames() []string {
+	names := make([]string, 0, len(inputs))
+	for _, in := range inputs {
+		names = append(names, in.name)
+	}
+	return names
+}
+
+// inputPrefixes returns the paths that hold the artifacts of every input:
+// the directory of each pattern, or the file it names.
+func inputPrefixes() []string {
+	var prefixes []string
+	for _, in := range inputs {
+		for _, p := range in.parts {
+			prefix := strings.TrimSuffix(p.pattern, "/...")
+			for strings.ContainsAny(prefix, "*?[") {
+				prefix = path.Dir(prefix)
+			}
+			prefixes = append(prefixes, prefix)
+		}
+	}
+	return prefixes
+}
+
+// sortedInputs returns the names of a map of digests, in the order of the
+// inputs, then those of no input, sorted.
+func sortedInputs(digests map[string]string) []string {
+	names := make([]string, 0, len(digests))
+	for _, name := range inputNames() {
+		if _, ok := digests[name]; ok {
+			names = append(names, name)
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(digests)) {
+		if !slices.Contains(names, name) {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 // An entry is the canonical form of one artifact.
@@ -68,33 +145,84 @@ type entry struct {
 	// key names the artifact, uniquely within its input.
 	key  string
 	data []byte
+	// json is whether data is JSON, which a diff indents.
+	json bool
 }
 
-// fingerprint returns the SHA-256 of the canonical form of every input of
-// the repository at root, as "sha256:<hex>". It changes when the contract
-// does, and only then: it ignores documentation, such as descriptions and
-// printer columns, the metadata of manifests, which tools stamp, the
-// layout of files and every unexported Go identifier.
-func fingerprint(root string, in []input) (string, error) {
-	h := sha256.New()
-	for _, i := range in {
-		entries, err := i.entries(root, i.pattern)
+// entries returns the canonical form of every artifact of an input in the
+// repository at root, sorted by key; none when the input is absent.
+func (in input) entries(root string) ([]entry, error) {
+	var entries []entry
+	for _, p := range in.parts {
+		e, err := p.entries(root, p.pattern)
 		if err != nil {
-			return "", fmt.Errorf("%s: %w", i.pattern, err)
+			return nil, fmt.Errorf("%s: %s: %w", in.name, p.pattern, err)
 		}
-		if len(entries) == 0 {
-			return "", fmt.Errorf("%s: no contract artifact found", i.pattern)
-		}
-		slices.SortFunc(entries, func(a, b entry) int { return strings.Compare(a.key, b.key) })
-		for j, e := range entries {
-			if j > 0 && e.key == entries[j-1].key {
-				return "", fmt.Errorf("%s: two artifacts are named %s", i.pattern, e.key)
-			}
-			fmt.Fprintf(h, "%s %s %d\n", i.pattern, e.key, len(e.data))
-			h.Write(e.data)
+		entries = append(entries, e...)
+	}
+	slices.SortFunc(entries, func(a, b entry) int { return strings.Compare(a.key, b.key) })
+	for j := 1; j < len(entries); j++ {
+		if entries[j].key == entries[j-1].key {
+			return nil, fmt.Errorf("%s: two artifacts are named %s", in.name, entries[j].key)
 		}
 	}
-	return fingerprintPrefix + hex.EncodeToString(h.Sum(nil)), nil
+	return entries, nil
+}
+
+// stream returns the canonical stream of the entries of an input: each
+// entry as its key, a space, the length of its data, a newline, the data
+// and a newline. The length keeps an entry from reading as the start of
+// the next. The digest of an input is the SHA-256 of its stream, which
+// diff -raw prints.
+func stream(entries []entry) []byte {
+	var b bytes.Buffer
+	for _, e := range entries {
+		fmt.Fprintf(&b, "%s %d\n", e.key, len(e.data))
+		b.Write(e.data)
+		b.WriteByte('\n')
+	}
+	return b.Bytes()
+}
+
+// digest returns the digest of a canonical stream, as "sha256:<hex>".
+func digest(stream []byte) string {
+	sum := sha256.Sum256(stream)
+	return digestPrefix + hex.EncodeToString(sum[:])
+}
+
+// streams returns the canonical stream of every input present in the
+// repository at root, by input name. An input none of whose artifacts
+// exist, such as the Go API at a tag that predates the contract package,
+// is absent.
+func streams(root string) (map[string][]byte, error) {
+	out := make(map[string][]byte, len(inputs))
+	for _, in := range inputs {
+		entries, err := in.entries(root)
+		if err != nil {
+			return nil, err
+		}
+		if len(entries) > 0 {
+			out[in.name] = stream(entries)
+		}
+	}
+	return out, nil
+}
+
+// fingerprints returns the digest of every input present in the repository
+// at root, by input name, under scheme. A digest changes when its part of
+// the contract does, and only then: it ignores documentation, such as
+// descriptions and printer columns, the metadata of manifests, which tools
+// stamp, the layout of files and every unexported Go identifier.
+func fingerprints(root string) (map[string]string, error) {
+	s, err := streams(root)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string, len(s))
+	for name, data := range s {
+		out[name] = digest(data)
+	}
+	return out, nil
 }
 
 // glob returns the files matching pattern under root, relative to root,
@@ -146,7 +274,7 @@ func yamlEntries(canonical canonicalObject) func(root, pattern string) ([]entry,
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", file, err)
 			}
-			entries = append(entries, entry{key: key, data: data})
+			entries = append(entries, entry{key: key, data: data, json: true})
 		}
 		return entries, nil
 	}
@@ -363,20 +491,44 @@ func stripOpenAPI(node any, names bool) {
 // changesFile is the log of contract changes no artifact shows.
 const changesFile = "contract/CHANGES"
 
-// changesEntries returns the entry of the CHANGES log: every line of it,
-// without blank lines, trailing spaces and carriage returns. It has no
-// comment syntax, so no change can be recorded in a way that does not
-// count.
+// changeEntry is an entry of the CHANGES log: "- #<pull request>: <what
+// changed>", on a line of its own.
+var changeEntry = regexp.MustCompile(`^- (#[1-9][0-9]*: \S.*)$`)
+
+// changesEntries returns the entry of the CHANGES log: its entries, in the
+// order of the file. A missing log has no entries, the same as a log with
+// only comments, so a tag that predates the log hashes as the empty one.
 func changesEntries(root, pattern string) ([]entry, error) {
 	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(pattern))) //nolint:gosec // a file of this repository
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, err
+	}
+	changes, err := parseChanges(data)
 	if err != nil {
 		return nil, err
 	}
-	var lines []string
+	return []entry{{key: pattern, data: []byte(strings.Join(changes, "\n"))}}, nil
+}
+
+// parseChanges returns the entries of a CHANGES log, without the "- " and
+// trailing spaces. Every line is blank, a comment, which is "#" alone or
+// followed by a space, or an entry; any other line is an error, so a line
+// meant as an entry cannot silently fail to count. Only entries are
+// hashed, so the comments can explain the file without moving the
+// contract version.
+func parseChanges(data []byte) ([]string, error) {
+	var changes []string
+	n := 0
 	for line := range strings.Lines(string(data)) {
-		if line = strings.TrimRight(line, " \t\r\n"); line != "" {
-			lines = append(lines, line)
+		n++
+		line = strings.TrimRight(line, " \t\r\n")
+		switch {
+		case line == "", line == "#", strings.HasPrefix(line, "# "):
+		case changeEntry.MatchString(line):
+			changes = append(changes, changeEntry.FindStringSubmatch(line)[1])
+		default:
+			return nil, fmt.Errorf("line %d is neither a comment (\"# ...\") nor an entry (\"- #<pull request>: <what changed>\"): %q", n, line)
 		}
 	}
-	return []entry{{key: pattern, data: []byte(strings.Join(lines, "\n"))}}, nil
+	return changes, nil
 }

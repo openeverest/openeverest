@@ -16,9 +16,11 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"go/format"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -41,24 +43,32 @@ const generatedText = `{{.Header}}
 package contract
 
 // The contract version of this core and the window of contract versions it
-// serves, worked out by hack/gen-contract from the fingerprint of the
+// serves, worked out by hack/gen-contract from the fingerprints of the
 // contract and the release records in releases/.
 const (
-	// Version is the contract version of this core: the core release that
-	// last changed the contract, or the development value that follows the
-	// last release when the contract has changed since.
+	// Version is the contract version of this core: the contract version
+	// of the latest release while the contract is the one it was cut with,
+	// or the development value that follows that release once the
+	// contract has changed since.
 	Version = {{printf "%q" .Version}}
 
 	// MinVersion is the oldest contract version this core serves.
 	// Extensions stamped with an older one are ExtensionTooOld.
 	MinVersion = {{printf "%q" .MinVersion}}
 
-	// Fingerprint is the SHA-256 of the contract artifacts this core was
-	// built from, normalised so that only changes to the contract count.
-	// Version is the contract version of the latest release while
-	// Fingerprint is the one recorded for that release.
-	Fingerprint = {{printf "%q" .Fingerprint}}
+	// FingerprintScheme names the way Fingerprints are computed.
+	FingerprintScheme = {{printf "%q" .Scheme}}
 )
+
+// Fingerprints are the SHA-256 digests of the contract artifacts this core
+// was built from, by input, normalised so that only changes to the
+// contract count. Version is the contract version of the latest release
+// while every digest its record holds under FingerprintScheme is equal.
+var Fingerprints = map[string]string{
+{{- range .Fingerprints}}
+	{{printf "%q" .Name}}: {{printf "%q" .Digest}},
+{{- end}}
+}
 
 // UpgradableFrom lists the core releases this core can be upgraded from in
 // place. It is empty for a release that can only be installed fresh, and
@@ -66,28 +76,119 @@ const (
 var UpgradableFrom = []string{ {{- range .UpgradableFrom}}{{printf "%q" .}}, {{end -}} }
 `
 
+const usage = `usage: gen-contract [-root dir]
+       gen-contract [-root dir] -check-release -version X.Y.Z | -branch release-X.Y
+
+`
+
 func main() {
-	root := flag.String("root", ".", "root directory of the repository")
-	release := flag.Bool("check-release", false, "only check that the contract is the one the latest release was cut with")
-	flag.Parse()
-	if *release {
-		msg, err := runCheckRelease(*root)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Fprintln(os.Stdout, msg)
-		return
+	log.SetFlags(0)
+	log.SetPrefix("gen-contract: ")
+	var notices io.Writer = os.Stderr
+	actions := os.Getenv("GITHUB_ACTIONS") == "true"
+	if actions {
+		notices = &annotator{w: os.Stderr}
 	}
-	if err := run(*root); err != nil {
+	msg, err := execute(os.Args[1:], notices)
+	switch {
+	case errors.Is(err, flag.ErrHelp):
+		return
+	case err != nil && actions:
+		fmt.Fprintf(os.Stderr, "::error title=gen-contract::%s\n", escapeCommand(err.Error()))
+		os.Exit(1)
+	case err != nil:
 		log.Fatal(err)
+	case msg != "":
+		fmt.Fprintln(os.Stdout, msg)
+	}
+}
+
+// noticePrefix starts every notice line: a message that says what a
+// command did not compare or check, and why.
+const noticePrefix = "gen-contract: "
+
+// notifyf writes a notice to w.
+func notifyf(w io.Writer, format string, args ...any) {
+	fmt.Fprintf(w, noticePrefix+format+"\n", args...)
+}
+
+// An annotator turns the notice lines written to it into GitHub Actions
+// workflow commands, which show them on the run, and passes other lines,
+// such as a diff, through.
+type annotator struct {
+	w   io.Writer
+	buf []byte
+}
+
+func (a *annotator) Write(p []byte) (int, error) {
+	a.buf = append(a.buf, p...)
+	for {
+		i := bytes.IndexByte(a.buf, '\n')
+		if i < 0 {
+			return len(p), nil
+		}
+		line := string(a.buf[:i])
+		a.buf = a.buf[i+1:]
+		if msg, ok := strings.CutPrefix(line, noticePrefix); ok {
+			line = "::notice title=gen-contract::" + escapeCommand(msg)
+		}
+		if _, err := io.WriteString(a.w, line+"\n"); err != nil {
+			return 0, err
+		}
+	}
+}
+
+// escapeCommand escapes the message of a workflow command.
+func escapeCommand(msg string) string {
+	return strings.NewReplacer("%", "%25", "\r", "%0D", "\n", "%0A").Replace(msg)
+}
+
+// execute runs the command line args and returns what to tell the user.
+// Notices, which say what a command did not check and why, go to notices.
+func execute(args []string, notices io.Writer) (string, error) {
+	fs := flag.NewFlagSet("gen-contract", flag.ContinueOnError)
+	fs.SetOutput(notices)
+	fs.Usage = func() {
+		fmt.Fprint(fs.Output(), usage)
+		fs.PrintDefaults()
+	}
+	root := fs.String("root", ".", "root directory of the repository")
+	checkOnly := fs.Bool("check-release", false, "only check that a patch release from here keeps the contract of the latest release")
+	version := fs.String("version", "", "with -check-release: the release to cut, such as 2.1.1")
+	branch := fs.String("branch", "", "with -check-release: the branch to cut it from, such as release-2.1")
+	if err := fs.Parse(args); err != nil {
+		return "", err
+	}
+	if fs.NArg() > 0 {
+		return "", fmt.Errorf("unexpected argument %q", fs.Arg(0))
+	}
+	switch {
+	case *checkOnly:
+		return runCheckRelease(*root, *version, *branch, notices)
+	case *version != "" || *branch != "":
+		return "", errors.New("-version and -branch go with -check-release")
+	default:
+		return "", generate(*root, notices)
 	}
 }
 
 // run writes the window of the core at root to the contract package.
 func run(root string) error {
-	w, err := compute(root)
+	return generate(root, io.Discard)
+}
+
+// generate writes the window of the core at root to the contract package,
+// and says on notices why the contract version is a development value.
+func generate(root string, notices io.Writer) error {
+	w, c, err := compute(root)
 	if err != nil {
 		return err
+	}
+	if n := c.skippedNotice(); n != "" {
+		notifyf(notices, "%s", n)
+	}
+	if !c.release.isSeed() && !c.equal() {
+		notifyf(notices, "contract version %s: %s", w.version, c.summary())
 	}
 	src, err := render(root, w)
 	if err != nil {
@@ -105,43 +206,61 @@ func run(root string) error {
 	return nil
 }
 
-// load returns the release records and the contract fingerprint of the
+// load returns the release records and the contract fingerprints of the
 // core at root.
-func load(root string) ([]release, string, error) {
+func load(root string) ([]release, map[string]string, error) {
 	releases, err := readReleases(filepath.Join(root, filepath.FromSlash(releasesDir)))
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
-	fp, err := fingerprint(root, inputs)
+	fps, err := fingerprints(root)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
-	return releases, fp, nil
+	return releases, fps, nil
 }
 
-// compute returns the window of the core at root.
-func compute(root string) (window, error) {
-	releases, fp, err := load(root)
+// compute returns the window of the core at root, and the comparison it
+// was worked out from.
+func compute(root string) (window, comparison, error) {
+	releases, fps, err := load(root)
 	if err != nil {
-		return window{}, err
+		return window{}, comparison{}, err
 	}
-	return decide(releases, fp), nil
+	return decide(releases, fps)
 }
 
-// runCheckRelease checks that the contract of the core at root is the one
-// its latest release was cut with.
-func runCheckRelease(root string) (string, error) {
-	releases, fp, err := load(root)
+// runCheckRelease checks that the next release, which version names or
+// which is cut from branch, keeps the contract of the latest release when
+// it is a patch release.
+func runCheckRelease(root, version, branch string, notices io.Writer) (string, error) {
+	var line string
+	switch {
+	case version != "" && branch != "":
+		return "", errors.New("-check-release takes -version or -branch, not both")
+	case version != "":
+		if err := releaseVersion(version); err != nil {
+			return "", fmt.Errorf("-version: %w", err)
+		}
+		line = version
+	case branch != "":
+		l, ok := lineOfBranch(branch)
+		if !ok {
+			return fmt.Sprintf("%s is not a release branch release-X.Y, so no release cut from it is a patch release", branch), nil
+		}
+		line = l
+	default:
+		return "", errors.New("-check-release needs -version X.Y.Z, the release to cut, or -branch release-X.Y, the branch to cut it from")
+	}
+	releases, fps, err := load(root)
 	if err != nil {
 		return "", err
 	}
-	if err := checkRelease(releases, fp); err != nil {
-		return "", err
+	msg, c, err := checkRelease(releases, fps, line)
+	if n := c.skippedNotice(); n != "" {
+		notifyf(notices, "%s", n)
 	}
-	if latest := releases[len(releases)-1]; latest.Fingerprint == "" {
-		return fmt.Sprintf("release %s predates fingerprinting, so there is no recorded contract to compare with", latest.Version), nil
-	}
-	return fmt.Sprintf("the contract is the one release %s was cut with (%s)", releases[len(releases)-1].Version, fp), nil
+	return msg, err
 }
 
 // render returns the content of zz_generated.version.go.
@@ -154,12 +273,20 @@ func render(root string, w window) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	type named struct{ Name, Digest string }
+	var fps []named
+	for _, name := range inputNames() {
+		if d, ok := w.fingerprints[name]; ok {
+			fps = append(fps, named{name, d})
+		}
+	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, map[string]any{
 		"Header":         strings.TrimSpace(string(header)),
 		"Version":        w.version,
 		"MinVersion":     w.minVersion,
-		"Fingerprint":    w.fingerprint,
+		"Scheme":         scheme,
+		"Fingerprints":   fps,
 		"UpgradableFrom": w.upgradableFrom,
 	}); err != nil {
 		return nil, err

@@ -554,9 +554,13 @@ gen-backupstorageclasses: controller-gen ## Generate the built-in BackupStorageC
 gen-contract: ## Work out the contract version from the contract artifacts and contract/releases.
 	go run ./hack/gen-contract
 
+# The branch a release would be cut from: CI passes the base branch of the
+# pull request, so that a patch release of release-X.Y keeps the contract.
+CONTRACT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
 .PHONY: check-contract-release
-check-contract-release: ## Check that the contract is the one the latest release was cut with, as a release branch must.
-	go run ./hack/gen-contract -check-release
+check-contract-release: ## Check that a patch release cut from CONTRACT_BRANCH (default: the current branch) keeps the contract of the latest release.
+	go run ./hack/gen-contract -check-release -branch "$(CONTRACT_BRANCH)"
 
 ##@ Kustomize Deployment
 

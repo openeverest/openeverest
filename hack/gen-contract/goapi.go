@@ -16,6 +16,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -35,21 +36,26 @@ import (
 // exported declaration. A declaration is reduced to what a caller depends
 // on, so documentation, layout, parameter names, function bodies and
 // unexported identifiers do not count. The constants this command
-// generates are left out, since they are derived from the fingerprint.
+// generates are left out, since they are derived from the fingerprints. A
+// directory that does not exist, as at a tag that predates it, has none.
 func goAPIEntries(root, pattern string) ([]entry, error) {
 	dir, ok := strings.CutSuffix(pattern, "/...")
 	if !ok {
 		return nil, fmt.Errorf("pattern %q names no directory of Go packages", pattern)
 	}
 	var entries []entry
-	err := filepath.WalkDir(filepath.Join(root, filepath.FromSlash(dir)), func(path string, d fs.DirEntry, err error) error {
+	top := filepath.Join(root, filepath.FromSlash(dir))
+	if _, err := os.Stat(top); errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	err := filepath.WalkDir(top, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if !d.IsDir() {
 			return nil
 		}
-		if name := d.Name(); path != filepath.Join(root, filepath.FromSlash(dir)) &&
+		if name := d.Name(); path != top &&
 			(name == "testdata" || strings.HasPrefix(name, "_") || strings.HasPrefix(name, ".")) {
 			return filepath.SkipDir
 		}

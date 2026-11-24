@@ -1,9 +1,15 @@
-Changes to the contract that no artifact shows, one line each, oldest first.
-
-Some changes reach extensions without changing a CRD, the HTTP API or the
-Go API of the contract packages: code that imposes a new requirement on
-extensions, or gives a field they already write a new meaning. Record such
-a change on a line of its own below, naming its pull request, then run
-make gen-contract: every line of this file is part of the contract's
-fingerprint, so the contract version moves as it does for any other
-contract change. See README.md.
+# Changes to the contract that no artifact shows, oldest first.
+#
+# Some changes reach extensions without changing a CRD, the HTTP API or the
+# Go API of the contract packages: code that imposes a new requirement on
+# extensions, or gives a field they already write a new meaning. Record
+# such a change as an entry below, on a line of its own:
+#
+#   - #<pull request>: <what changed, and what extensions must do>
+#
+# then run make gen-contract. The entries are part of the contract's
+# fingerprint, so the contract version moves as it does for any other
+# contract change; these comments are not, so editing them moves nothing.
+# A line that is neither blank, a comment ("# ...") nor an entry fails
+# make gen-contract, so nothing meant as an entry can fail to count. See
+# README.md.

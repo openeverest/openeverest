@@ -196,12 +196,18 @@ func Check(ext, minimum, current string) Result {
 func helper() {}
 `
 
-const testSeedRelease = `version: 2.0.0-alpha.1
+const testSeedRelease = `apiVersion: contract.openeverest.io/v1
+kind: ReleaseRecord
+version: 2.0.0-alpha.1
 contractVersion: 2.0.0-alpha.1
 minContractVersion: 2.0.0-alpha.1
 type: fresh-install
 upgradableFrom: []
-fingerprint: ""
+`
+
+const testChanges = `# Changes no artifact shows.
+#
+# - #1: an example, in a comment.
 `
 
 // testRepo returns the files of a minimal repository holding one artifact
@@ -219,7 +225,7 @@ func testRepo() map[string]string {
 		"contract/check_test.go":                            "package contract\n\nfunc TestX() {}\n",
 		"contract/testdata/order.json":                      "{}\n",
 		"backupstorageclasses/s3/s3.go":                     "package s3\n\n// ClassName is the name of the class.\nconst ClassName = \"s3\"\n",
-		changesFile:                                         "Changes no artifact shows.\n",
+		changesFile:                                         testChanges,
 		releasesDir + "/2.0.0-alpha.1.yaml":                 testSeedRelease,
 	}
 }
