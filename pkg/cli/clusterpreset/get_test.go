@@ -42,7 +42,8 @@ func TestClusterPresetGet_HappyPath(t *testing.T) {
 	require.NoError(t, NewGetRunner(Config{Pretty: true}, zap.NewNop().Sugar()).Run(t.Context(), GetOptions{
 		Name:    "mongodb-default",
 		Cluster: "main",
-	}, cfgPath))
+	}, cfgPath,
+	))
 	assert.Contains(t, requestPath, "/cluster-instance-presets/mongodb-default")
 }
 
@@ -58,7 +59,8 @@ func TestClusterPresetGet_NotFound(t *testing.T) {
 	err := NewGetRunner(Config{Pretty: true}, zap.NewNop().Sugar()).Run(t.Context(), GetOptions{
 		Name:    "missing",
 		Cluster: "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }

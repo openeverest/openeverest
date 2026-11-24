@@ -52,7 +52,8 @@ func TestPresetCreate_HappyPath(t *testing.T) {
 		require.NoError(t, NewCreateRunner(Config{Pretty: true}, zap.NewNop().Sugar()).Run(t.Context(), CreateOptions{
 			File:    file,
 			Cluster: "main",
-		}, cfgPath))
+		}, cfgPath,
+		))
 	})
 
 	assert.Contains(t, gotPath, "/namespaces/everest/instance-presets")
@@ -87,7 +88,8 @@ func TestPresetCreate_FlagOverrides(t *testing.T) {
 		Name:      "mongodb-staging",
 		Namespace: "staging",
 		Cluster:   "main",
-	}, cfgPath))
+	}, cfgPath,
+	))
 
 	md, ok := body["metadata"].(map[string]any)
 	require.True(t, ok)
@@ -131,7 +133,8 @@ status:
 	require.NoError(t, NewCreateRunner(Config{Pretty: true}, zap.NewNop().Sugar()).Run(t.Context(), CreateOptions{
 		File:    file,
 		Cluster: "main",
-	}, cfgPath))
+	}, cfgPath,
+	))
 
 	md, ok := body["metadata"].(map[string]any)
 	require.True(t, ok)
@@ -157,7 +160,8 @@ func TestPresetCreate_Conflict(t *testing.T) {
 	err := NewCreateRunner(Config{Pretty: true}, zap.NewNop().Sugar()).Run(t.Context(), CreateOptions{
 		File:    file,
 		Cluster: "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already exists")
 }
@@ -167,7 +171,8 @@ func TestPresetCreate_MissingFile(t *testing.T) {
 
 	err := NewCreateRunner(Config{Pretty: true}, zap.NewNop().Sugar()).Run(t.Context(), CreateOptions{
 		Cluster: "main",
-	}, "/dev/null")
+	}, "/dev/null",
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "file")
 }
@@ -194,7 +199,8 @@ func TestPresetCreate_YAMLOutput(t *testing.T) {
 		require.NoError(t, NewCreateRunner(Config{YAML: true}, zap.NewNop().Sugar()).Run(t.Context(), CreateOptions{
 			File:    file,
 			Cluster: "main",
-		}, cfgPath))
+		}, cfgPath,
+		))
 	})
 	assert.Contains(t, out, "metadata:\n  name: mongodb-production\n")
 	assert.NotContains(t, out, `"name":"mongodb-production"`)

@@ -47,7 +47,8 @@ func TestApplyIdentity_RequiresNameAndNamespace(t *testing.T) {
 
 	_, _, err = applyIdentity(&client.InstancePreset{
 		Metadata: &client.ObjectMeta{Name: "only-name"},
-	}, "", "")
+	}, "", "",
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "namespace")
 }

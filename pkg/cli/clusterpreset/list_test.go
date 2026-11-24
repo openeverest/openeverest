@@ -67,7 +67,8 @@ func TestClusterPresetList_HappyPath(t *testing.T) {
 		require.NoError(t, NewListRunner(Config{Pretty: true}, zap.NewNop().Sugar()).Run(t.Context(), ListOptions{
 			Cluster:  "main",
 			Provider: "percona-server-mongodb",
-		}, cfgPath))
+		}, cfgPath,
+		))
 	})
 
 	assert.Contains(t, requestPath, "/cluster-instance-presets")

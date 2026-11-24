@@ -43,7 +43,8 @@ func TestPresetGet_HappyPath(t *testing.T) {
 		Name:      "mongodb-production",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath))
+	}, cfgPath,
+	))
 	assert.Contains(t, requestPath, "/namespaces/everest/instance-presets/mongodb-production")
 }
 
@@ -60,7 +61,8 @@ func TestPresetGet_NotFound(t *testing.T) {
 		Name:      "missing",
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }

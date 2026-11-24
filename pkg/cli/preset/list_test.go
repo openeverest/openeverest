@@ -53,7 +53,8 @@ func TestPresetList_HappyPath(t *testing.T) {
 			Namespace: "everest",
 			Cluster:   "main",
 			Provider:  "percona-server-mongodb",
-		}, cfgPath))
+		}, cfgPath,
+		))
 	})
 
 	assert.Contains(t, requestPath, "/namespaces/everest/instance-presets")
@@ -84,7 +85,8 @@ func TestPresetList_ServerError(t *testing.T) {
 	err := NewListRunner(Config{Pretty: true}, zap.NewNop().Sugar()).Run(t.Context(), ListOptions{
 		Namespace: "everest",
 		Cluster:   "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected response")
 }
@@ -108,7 +110,8 @@ func TestPresetList_AllNamespaces(t *testing.T) {
 	require.NoError(t, NewListRunner(Config{Pretty: true}, zap.NewNop().Sugar()).Run(t.Context(), ListOptions{
 		AllNamespaces: true,
 		Cluster:       "main",
-	}, cfgPath))
+	}, cfgPath,
+	))
 
 	joined, err := json.Marshal(paths)
 	require.NoError(t, err)

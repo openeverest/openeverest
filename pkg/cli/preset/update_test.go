@@ -72,7 +72,8 @@ func TestPresetUpdate_StampsResourceVersion(t *testing.T) {
 		require.NoError(t, NewUpdater(Config{Pretty: true}, zap.NewNop().Sugar()).Run(t.Context(), UpdateOptions{
 			File:    file,
 			Cluster: "main",
-		}, cfgPath))
+		}, cfgPath,
+		))
 	})
 
 	md, ok := putBody["metadata"].(map[string]any)
@@ -99,7 +100,8 @@ func TestPresetUpdate_NotFound(t *testing.T) {
 	err := NewUpdater(Config{Pretty: true}, zap.NewNop().Sugar()).Run(t.Context(), UpdateOptions{
 		File:    file,
 		Cluster: "main",
-	}, cfgPath)
+	}, cfgPath,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -149,7 +151,8 @@ func TestPresetUpdate_YAMLOutput(t *testing.T) {
 		require.NoError(t, NewUpdater(Config{YAML: true}, zap.NewNop().Sugar()).Run(t.Context(), UpdateOptions{
 			File:    file,
 			Cluster: "main",
-		}, cfgPath))
+		}, cfgPath,
+		))
 	})
 	assert.Contains(t, out, "metadata:\n  name: mongodb-production\n")
 	assert.NotContains(t, out, `"name":"mongodb-production"`)

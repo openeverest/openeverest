@@ -123,5 +123,6 @@ spec:
   providerRef:
     name: percona-server-mongodb
   version: "8.0.12"
-`, name, namespace)
+`, name, namespace,
+	)
 }
