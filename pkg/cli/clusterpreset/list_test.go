@@ -46,6 +46,7 @@ func captureStdout(t *testing.T, fn func()) string {
 	return string(out)
 }
 
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestClusterPresetList_HappyPath(t *testing.T) {
 	items := []map[string]any{
 		newTestPreset("mongodb-default", "percona-server-mongodb", "8.0.12"),

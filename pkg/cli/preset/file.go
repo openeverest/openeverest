@@ -74,5 +74,6 @@ func stripServerFields(preset *client.InstancePreset) {
 	preset.Metadata.Generation = 0
 	preset.Metadata.CreationTimestamp = metav1.Time{}
 	preset.Metadata.ManagedFields = nil
-	preset.Metadata.SelfLink = ""
+	// Clear legacy selfLink if present in a get -o yaml export.
+	preset.Metadata.SelfLink = "" //nolint:staticcheck // SA1019: field is deprecated but still appears in older exports
 }

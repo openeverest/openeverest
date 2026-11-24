@@ -34,6 +34,7 @@ func yesOpts() DeleteOptions {
 	}
 }
 
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestPresetDelete_HappyPath(t *testing.T) {
 	var method string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +65,7 @@ func TestPresetDelete_NotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 }
 
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestPresetDelete_IgnoreNotFound(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {

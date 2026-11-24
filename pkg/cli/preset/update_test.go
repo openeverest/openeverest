@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap"
 )
 
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestPresetUpdate_StampsResourceVersion(t *testing.T) {
 	live := map[string]any{
 		"metadata": map[string]any{
@@ -50,8 +51,12 @@ func TestPresetUpdate_StampsResourceVersion(t *testing.T) {
 			writeJSON(w, http.StatusOK, live)
 		case http.MethodPut:
 			raw, err := io.ReadAll(r.Body)
-			require.NoError(t, err)
-			require.NoError(t, json.Unmarshal(raw, &putBody))
+			if !assert.NoError(t, err) {
+				return
+			}
+			if !assert.NoError(t, json.Unmarshal(raw, &putBody)) {
+				return
+			}
 			writeJSON(w, http.StatusOK, putBody)
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -70,10 +75,13 @@ func TestPresetUpdate_StampsResourceVersion(t *testing.T) {
 		}, cfgPath))
 	})
 
-	md := putBody["metadata"].(map[string]any)
+	md, ok := putBody["metadata"].(map[string]any)
+	require.True(t, ok)
 	assert.Equal(t, "99", md["resourceVersion"])
 	assert.Equal(t, "live-uid", md["uid"])
-	assert.Equal(t, "8.0.12", putBody["spec"].(map[string]any)["version"])
+	spec, ok := putBody["spec"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "8.0.12", spec["version"])
 	assert.Contains(t, out, "updated")
 }
 
@@ -119,10 +127,14 @@ func TestPresetUpdate_YAMLOutput(t *testing.T) {
 			writeJSON(w, http.StatusOK, live)
 		case http.MethodPut:
 			raw, err := io.ReadAll(r.Body)
-			require.NoError(t, err)
-			var putBody map[string]any
-			require.NoError(t, json.Unmarshal(raw, &putBody))
-			writeJSON(w, http.StatusOK, putBody)
+			if !assert.NoError(t, err) {
+				return
+			}
+			var body map[string]any
+			if !assert.NoError(t, json.Unmarshal(raw, &body)) {
+				return
+			}
+			writeJSON(w, http.StatusOK, body)
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}

@@ -30,6 +30,7 @@ import (
 	"github.com/openeverest/openeverest/v2/client"
 )
 
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestPresetList_HappyPath(t *testing.T) {
 	items := []map[string]any{
 		newTestPreset("mongodb-production", "everest", "percona-server-mongodb", "8.0.12"),
@@ -94,8 +95,8 @@ func TestPresetList_AllNamespaces(t *testing.T) {
 	var paths []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.URL.Path)
-		switch {
-		case r.URL.Path == "/v1/clusters/main/namespaces":
+		switch r.URL.Path {
+		case "/v1/clusters/main/namespaces":
 			writeJSON(w, http.StatusOK, []string{"ns-a", "ns-b"})
 		default:
 			writeJSON(w, http.StatusOK, map[string]any{"items": []any{}})
@@ -109,7 +110,8 @@ func TestPresetList_AllNamespaces(t *testing.T) {
 		Cluster:       "main",
 	}, cfgPath))
 
-	joined, _ := json.Marshal(paths)
+	joined, err := json.Marshal(paths)
+	require.NoError(t, err)
 	assert.Contains(t, string(joined), `/namespaces/ns-a/instance-presets`)
 	assert.Contains(t, string(joined), `/namespaces/ns-b/instance-presets`)
 }
