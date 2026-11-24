@@ -37,4 +37,5 @@ var backupClassCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(backupClassCmd)
 	backupClassCmd.AddCommand(backupclass.GetListCmd())
+	backupClassCmd.AddCommand(backupclass.GetGetCmd())
 }
