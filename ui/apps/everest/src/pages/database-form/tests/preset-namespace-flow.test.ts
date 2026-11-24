@@ -95,19 +95,20 @@ const setup = () => {
       selectedNamespace || '',
       presetId || ''
     );
-    useDatabaseFormSync({
+    const notice = useDatabaseFormSync({
       mode: FormMode.New,
       uiSchema,
       defaultValues: FORM_DEFAULTS,
       defaultTopology: 'replicaSet',
       selectedTopology: 'replicaSet',
       defaultNamespace: TEAM_A,
+      namespace: selectedNamespace || '',
       preset: selection,
       reset,
       getValues,
       setValue,
     });
-    return { methods, selection };
+    return { methods, selection, notice };
   });
 
   const read = (path: string): unknown =>
@@ -124,7 +125,17 @@ const setup = () => {
       );
     });
 
-  return { ...view, read, pickPreset, switchNamespace };
+  // Picks team-a's preset and switches to team-b, which drops it.
+  const dropNamespacePreset = async () => {
+    pickPreset(teamAPreset.id);
+    await waitFor(() => expect(read('backup.schedules')).toHaveLength(1));
+    switchNamespace(TEAM_B);
+    await waitFor(() =>
+      expect(view.result.current.notice.droppedPreset).not.toBeNull()
+    );
+  };
+
+  return { ...view, read, pickPreset, switchNamespace, dropNamespacePreset };
 };
 
 describe('presets across namespaces in the create wizard', () => {
@@ -153,7 +164,7 @@ describe('presets across namespaces in the create wizard', () => {
     // Back to the defaults, not to team-b's preset of the same name.
     expect(read('backup.schedules')).toEqual([]);
     expect(read('k8sNamespace')).toBe(TEAM_B);
-    expect(result.current.selection.droppedPreset).toEqual({
+    expect(result.current.notice.droppedPreset).toEqual({
       name: PRESET_NAME,
       wizardNamespace: TEAM_B,
       ownerNamespace: TEAM_A,
@@ -173,6 +184,51 @@ describe('presets across namespaces in the create wizard', () => {
 
     await waitFor(() => expect(requestedNamespaces).toContain(TEAM_B));
     expect(read('presetId')).toBe(clusterPreset.id);
-    expect(result.current.selection.droppedPreset).toBeNull();
+    expect(result.current.notice.droppedPreset).toBeNull();
+  });
+
+  describe('the notice about a dropped preset', () => {
+    it('outlives the drop itself', async () => {
+      const { result, read, dropNamespacePreset } = setup();
+
+      await dropNamespacePreset();
+
+      // The pick is gone from the form by now; the notice must not go with it.
+      await waitFor(() => expect(read('presetId')).toBe(''));
+      expect(result.current.notice.droppedPreset?.name).toBe(PRESET_NAME);
+    });
+
+    it('ends with the next pick', async () => {
+      const { result, pickPreset, dropNamespacePreset } = setup();
+      await dropNamespacePreset();
+
+      pickPreset(clusterPreset.id);
+
+      await waitFor(() =>
+        expect(result.current.notice.droppedPreset).toBeNull()
+      );
+    });
+
+    it('ends when the namespace changes, and does not come back with it', async () => {
+      const { result, switchNamespace, dropNamespacePreset } = setup();
+      await dropNamespacePreset();
+
+      switchNamespace(TEAM_A);
+      await waitFor(() =>
+        expect(result.current.notice.droppedPreset).toBeNull()
+      );
+
+      switchNamespace(TEAM_B);
+      expect(result.current.notice.droppedPreset).toBeNull();
+    });
+
+    it('ends when the user dismisses it', async () => {
+      const { result, dropNamespacePreset } = setup();
+      await dropNamespacePreset();
+
+      act(() => result.current.notice.dismissDroppedPreset());
+
+      expect(result.current.notice.droppedPreset).toBeNull();
+    });
   });
 });

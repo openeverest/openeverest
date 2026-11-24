@@ -32,9 +32,29 @@ export type PresetIdParts =
   | { scope: PresetScope.Cluster; name: string }
   | { scope: PresetScope.Namespace; namespace: string; name: string };
 
+// Where the picked preset stands: nothing picked, its list still loading, its
+// spec at hand, or gone (it belongs to another namespace, or was removed).
+export type PresetStatus = 'none' | 'loading' | 'ready' | 'unavailable';
+
+// What the two preset lists and the pick add up to.
+export interface PresetSelection {
+  presets: SelectablePreset[];
+  isLoadingPresets: boolean;
+  // True when either list failed; the other one is still offered.
+  isError: boolean;
+  presetId: string;
+  selectedPreset: SelectablePreset | null;
+  status: PresetStatus;
+}
+
 // A picked preset the wizard had to drop, kept to tell the user why.
 export interface DroppedPreset {
   name: string;
   wizardNamespace: string;
   ownerNamespace?: string;
+}
+
+export interface DroppedPresetNotice {
+  droppedPreset: DroppedPreset | null;
+  dismissDroppedPreset: () => void;
 }

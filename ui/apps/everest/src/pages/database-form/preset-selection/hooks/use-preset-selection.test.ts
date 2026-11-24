@@ -16,7 +16,6 @@ import { renderHook } from '@testing-library/react';
 import { useClusterInstancePresets } from 'hooks/api/cluster-instance-presets';
 import { useInstancePresets } from 'hooks/api/instance-presets';
 import {
-  PRESET_NAME,
   PRESET_PROVIDER,
   TEAM_A,
   TEAM_B,
@@ -81,11 +80,10 @@ describe('usePresetSelection', () => {
     mockNamespaceLists();
   });
 
-  it('is not selected and not pending when no preset is chosen', () => {
+  it('reports no pick when no preset is chosen', () => {
     const { result } = setup(TEAM_A, '');
 
-    expect(result.current.presetSelected).toBe(false);
-    expect(result.current.presetPending).toBe(false);
+    expect(result.current.status).toBe('none');
     expect(result.current.selectedPreset).toBeNull();
   });
 
@@ -102,33 +100,27 @@ describe('usePresetSelection', () => {
     const { result } = setup(TEAM_A, TEAM_A_ID);
 
     expect(result.current.selectedPreset).toEqual(teamAPreset);
-    expect(result.current.presetPending).toBe(false);
+    expect(result.current.status).toBe('ready');
   });
 
-  it('is pending, not unavailable, while the picked preset list is loading', () => {
+  it('is loading, not unavailable, while the picked preset list is loading', () => {
     mockClusterList({ data: undefined, isLoading: true, isFetching: true });
 
     const { result } = setup(TEAM_A, CLUSTER_ID);
 
-    expect(result.current.presetPending).toBe(true);
-    expect(result.current.presetUnavailable).toBe(false);
+    expect(result.current.status).toBe('loading');
   });
 
-  it('drops a namespace preset on a namespace switch instead of resolving the same name there', () => {
+  it('finds a namespace preset unavailable after a namespace switch instead of resolving the same name there', () => {
     const { result, rerender } = setup(TEAM_A, TEAM_A_ID);
 
     rerender({ namespace: TEAM_B, presetId: TEAM_A_ID });
 
     expect(result.current.selectedPreset).toBeNull();
-    expect(result.current.presetUnavailable).toBe(true);
-    expect(result.current.droppedPreset).toEqual({
-      name: PRESET_NAME,
-      wizardNamespace: TEAM_B,
-      ownerNamespace: TEAM_A,
-    });
+    expect(result.current.status).toBe('unavailable');
   });
 
-  it('does not wait for the new namespace list to drop a preset from another namespace', () => {
+  it('does not wait for the new namespace list to rule out a preset from another namespace', () => {
     mockNamespaceLists({
       [TEAM_A]: { data: [teamAPresetItem], ...settled },
       [TEAM_B]: { data: undefined, ...settled, isFetching: true },
@@ -137,7 +129,7 @@ describe('usePresetSelection', () => {
 
     rerender({ namespace: TEAM_B, presetId: TEAM_A_ID });
 
-    expect(result.current.presetUnavailable).toBe(true);
+    expect(result.current.status).toBe('unavailable');
   });
 
   it('keeps a cluster preset selected across a namespace switch', () => {
@@ -146,8 +138,7 @@ describe('usePresetSelection', () => {
     rerender({ namespace: TEAM_B, presetId: CLUSTER_ID });
 
     expect(result.current.selectedPreset).toEqual(clusterPreset);
-    expect(result.current.presetUnavailable).toBe(false);
-    expect(result.current.droppedPreset).toBeNull();
+    expect(result.current.status).toBe('ready');
   });
 
   it('reports a preset that is gone from its settled list as unavailable', () => {
@@ -155,25 +146,7 @@ describe('usePresetSelection', () => {
 
     const { result } = setup(TEAM_A, CLUSTER_ID);
 
-    expect(result.current.presetUnavailable).toBe(true);
-  });
-
-  it('keeps the dropped-preset notice until the next pick or namespace change', () => {
-    const { result, rerender } = setup(TEAM_A, TEAM_A_ID);
-    rerender({ namespace: TEAM_B, presetId: TEAM_A_ID });
-
-    // The form sync clears the pick; the notice must outlive that.
-    rerender({ namespace: TEAM_B, presetId: '' });
-    expect(result.current.droppedPreset?.name).toBe(PRESET_NAME);
-
-    rerender({ namespace: TEAM_B, presetId: CLUSTER_ID });
-    expect(result.current.droppedPreset).toBeNull();
-
-    rerender({ namespace: TEAM_A, presetId: TEAM_A_ID });
-    rerender({ namespace: TEAM_B, presetId: TEAM_A_ID });
-    rerender({ namespace: TEAM_B, presetId: '' });
-    rerender({ namespace: TEAM_A, presetId: '' });
-    expect(result.current.droppedPreset).toBeNull();
+    expect(result.current.status).toBe('unavailable');
   });
 
   it('waits for both lists before the cards first appear', () => {

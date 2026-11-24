@@ -80,10 +80,9 @@ const presetSelectionValue: PresetSelectionContextType = {
   isError: false,
   presetId: '',
   selectedPreset: null,
-  presetSelected: false,
-  presetPending: false,
-  presetUnavailable: false,
+  status: 'none',
   droppedPreset: null,
+  dismissDroppedPreset: () => {},
 };
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => {

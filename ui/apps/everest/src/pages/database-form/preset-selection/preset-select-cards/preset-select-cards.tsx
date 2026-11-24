@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { useMemo } from 'react';
+import { Alert, Box } from '@mui/material';
 import { useFormContext } from 'react-hook-form';
 import { CardPicker } from '@percona/ui-lib';
 import { DbWizardFormFields } from 'consts';
@@ -26,8 +27,14 @@ import { Messages } from './preset-select-cards.messages';
 // Thin preset-specific wrapper over the reusable CardPicker: maps presets to
 // card items (searchable by their whole spec) and binds selection to the form.
 export const PresetSelectCards = () => {
-  const { presets, presetId, isLoadingPresets, isError, droppedPreset } =
-    usePresetSelectionContext();
+  const {
+    presets,
+    presetId,
+    isLoadingPresets,
+    isError,
+    droppedPreset,
+    dismissDroppedPreset,
+  } = usePresetSelectionContext();
   const { setValue } = useFormContext();
 
   const items = useMemo(() => presets.map(presetToCardItem), [presets]);
@@ -53,31 +60,42 @@ export const PresetSelectCards = () => {
     : undefined;
 
   return (
-    <CardPicker
-      sx={{ mb: 2 }}
-      items={items}
-      selectedId={presetId}
-      error={droppedPreset ? getDroppedPresetMessage(droppedPreset) : undefined}
-      onSelect={(id) =>
-        setValue(DbWizardFormFields.presetId, id, {
-          shouldValidate: true,
-          shouldDirty: true,
-          shouldTouch: true,
-        })
-      }
-      leadCard={{
-        id: '',
-        title: Messages.scratchTitle,
-        subtitle: Messages.scratchCaption,
-      }}
-      statusCard={statusCard}
-      messages={{
-        searchPlaceholder: Messages.searchPlaceholder,
-        searchAriaLabel: Messages.searchAriaLabel,
-        browseAll: Messages.browseAll,
-        dialogTitle: Messages.dialogTitle,
-        noMatches: Messages.noMatches,
-      }}
-    />
+    <Box sx={{ mb: 2 }}>
+      <CardPicker
+        items={items}
+        selectedId={presetId}
+        onSelect={(id) =>
+          setValue(DbWizardFormFields.presetId, id, {
+            shouldValidate: true,
+            shouldDirty: true,
+            shouldTouch: true,
+          })
+        }
+        leadCard={{
+          id: '',
+          title: Messages.scratchTitle,
+          subtitle: Messages.scratchCaption,
+        }}
+        statusCard={statusCard}
+        messages={{
+          searchPlaceholder: Messages.searchPlaceholder,
+          searchAriaLabel: Messages.searchAriaLabel,
+          browseAll: Messages.browseAll,
+          dialogTitle: Messages.dialogTitle,
+          noMatches: Messages.noMatches,
+        }}
+      />
+      {/* Not an error: the form is valid, the pick just no longer applies. */}
+      {droppedPreset && (
+        <Alert
+          severity="info"
+          role="status"
+          onClose={dismissDroppedPreset}
+          sx={{ mt: 2 }}
+        >
+          {getDroppedPresetMessage(droppedPreset)} {Messages.presetDroppedHint}
+        </Alert>
+      )}
+    </Box>
   );
 };

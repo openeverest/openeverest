@@ -38,6 +38,8 @@ export const Messages = {
   loadErrorSubtitle: 'Check your connection and try again.',
   presetUnavailable: (name: string) =>
     `Preset “${name}” is no longer available.`,
+  presetDroppedHint:
+    'The form is back to its defaults. Pick another preset or continue from scratch.',
   presetFromOtherNamespace: (
     name: string,
     ownerNamespace: string,

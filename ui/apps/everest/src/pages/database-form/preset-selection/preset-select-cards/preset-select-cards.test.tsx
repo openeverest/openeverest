@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { TestWrapper } from 'utils/test';
 import { PresetSelectCards } from './preset-select-cards';
@@ -28,10 +28,9 @@ const baseContext: PresetSelectionContextType = {
   isError: false,
   presetId: '',
   selectedPreset: null,
-  presetSelected: false,
-  presetPending: false,
-  presetUnavailable: false,
+  status: 'none',
   droppedPreset: null,
+  dismissDroppedPreset: () => {},
 };
 
 const renderCards = (overrides: Partial<PresetSelectionContextType>) => {
@@ -113,5 +112,22 @@ describe('PresetSelectCards', () => {
     expect(
       screen.getByRole('button', { name: /Start from scratch/ })
     ).toBeInTheDocument();
+  });
+
+  it('lets the user dismiss the dropped-preset notice', () => {
+    const dismissDroppedPreset = vi.fn();
+    renderCards({
+      presets: [clusterPreset],
+      droppedPreset: {
+        name: clusterPreset.name,
+        wizardNamespace: TEAM_B,
+        ownerNamespace: TEAM_A,
+      },
+      dismissDroppedPreset,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(dismissDroppedPreset).toHaveBeenCalledTimes(1);
   });
 });

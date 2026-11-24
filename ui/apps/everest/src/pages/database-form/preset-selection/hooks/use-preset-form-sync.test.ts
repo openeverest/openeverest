@@ -23,10 +23,11 @@ import {
 import { getByPath } from 'components/ui-generator/utils/object-path/object-path';
 import { DbWizardType } from '../../database-form-schema';
 import {
+  TEAM_A,
   clusterPreset as defaultClusterPreset,
   teamAPreset,
 } from '../__mocks__/presets';
-import { SelectablePreset } from '../preset-selection.types';
+import { PresetStatus, SelectablePreset } from '../preset-selection.types';
 import { usePresetFormSync } from './use-preset-form-sync';
 
 const makeComponent = (path: string, defaultValue?: unknown): Component =>
@@ -85,12 +86,13 @@ interface HookArgs {
   mode?: FormMode;
   presetId?: string;
   preset?: SelectablePreset | null;
-  presetUnavailable?: boolean;
+  status?: PresetStatus;
+  namespace?: string;
 }
 
 const setup = (args: HookArgs = {}) => {
   const utils = renderHook(
-    ({ mode, presetId, preset, presetUnavailable }: Required<HookArgs>) => {
+    ({ mode, presetId, preset, status, namespace }: Required<HookArgs>) => {
       const methods = useForm({
         defaultValues: {
           provider: 'psmdb',
@@ -102,32 +104,34 @@ const setup = (args: HookArgs = {}) => {
           spec: {},
         },
       });
-      usePresetFormSync({
+      const notice = usePresetFormSync({
         mode,
         uiSchema,
         defaultValues: { backup: { enabled: false } },
         defaultTopology: 'replicaSet',
         selectedPreset: preset,
         presetId,
-        presetUnavailable,
+        status,
+        namespace,
         reset: methods.reset as unknown as UseFormReset<DbWizardType>,
         getValues:
           methods.getValues as unknown as UseFormGetValues<DbWizardType>,
       });
-      return methods;
+      return { methods, notice };
     },
     {
       initialProps: {
         mode: args.mode ?? FormMode.New,
         presetId: args.presetId ?? clusterPreset.id,
         preset: args.preset === undefined ? clusterPreset : args.preset,
-        presetUnavailable: args.presetUnavailable ?? false,
+        status: args.status ?? 'ready',
+        namespace: args.namespace ?? 'ns-1',
       },
     }
   );
   const read = (path: string): unknown =>
     getByPath(
-      utils.result.current.getValues() as Record<string, unknown>,
+      utils.result.current.methods.getValues() as Record<string, unknown>,
       path
     );
   return { ...utils, read };
@@ -205,7 +209,8 @@ describe('usePresetFormSync', () => {
       mode: FormMode.New,
       presetId: '',
       preset: null,
-      presetUnavailable: false,
+      status: 'none',
+      namespace: 'ns-1',
     });
 
     await waitFor(() => expect(read('presetId')).toBe(''));
@@ -213,7 +218,7 @@ describe('usePresetFormSync', () => {
   });
 
   it('drops a preset that became unavailable, keeping the chosen namespace', async () => {
-    const { read, rerender } = setup({
+    const { read, rerender, result } = setup({
       preset: teamAPreset,
       presetId: teamAPreset.id,
     });
@@ -226,7 +231,8 @@ describe('usePresetFormSync', () => {
       mode: FormMode.New,
       presetId: teamAPreset.id,
       preset: null,
-      presetUnavailable: true,
+      status: 'unavailable',
+      namespace: 'ns-1',
     });
 
     await waitFor(() => expect(read('presetId')).toBe(''));
@@ -234,6 +240,28 @@ describe('usePresetFormSync', () => {
     expect(read('backup.schedules')).toBeUndefined();
     expect(read('k8sNamespace')).toBe('ns-1');
     expect(read('dbName')).toBe('my-db');
+    // The drop and the notice about it come from the same place.
+    expect(result.current.notice.droppedPreset).toEqual({
+      name: teamAPreset.name,
+      wizardNamespace: 'ns-1',
+      ownerNamespace: TEAM_A,
+    });
+  });
+
+  it('does not report a preset the user cleared', async () => {
+    const { read, rerender, result } = setup();
+    await waitFor(() => expect(read(CPU_PATH)).toBe(2));
+
+    rerender({
+      mode: FormMode.New,
+      presetId: '',
+      preset: null,
+      status: 'none',
+      namespace: 'ns-1',
+    });
+
+    await waitFor(() => expect(read(CPU_PATH)).toBeUndefined());
+    expect(result.current.notice.droppedPreset).toBeNull();
   });
 
   it('does nothing outside New mode', async () => {

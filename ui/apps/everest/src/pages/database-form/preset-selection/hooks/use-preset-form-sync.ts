@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UseFormGetValues, UseFormReset } from 'react-hook-form';
 import {
   FormMode,
@@ -21,8 +21,16 @@ import {
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
 import { DbWizardType } from '../../database-form-schema';
-import { SelectablePreset } from '../preset-selection.types';
-import { getPresetBackupFormValues } from '../preset-selection.utils';
+import {
+  DroppedPreset,
+  DroppedPresetNotice,
+  PresetStatus,
+  SelectablePreset,
+} from '../preset-selection.types';
+import {
+  getPresetBackupFormValues,
+  toDroppedPreset,
+} from '../preset-selection.utils';
 
 interface UsePresetFormSyncArgs {
   mode: FormMode;
@@ -31,15 +39,18 @@ interface UsePresetFormSyncArgs {
   defaultTopology: string;
   selectedPreset: SelectablePreset | null;
   presetId: string;
-  presetUnavailable: boolean;
+  status: PresetStatus;
+  namespace: string;
   reset: UseFormReset<DbWizardType>;
   getValues: UseFormGetValues<DbWizardType>;
 }
 
 // Populates the wizard form from the picked preset (so preview/fields reflect
 // it) and reverts to defaults when the preset is cleared or can no longer be
-// resolved. New mode only, and idempotent per preset so it never clobbers the
-// user's dbName / namespace or edits made outside preset mode.
+// used. Nothing else drops a pick, so the notice telling the user which preset
+// was dropped is kept here too, next to the drop itself. New mode only, and
+// idempotent per preset so it never clobbers the user's dbName / namespace or
+// edits made outside preset mode.
 export const usePresetFormSync = ({
   mode,
   uiSchema,
@@ -47,19 +58,26 @@ export const usePresetFormSync = ({
   defaultTopology,
   selectedPreset,
   presetId,
-  presetUnavailable,
+  status,
+  namespace,
   reset,
   getValues,
-}: UsePresetFormSyncArgs) => {
+}: UsePresetFormSyncArgs): DroppedPresetNotice => {
   const appliedRef = useRef<string | null>(null);
+  const [droppedPreset, setDroppedPreset] = useState<DroppedPreset | null>(
+    null
+  );
 
   useEffect(() => {
     if (mode !== FormMode.New) return;
 
-    // Preset cleared or gone → revert once to the pristine defaults. Dropping
-    // an unavailable pick here keeps the create from staying blocked on a
-    // spec that will never arrive.
-    if (!presetId || presetUnavailable) {
+    // The notice is about the namespace the pick was dropped in.
+    setDroppedPreset((current) =>
+      current && current.wizardNamespace !== namespace ? null : current
+    );
+
+    // Preset cleared or gone → revert once to the pristine defaults.
+    if (status === 'none' || status === 'unavailable') {
       const {
         dbName,
         k8sNamespace,
@@ -76,9 +94,18 @@ export const usePresetFormSync = ({
           presetId: '',
         } as DbWizardType);
         appliedRef.current = null;
+        // Dropping an unavailable pick keeps the create from staying blocked
+        // on a spec that will never arrive. Recorded with the drop, once, so
+        // the user is told which preset it was.
+        if (status === 'unavailable') {
+          setDroppedPreset(toDroppedPreset(presetId, namespace));
+        }
       }
       return;
     }
+
+    // A new pick ends the notice about the previous one.
+    setDroppedPreset(null);
 
     // Wait until the picked preset is present in the loaded list.
     if (!selectedPreset) return;
@@ -125,8 +152,16 @@ export const usePresetFormSync = ({
     defaultTopology,
     selectedPreset,
     presetId,
-    presetUnavailable,
+    status,
+    namespace,
     reset,
     getValues,
   ]);
+
+  const dismissDroppedPreset = useCallback(() => setDroppedPreset(null), []);
+
+  return useMemo(
+    () => ({ droppedPreset, dismissDroppedPreset }),
+    [droppedPreset, dismissDroppedPreset]
+  );
 };

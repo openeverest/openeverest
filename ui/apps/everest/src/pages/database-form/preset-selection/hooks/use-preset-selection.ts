@@ -12,21 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useClusterInstancePresets } from 'hooks/api/cluster-instance-presets';
 import { useInstancePresets } from 'hooks/api/instance-presets';
-import { PresetSelectionContextType } from '../preset-selection-context';
-import { DroppedPreset, PresetScope } from '../preset-selection.types';
+import {
+  PresetScope,
+  PresetSelection,
+  PresetStatus,
+} from '../preset-selection.types';
 import { mergePresets, parsePresetId } from '../preset-selection.utils';
 
 // The picked preset ID lives in react-hook-form (DbWizardFormFields.presetId)
 // and is passed in; the selected spec is taken from the already-fetched lists.
+// This only derives where the pick stands: acting on it (filling the form,
+// dropping a pick that no longer applies) is usePresetFormSync's job.
 export const usePresetSelection = (
   clusterName: string,
   provider: string | undefined,
   namespace: string,
   presetId: string
-): PresetSelectionContextType => {
+): PresetSelection => {
   const clusterPresetsQuery = useClusterInstancePresets(clusterName, provider);
   const namespacePresetsQuery = useInstancePresets(
     clusterName,
@@ -70,53 +75,27 @@ export const usePresetSelection = (
     pickedId?.scope === PresetScope.Namespace
       ? namespacePresetsQuery.isFetching
       : clusterPresetsQuery.isFetching;
-  // A missing preset is only "unavailable" once the list it belongs to has
-  // settled; until then it may simply not have loaded yet.
-  const presetUnavailable =
-    Boolean(presetId) &&
-    !selectedPreset &&
-    (pickedFromOtherNamespace || !isOwnerListFetching);
 
-  const [droppedPreset, setDroppedPreset] = useState<DroppedPreset | null>(
-    null
-  );
+  let status: PresetStatus = 'none';
+  if (selectedPreset) {
+    status = 'ready';
+  } else if (presetId) {
+    // A missing preset is gone only once the list it belongs to has settled;
+    // until then it may simply not have loaded yet.
+    status =
+      pickedFromOtherNamespace || !isOwnerListFetching
+        ? 'unavailable'
+        : 'loading';
+  }
 
-  useEffect(() => {
-    if (presetUnavailable) {
-      const dropped = parsePresetId(presetId);
-      setDroppedPreset(
-        dropped
-          ? {
-              name: dropped.name,
-              wizardNamespace: namespace,
-              ownerNamespace:
-                dropped.scope === PresetScope.Namespace
-                  ? dropped.namespace
-                  : undefined,
-            }
-          : null
-      );
-      return;
-    }
-    // The notice is about one namespace and ends with the next pick.
-    setDroppedPreset((current) =>
-      current && (presetId || current.wizardNamespace !== namespace)
-        ? null
-        : current
-    );
-  }, [presetUnavailable, presetId, namespace]);
-
-  return useMemo<PresetSelectionContextType>(
+  return useMemo<PresetSelection>(
     () => ({
       presets,
       isLoadingPresets,
       isError: clusterPresetsQuery.isError || namespacePresetsQuery.isError,
       presetId,
       selectedPreset,
-      presetSelected: Boolean(presetId),
-      presetPending: Boolean(presetId) && !selectedPreset,
-      presetUnavailable,
-      droppedPreset,
+      status,
     }),
     [
       presets,
@@ -125,8 +104,7 @@ export const usePresetSelection = (
       namespacePresetsQuery.isError,
       presetId,
       selectedPreset,
-      presetUnavailable,
-      droppedPreset,
+      status,
     ]
   );
 };

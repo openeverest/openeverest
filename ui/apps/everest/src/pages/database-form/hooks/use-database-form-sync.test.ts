@@ -54,11 +54,10 @@ const uiSchema: TopologyUISchemas = {
   },
 };
 
-const NO_PRESET = {
+const NO_PRESET: Parameters<typeof useDatabaseFormSync>[0]['preset'] = {
   selectedPreset: null,
   presetId: '',
-  presetSelected: false,
-  presetUnavailable: false,
+  status: 'none',
 };
 
 const setup = () =>
@@ -78,6 +77,7 @@ const setup = () =>
         defaultTopology: 'cluster',
         selectedTopology,
         defaultNamespace: undefined,
+        namespace: '',
         preset: NO_PRESET,
         reset: methods.reset,
         getValues: methods.getValues,
@@ -120,6 +120,7 @@ const setupNamespace = (
         defaultTopology: 'cluster',
         selectedTopology: 'cluster',
         defaultNamespace,
+        namespace: defaultNamespace ?? '',
         preset: NO_PRESET,
         reset: methods.reset,
         getValues: methods.getValues,

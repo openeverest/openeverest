@@ -16,6 +16,7 @@ import { extractWizardBackup } from 'pages/database-form/database-form-body/step
 import { ClusterInstancePreset, InstancePreset } from 'shared-types/api.types';
 import { PRESET_ANNOTATION_BY_SCOPE } from './preset-selection.constants';
 import {
+  DroppedPreset,
   PresetIdParts,
   PresetScope,
   SelectablePreset,
@@ -42,6 +43,22 @@ export const parsePresetId = (id: string): PresetIdParts | undefined => {
     return { scope, namespace: rest[0], name: rest[1] };
   }
   return undefined;
+};
+
+export const toDroppedPreset = (
+  presetId: string,
+  wizardNamespace: string
+): DroppedPreset | null => {
+  const dropped = parsePresetId(presetId);
+  if (!dropped) {
+    return null;
+  }
+  return {
+    name: dropped.name,
+    wizardNamespace,
+    ownerNamespace:
+      dropped.scope === PresetScope.Namespace ? dropped.namespace : undefined,
+  };
 };
 
 const toSelectablePresets = (

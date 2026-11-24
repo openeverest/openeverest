@@ -52,7 +52,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
           topologies
         )
       : undefined;
-  const { presetSelected, presets } = usePresetSelectionContext();
+  const { status: presetStatus, presets } = usePresetSelectionContext();
   const { watch, setValue, getFieldState } = useFormContext();
 
   // const dbType: DbType = watch(DbWizardFormFields.dbType);
@@ -189,7 +189,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
                 mode === FormMode.Restore ||
                 !!importPrefill?.topology ||
                 loadingDefaultsForEdition ||
-                presetSelected,
+                presetStatus !== 'none',
             }}
           >
             {topologies.map((topology) => (
