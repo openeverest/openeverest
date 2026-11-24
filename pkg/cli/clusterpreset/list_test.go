@@ -81,5 +81,5 @@ func TestClusterPresetList_YAMLOutput(t *testing.T) {
 	presets := []client.ClusterInstancePreset{*presetFromJSON(t, `{"metadata":{"name":"mongodb-default"}}`)}
 	var buf bytes.Buffer
 	NewListRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, presets)
-	assert.Contains(t, buf.String(), "name: mongodb-default\n")
+	assert.Contains(t, buf.String(), "- metadata:\n    name: mongodb-default\n")
 }

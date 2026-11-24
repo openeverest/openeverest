@@ -68,7 +68,7 @@ func TestPresetList_YAMLOutput(t *testing.T) {
 	presets := []client.InstancePreset{*presetFromJSON(t, `{"metadata":{"name":"mongodb-production","namespace":"everest"}}`)}
 	var buf bytes.Buffer
 	NewListRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, presets)
-	assert.Contains(t, buf.String(), "name: mongodb-production\n")
+	assert.Contains(t, buf.String(), "- metadata:\n    name: mongodb-production\n")
 }
 
 func TestPresetList_ServerError(t *testing.T) {

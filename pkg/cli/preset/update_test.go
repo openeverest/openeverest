@@ -95,3 +95,50 @@ func TestPresetUpdate_NotFound(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
+
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
+func TestPresetUpdate_YAMLOutput(t *testing.T) {
+	live := map[string]any{
+		"metadata": map[string]any{
+			"name":            "mongodb-production",
+			"namespace":       "everest",
+			"uid":             "live-uid",
+			"resourceVersion": "99",
+		},
+		"spec": map[string]any{
+			"providerRef": map[string]any{"name": "percona-server-mongodb"},
+			"version":     "8.0.4",
+		},
+	}
+
+	mux := http.NewServeMux()
+	path := "/v1/clusters/main/namespaces/everest/instance-presets/mongodb-production"
+	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			writeJSON(w, http.StatusOK, live)
+		case http.MethodPut:
+			raw, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			var putBody map[string]any
+			require.NoError(t, json.Unmarshal(raw, &putBody))
+			writeJSON(w, http.StatusOK, putBody)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	file := writeTempFile(t, "preset.yaml", minimalPresetYAML("mongodb-production", "everest"))
+	cfgPath := newConfigPath(t, srv.URL)
+
+	out := captureStdout(t, func() {
+		require.NoError(t, NewUpdater(Config{YAML: true}, zap.NewNop().Sugar()).Run(t.Context(), UpdateOptions{
+			File:    file,
+			Cluster: "main",
+		}, cfgPath))
+	})
+	assert.Contains(t, out, "metadata:\n  name: mongodb-production\n")
+	assert.NotContains(t, out, `"name":"mongodb-production"`)
+}

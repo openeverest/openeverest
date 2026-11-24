@@ -82,3 +82,33 @@ func TestPresetDelete_IgnoreNotFound(t *testing.T) {
 	})
 	assert.Contains(t, out, "nothing to delete")
 }
+
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
+func TestPresetDelete_IgnoreNotFound_AlreadyGone_YAMLOutput(t *testing.T) {
+	deleteCalled := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		deleteCalled = true
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	cfgPath := newConfigPath(t, srv.URL)
+	opts := DeleteOptions{
+		Name:           "mongodb-production",
+		Namespace:      "everest",
+		Cluster:        "main",
+		IgnoreNotFound: true,
+		IsTerminal:     func() bool { return false },
+	}
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = NewDeleter(Config{Pretty: false, YAML: true}, zap.NewNop().Sugar()).Run(t.Context(), opts, cfgPath)
+	})
+	require.NoError(t, runErr)
+	assert.False(t, deleteCalled)
+	assert.Equal(t, "deleted: false\nname: mongodb-production\nnamespace: everest\n", out)
+}

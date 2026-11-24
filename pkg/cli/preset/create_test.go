@@ -154,3 +154,27 @@ func TestPresetCreate_MissingFile(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "file")
 }
+
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
+func TestPresetCreate_YAMLOutput(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		var body map[string]any
+		require.NoError(t, json.Unmarshal(raw, &body))
+		writeJSON(w, http.StatusCreated, body)
+	}))
+	defer srv.Close()
+
+	file := writeTempFile(t, "preset.yaml", minimalPresetYAML("mongodb-production", "everest"))
+	cfgPath := newConfigPath(t, srv.URL)
+
+	out := captureStdout(t, func() {
+		require.NoError(t, NewCreateRunner(Config{YAML: true}, zap.NewNop().Sugar()).Run(t.Context(), CreateOptions{
+			File:    file,
+			Cluster: "main",
+		}, cfgPath))
+	})
+	assert.Contains(t, out, "metadata:\n  name: mongodb-production\n")
+	assert.NotContains(t, out, `"name":"mongodb-production"`)
+}
