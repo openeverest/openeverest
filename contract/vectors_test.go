@@ -79,11 +79,14 @@ func TestInvalidVectorsAreRejected(t *testing.T) {
 			wantExt = contract.ReasonUnversioned
 		}
 		assert.Equal(t, contract.Result{Status: metav1.ConditionUnknown, Reason: wantExt},
-			contract.Check(v, valid, valid), "stamp %q", v)
+			contract.Check(v, valid, valid), "stamp %q", v,
+		)
 		assert.Equal(t, contract.Result{Status: metav1.ConditionUnknown, Reason: contract.ReasonInvalidVersion},
-			contract.Check(valid, v, valid), "minimum %q", v)
+			contract.Check(valid, v, valid), "minimum %q", v,
+		)
 		assert.Equal(t, contract.Result{Status: metav1.ConditionUnknown, Reason: contract.ReasonInvalidVersion},
-			contract.Check(valid, valid, v), "current %q", v)
+			contract.Check(valid, valid, v), "current %q", v,
+		)
 	}
 }
 
@@ -102,7 +105,7 @@ func TestCheckVectors(t *testing.T) {
 func TestCheckVectorsCoverEveryReasonAndEdge(t *testing.T) {
 	t.Parallel()
 
-	reasons := map[string]bool{}
+	reasons := make(map[string]bool)
 	var atMin, atCurrent bool
 	for _, tc := range loadVectors(t).Check {
 		reasons[tc.Reason] = true

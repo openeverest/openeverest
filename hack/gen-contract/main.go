@@ -89,7 +89,8 @@ func render(dir, headerFile string) ([]byte, error) {
 	}
 	if contract.Compare(minVersion, version) > 0 {
 		return nil, fmt.Errorf("%s %s is above %s %s: a core must serve its own version",
-			minVersionFile, minVersion, versionFile, version)
+			minVersionFile, minVersion, versionFile, version,
+		)
 	}
 	header, err := os.ReadFile(headerFile) //nolint:gosec // a file of this repository named on the command line
 	if err != nil {
