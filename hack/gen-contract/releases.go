@@ -514,7 +514,7 @@ func checkRelease(releases []release, fps map[string]string, v string) (string, 
 	}
 	if !c.equal() {
 		return "", c, fmt.Errorf("%s. A patch release must not change what core and extensions share: "+
-			"revert the change, or ship it in a minor release",
+			"revert the change, or ship it in a minor release. make contract-diff shows the change",
 			c.summary(),
 		)
 	}

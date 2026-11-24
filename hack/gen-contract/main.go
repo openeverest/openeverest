@@ -78,6 +78,8 @@ var UpgradableFrom = []string{ {{- range .UpgradableFrom}}{{printf "%q" .}}, {{e
 
 const usage = `usage: gen-contract [-root dir]
        gen-contract [-root dir] -check-release -version X.Y.Z | -branch release-X.Y
+       gen-contract [-root dir] rebaseline -version X.Y.Z [-tag vX.Y.Z]
+       gen-contract [-root dir] diff [-ref vX.Y.Z] [-input name] [-raw] [-max-lines n]
 
 `
 
@@ -89,7 +91,7 @@ func main() {
 	if actions {
 		notices = &annotator{w: os.Stderr}
 	}
-	msg, err := execute(os.Args[1:], notices)
+	msg, err := execute(os.Args[1:], os.Stdout, notices)
 	switch {
 	case errors.Is(err, flag.ErrHelp):
 		return
@@ -145,7 +147,7 @@ func escapeCommand(msg string) string {
 
 // execute runs the command line args and returns what to tell the user.
 // Notices, which say what a command did not check and why, go to notices.
-func execute(args []string, notices io.Writer) (string, error) {
+func execute(args []string, stdout, notices io.Writer) (string, error) {
 	fs := flag.NewFlagSet("gen-contract", flag.ContinueOnError)
 	fs.SetOutput(notices)
 	fs.Usage = func() {
@@ -160,7 +162,10 @@ func execute(args []string, notices io.Writer) (string, error) {
 		return "", err
 	}
 	if fs.NArg() > 0 {
-		return "", fmt.Errorf("unexpected argument %q", fs.Arg(0))
+		if *checkOnly || *version != "" || *branch != "" {
+			return "", fmt.Errorf("-check-release, -version and -branch do not go with the %s command", fs.Arg(0))
+		}
+		return runCommand(*root, fs.Arg(0), fs.Args()[1:], stdout)
 	}
 	switch {
 	case *checkOnly:
@@ -169,6 +174,19 @@ func execute(args []string, notices io.Writer) (string, error) {
 		return "", errors.New("-version and -branch go with -check-release")
 	default:
 		return "", generate(*root, notices)
+	}
+}
+
+// runCommand runs the command name with its arguments. Only diff writes
+// to stdout itself, since -raw prints bytes that must stay exact.
+func runCommand(root, name string, args []string, stdout io.Writer) (string, error) {
+	switch name {
+	case "rebaseline":
+		return runRebaseline(root, args)
+	case "diff":
+		return "", runDiff(root, args, stdout)
+	default:
+		return "", fmt.Errorf("unknown command %q", name)
 	}
 }
 
@@ -188,7 +206,7 @@ func generate(root string, notices io.Writer) error {
 		notifyf(notices, "%s", n)
 	}
 	if !c.release.isSeed() && !c.equal() {
-		notifyf(notices, "contract version %s: %s", w.version, c.summary())
+		notifyf(notices, "contract version %s: %s; make contract-diff shows how", w.version, c.summary())
 	}
 	src, err := render(root, w)
 	if err != nil {
@@ -232,7 +250,8 @@ func compute(root string) (window, comparison, error) {
 
 // runCheckRelease checks that the next release, which version names or
 // which is cut from branch, keeps the contract of the latest release when
-// it is a patch release.
+// it is a patch release. On a difference it writes to notices the diff
+// against the tag of that release, when the tag is here.
 func runCheckRelease(root, version, branch string, notices io.Writer) (string, error) {
 	var line string
 	switch {
@@ -259,6 +278,16 @@ func runCheckRelease(root, version, branch string, notices io.Writer) (string, e
 	msg, c, err := checkRelease(releases, fps, line)
 	if n := c.skippedNotice(); n != "" {
 		notifyf(notices, "%s", n)
+	}
+	if err != nil && !c.equal() {
+		tag := "v" + c.release.Version
+		if hasRef(root, tag) {
+			if d, derr := diffInputs(root, tag, c.differ, defaultMaxLines); derr == nil {
+				fmt.Fprint(notices, d)
+			}
+		} else {
+			notifyf(notices, "fetch %[1]s to see the diff: git fetch --depth=1 origin refs/tags/%[1]s:refs/tags/%[1]s", tag)
+		}
 	}
 	return msg, err
 }

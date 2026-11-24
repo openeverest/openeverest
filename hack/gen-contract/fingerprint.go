@@ -123,6 +123,23 @@ func inputPrefixes() []string {
 	return prefixes
 }
 
+// differentInputs returns the inputs whose digests differ between a and b,
+// including those only one holds, in the order of the inputs.
+func differentInputs(a, b map[string]string) []string {
+	union := make(map[string]string, len(a)+len(b))
+	maps.Copy(union, a)
+	maps.Copy(union, b)
+	var names []string
+	for _, name := range sortedInputs(union) {
+		va, inA := a[name]
+		vb, inB := b[name]
+		if inA != inB || va != vb {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
 // sortedInputs returns the names of a map of digests, in the order of the
 // inputs, then those of no input, sorted.
 func sortedInputs(digests map[string]string) []string {

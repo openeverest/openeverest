@@ -82,7 +82,7 @@ func TestRunRelease(t *testing.T) {
 
 	// A pre-release may change the contract, so a release branch after one
 	// passes either way.
-	msg, err := execute([]string{"-root", root, "-check-release", "-branch", "release-2.0"}, io.Discard)
+	msg, err := execute([]string{"-root", root, "-check-release", "-branch", "release-2.0"}, io.Discard, io.Discard)
 	require.NoError(t, err)
 	assert.Contains(t, msg, "is not a patch release of 2.0.0-alpha.2")
 
@@ -94,7 +94,7 @@ func TestRunRelease(t *testing.T) {
 	assert.Equal(t, "2.0.0-alpha.2.next\n", readFile(t, root, versionFile))
 	assert.Contains(t, readFile(t, root, outputPath), "var UpgradableFrom = []string{}\n")
 	assert.Equal(t, "gen-contract: contract version 2.0.0-alpha.2.next: the contract changed since release 2.0.0-alpha.2: "+
-		"changes differs from its record (fingerprint scheme "+scheme+")\n", notices.String(),
+		"changes differs from its record (fingerprint scheme "+scheme+"); make contract-diff shows how\n", notices.String(),
 	)
 }
 
@@ -109,23 +109,24 @@ func TestCheckReleaseCommand(t *testing.T) {
 	var notices bytes.Buffer
 	for _, args := range [][]string{{"-version", "2.1.1"}, {"-branch", "release-2.1"}} {
 		notices.Reset()
-		msg, err := execute(append([]string{"-root", root, "-check-release"}, args...), &notices)
+		msg, err := execute(append([]string{"-root", root, "-check-release"}, args...), io.Discard, &notices)
 		require.NoError(t, err, args)
 		assert.Equal(t, "the contract is the one release 2.1.0 was cut with (crds, http-api, storage-classes, changes equal under fingerprint scheme "+scheme+")", msg)
 		assert.Contains(t, notices.String(), "not compared: go-api", "the message names what it skipped")
 	}
 
-	msg, err := execute([]string{"-root", root, "-check-release", "-branch", "main"}, io.Discard)
+	msg, err := execute([]string{"-root", root, "-check-release", "-branch", "main"}, io.Discard, io.Discard)
 	require.NoError(t, err)
 	assert.Equal(t, "main is not a release branch release-X.Y, so no release cut from it is a patch release", msg)
 
 	replace(t, files, crdPath, "maximum: 10", "maximum: 9")
 	root = writeRepo(t, files)
 	notices.Reset()
-	_, err = execute([]string{"-root", root, "-check-release", "-version", "2.1.1"}, &notices)
+	_, err = execute([]string{"-root", root, "-check-release", "-version", "2.1.1"}, io.Discard, &notices)
 	require.ErrorContains(t, err, "the contract changed since release 2.1.0: crds differs from its record")
+	assert.Contains(t, notices.String(), "fetch v2.1.0 to see the diff", "the test repository has no tag")
 
-	msg, err = execute([]string{"-root", root, "-check-release", "-version", "2.2.0"}, io.Discard)
+	msg, err = execute([]string{"-root", root, "-check-release", "-version", "2.2.0"}, io.Discard, io.Discard)
 	require.NoError(t, err, "a minor release may change the contract")
 	assert.Contains(t, msg, "is not a patch release of 2.1.0")
 }
@@ -174,18 +175,19 @@ func TestExecuteErrors(t *testing.T) {
 		args    []string
 		wantErr string
 	}{
-		{args: []string{"publish"}, wantErr: `unexpected argument "publish"`},
+		{args: []string{"publish"}, wantErr: `unknown command "publish"`},
 		{args: []string{"-check-release"}, wantErr: "-check-release needs -version X.Y.Z"},
 		{args: []string{"-check-release", "-version", "2.1.1", "-branch", "release-2.1"}, wantErr: "not both"},
 		{args: []string{"-check-release", "-version", "2.1.0-alpha.0"}, wantErr: "-version: \"2.1.0-alpha.0\" is a development value"},
 		{args: []string{"-version", "2.1.1"}, wantErr: "-version and -branch go with -check-release"},
+		{args: []string{"-check-release", "diff"}, wantErr: "do not go with the diff command"},
 	}
 	for _, tt := range tests {
-		_, err := execute(append([]string{"-root", root}, tt.args...), io.Discard)
+		_, err := execute(append([]string{"-root", root}, tt.args...), io.Discard, io.Discard)
 		require.ErrorContains(t, err, tt.wantErr, tt.args)
 	}
 
-	_, err := execute([]string{"-h"}, io.Discard)
+	_, err := execute([]string{"-h"}, io.Discard, io.Discard)
 	require.ErrorIs(t, err, flag.ErrHelp)
 }
 
