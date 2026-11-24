@@ -17,6 +17,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -26,11 +27,14 @@ import (
 	"github.com/AlekSi/pointer"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	corev1 "k8s.io/api/core/v1"
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/tokenregistry"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/events"
+	"github.com/openeverest/openeverest/v2/pkg/oidc"
+	"github.com/openeverest/openeverest/v2/pkg/session"
 )
 
 const (
@@ -55,6 +59,8 @@ func (e *EverestServer) CreateAuthToken(ctx echo.Context) error {
 		return e.handlePasswordGrant(ctx, params)
 	case api.AuthTokenRequestGrantTypeRefreshToken:
 		return e.handleRefreshTokenGrant(ctx, params)
+	case api.AuthTokenRequestGrantTypeTokenExchange:
+		return e.handleTokenExchangeGrant(ctx, params)
 	}
 	return ctx.JSON(http.StatusBadRequest, api.Error{
 		Message: pointer.To(fmt.Sprintf("Unsupported grant_type %q", params.GrantType)),
@@ -77,7 +83,7 @@ func (e *EverestServer) handlePasswordGrant(ctx echo.Context, params api.AuthTok
 	c := ctx.Request().Context()
 	if err := e.sessionMgr.Authenticate(c, *params.Username, *params.Password); err != nil {
 		e.attemptsStore.IncreaseTimeout(ctx.RealIP())
-		e.publishAuthEvent(events.UserLoginFailed, *params.Username, ctx.RealIP(), err.Error())
+		e.recordAuthEvent(ctx, events.ReasonLoginFailed, *params.Username, err.Error())
 		return sessionErrToHTTPRes(ctx, err)
 	}
 
@@ -88,7 +94,7 @@ func (e *EverestServer) handlePasswordGrant(ctx echo.Context, params api.AuthTok
 	}
 
 	e.attemptsStore.CleanupVisitor(ctx.RealIP())
-	e.publishAuthEvent(events.UserLogin, *params.Username, ctx.RealIP(), "")
+	e.recordAuthEvent(ctx, events.ReasonLoginSucceeded, *params.Username, "")
 
 	return e.respondWithTokens(ctx, *params.Username, refreshToken, useCookieDelivery(params))
 }
@@ -151,6 +157,86 @@ func (e *EverestServer) handleRefreshTokenGrant(ctx echo.Context, params api.Aut
 	e.attemptsStore.CleanupVisitor(ctx.RealIP())
 
 	return e.respondWithTokens(ctx, rec.OwnerSubject, newRefreshToken, fromCookie || useCookieDelivery(params))
+}
+
+// handleTokenExchangeGrant exchanges an OIDC ID token for an Everest-signed access JWT (RFC 8693).
+//
+// Only ID tokens issued to the Everest client are accepted (see oidc.IDTokenVerifier). Access
+// tokens are rejected: neither a JWT access token nor the provider's UserInfo endpoint proves that
+// the token was issued to Everest rather than to another application of the same provider.
+//
+// No refresh token is issued: the client renews its IdP session and exchanges the new ID token
+// instead. Because only recently issued ID tokens are accepted, a user disabled in the IdP keeps
+// API access for at most that freshness window plus the access JWT TTL.
+func (e *EverestServer) handleTokenExchangeGrant(ctx echo.Context, params api.AuthTokenRequest) error {
+	if e.ssoTokenVerifier == nil {
+		return ctx.JSON(http.StatusBadRequest, api.Error{
+			Message: new("OIDC is not configured"),
+		})
+	}
+
+	if ok, _ := e.ssoAttemptsStore.Allow(ctx.RealIP()); !ok {
+		return ctx.JSON(http.StatusTooManyRequests, api.Error{
+			Message: new("Too many token exchange attempts"),
+		})
+	}
+
+	if params.SubjectToken == nil || *params.SubjectToken == "" {
+		return ctx.JSON(http.StatusBadRequest, api.Error{
+			Message: new("subject_token is required for the token-exchange grant"),
+		})
+	}
+	if params.SubjectTokenType == nil || *params.SubjectTokenType != api.AuthTokenRequestSubjectTokenTypeIdToken {
+		return ctx.JSON(http.StatusBadRequest, api.Error{
+			Message: new(fmt.Sprintf("subject_token_type must be %q", api.AuthTokenRequestSubjectTokenTypeIdToken)),
+		})
+	}
+
+	identity, err := e.ssoTokenVerifier.Verify(*params.SubjectToken)
+	if err != nil {
+		e.l.Debugf("SSO token exchange failed: %v", err)
+		e.ssoAttemptsStore.IncreaseTimeout(ctx.RealIP())
+		return ctx.JSON(http.StatusUnauthorized, api.Error{
+			Message: new("Invalid OIDC token"),
+		})
+	}
+
+	accessToken, err := e.mintSSOAccessToken(identity)
+	if err != nil {
+		e.l.Errorf("failed to create SSO access token: %v", err)
+		return errInternalTokenIssue(ctx)
+	}
+
+	e.ssoAttemptsStore.CleanupVisitor(ctx.RealIP())
+
+	return ctx.JSON(http.StatusOK, api.AuthTokenResponse{
+		AccessToken: accessToken,
+		TokenType:   api.AuthTokenResponseTokenTypeBearer,
+		ExpiresIn:   int(e.config.AccessTokenTTL.Seconds()),
+	})
+}
+
+// mintSSOAccessToken signs an Everest access JWT for an identity validated by the OIDC provider.
+func (e *EverestServer) mintSSOAccessToken(identity *oidc.Identity) (string, error) {
+	uniqueID, err := uuid.NewRandom()
+	if err != nil {
+		return "", err
+	}
+
+	issuerURL := e.oidcProvider.OriginalIssuer
+	if issuerURL == "" {
+		issuerURL = e.oidcProvider.Issuer
+	}
+
+	return e.sessionMgr.CreateSSO(
+		identity.Subject, int64(e.config.AccessTokenTTL.Seconds()), uniqueID.String(), issuerURL,
+		session.SSOIdentity{
+			Email:             identity.Email,
+			Name:              identity.Name,
+			PreferredUsername: identity.PreferredUsername,
+			Groups:            identity.Groups,
+		},
+	)
 }
 
 // respondWithTokens mints an access JWT for the user and writes the token response,
@@ -220,7 +306,7 @@ func (e *EverestServer) RevokeAuthToken(ctx echo.Context) error {
 		}
 	}
 
-	e.publishAuthEvent(events.UserLogout, subject, ctx.RealIP(), "")
+	e.recordAuthEvent(ctx, events.ReasonLogout, subject, "")
 	return ctx.NoContent(http.StatusNoContent)
 }
 
@@ -296,28 +382,52 @@ func sessionErrToHTTPRes(ctx echo.Context, err error) error {
 	return err
 }
 
-// publishAuthEvent emits an authentication-related event onto the hub.
-// `reason` is included only for the login-failed type.
-func (e *EverestServer) publishAuthEvent(t events.Type, subject, remoteIP, reason string) {
-	if e.eventHub == nil {
+// authEventTimeout bounds recording an authentication event, which happens in the
+// background so a slow Kubernetes API doesn't delay logins.
+const authEventTimeout = 10 * time.Second
+
+const maxConcurrentAuthEventWrites = 64
+
+// recordAuthEvent records a login or logout of subject as a lifecycle event about the
+// user. detail explains a failed login.
+func (e *EverestServer) recordAuthEvent(ctx echo.Context, reason events.Reason, subject, detail string) {
+	if e.kubeConnector == nil {
 		return
 	}
-	evt := events.Event{
-		Type:       t,
-		OccurredAt: time.Now().UTC(),
-		Resource: events.ResourceRef{
-			Kind: "Session",
-			Name: subject,
-		},
-		Actor: events.Actor{Type: "user", ID: subject},
+	note := map[events.Reason]string{
+		events.ReasonLoginSucceeded: "User " + subject + " logged in",
+		events.ReasonLoginFailed:    "Login failed for user " + subject,
+		events.ReasonLogout:         "User " + subject + " logged out",
+	}[reason]
+	if detail != "" {
+		note += ": " + detail
 	}
-	if reason != "" {
-		evt.NewState = events.StateSnapshot{Phase: reason}
+	record := events.Record{
+		// Accounts live in the namespace OpenEverest runs in, so its users do too.
+		Regarding: corev1.ObjectReference{Kind: "User", Namespace: e.kubeConnector.Namespace(), Name: subject},
+		Reason:    reason,
+		Note:      note,
+		SourceIP:  ctx.RealIP(),
 	}
-	if remoteIP != "" {
-		// Use prevState slot to carry the IP without inventing new schema
-		// fields. Audit plugins read both prev/new phases for free-form context.
-		evt.PrevState = events.StateSnapshot{Phase: "ip=" + remoteIP}
+	if reason == events.ReasonLoginFailed {
+		// Whoever failed to log in did not prove to be the user, so there is no actor.
+		record.Warning = true
+	} else {
+		record.Actor = events.Actor{Type: events.ActorTypeUser, ID: subject}
 	}
-	e.eventHub.Publish(evt)
+	select {
+	case e.authEventSlots <- struct{}{}:
+	default:
+		e.l.Warnf("dropping the %s event for %q: too many writes in flight", reason, subject)
+		return
+	}
+	reqCtx := context.WithoutCancel(ctx.Request().Context())
+	go func() {
+		defer func() { <-e.authEventSlots }()
+		recordCtx, cancel := context.WithTimeout(reqCtx, authEventTimeout)
+		defer cancel()
+		if err := e.kubeConnector.RecordLifecycleEvent(recordCtx, record); err != nil {
+			e.l.Errorf("failed to record the %s event of user %q: %v", reason, subject, err)
+		}
+	}()
 }

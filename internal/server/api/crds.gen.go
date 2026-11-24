@@ -114,6 +114,42 @@ func (e BackupStatusState) Valid() bool {
 	}
 }
 
+// Defines values for BackupClassSpecBackupStorageClassesTlsCustomCA.
+const (
+	BackupClassSpecBackupStorageClassesTlsCustomCANone      BackupClassSpecBackupStorageClassesTlsCustomCA = "None"
+	BackupClassSpecBackupStorageClassesTlsCustomCASupported BackupClassSpecBackupStorageClassesTlsCustomCA = "Supported"
+)
+
+// Valid indicates whether the value is a known member of the BackupClassSpecBackupStorageClassesTlsCustomCA enum.
+func (e BackupClassSpecBackupStorageClassesTlsCustomCA) Valid() bool {
+	switch e {
+	case BackupClassSpecBackupStorageClassesTlsCustomCANone:
+		return true
+	case BackupClassSpecBackupStorageClassesTlsCustomCASupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify.
+const (
+	BackupClassSpecBackupStorageClassesTlsInsecureSkipVerifyNone      BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify = "None"
+	BackupClassSpecBackupStorageClassesTlsInsecureSkipVerifySupported BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify = "Supported"
+)
+
+// Valid indicates whether the value is a known member of the BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify enum.
+func (e BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify) Valid() bool {
+	switch e {
+	case BackupClassSpecBackupStorageClassesTlsInsecureSkipVerifyNone:
+		return true
+	case BackupClassSpecBackupStorageClassesTlsInsecureSkipVerifySupported:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupClassSpecExecutionMode.
 const (
 	BackupClassSpecExecutionModeProviderManaged BackupClassSpecExecutionMode = "ProviderManaged"
@@ -144,6 +180,27 @@ func (e BackupClassStatusConditionsStatus) Valid() bool {
 	case BackupClassStatusConditionsStatusTrue:
 		return true
 	case BackupClassStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupClassStatusProvidersCompatibility.
+const (
+	BackupClassStatusProvidersCompatibilityCompatible   BackupClassStatusProvidersCompatibility = "Compatible"
+	BackupClassStatusProvidersCompatibilityIncompatible BackupClassStatusProvidersCompatibility = "Incompatible"
+	BackupClassStatusProvidersCompatibilityPending      BackupClassStatusProvidersCompatibility = "Pending"
+)
+
+// Valid indicates whether the value is a known member of the BackupClassStatusProvidersCompatibility enum.
+func (e BackupClassStatusProvidersCompatibility) Valid() bool {
+	switch e {
+	case BackupClassStatusProvidersCompatibilityCompatible:
+		return true
+	case BackupClassStatusProvidersCompatibilityIncompatible:
+		return true
+	case BackupClassStatusProvidersCompatibilityPending:
 		return true
 	default:
 		return false
@@ -195,15 +252,42 @@ func (e BackupImportStatusState) Valid() bool {
 	}
 }
 
-// Defines values for BackupStorageSpecType.
+// Defines values for BackupStorageStatusBackupClassesCompatibility.
 const (
-	BackupStorageSpecTypeS3 BackupStorageSpecType = "s3"
+	BackupStorageStatusBackupClassesCompatibilityCompatible   BackupStorageStatusBackupClassesCompatibility = "Compatible"
+	BackupStorageStatusBackupClassesCompatibilityIncompatible BackupStorageStatusBackupClassesCompatibility = "Incompatible"
+	BackupStorageStatusBackupClassesCompatibilityPending      BackupStorageStatusBackupClassesCompatibility = "Pending"
 )
 
-// Valid indicates whether the value is a known member of the BackupStorageSpecType enum.
-func (e BackupStorageSpecType) Valid() bool {
+// Valid indicates whether the value is a known member of the BackupStorageStatusBackupClassesCompatibility enum.
+func (e BackupStorageStatusBackupClassesCompatibility) Valid() bool {
 	switch e {
-	case BackupStorageSpecTypeS3:
+	case BackupStorageStatusBackupClassesCompatibilityCompatible:
+		return true
+	case BackupStorageStatusBackupClassesCompatibilityIncompatible:
+		return true
+	case BackupStorageStatusBackupClassesCompatibilityPending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupStorageStatusConditionsStatus.
+const (
+	BackupStorageStatusConditionsStatusFalse   BackupStorageStatusConditionsStatus = "False"
+	BackupStorageStatusConditionsStatusTrue    BackupStorageStatusConditionsStatus = "True"
+	BackupStorageStatusConditionsStatusUnknown BackupStorageStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the BackupStorageStatusConditionsStatus enum.
+func (e BackupStorageStatusConditionsStatus) Valid() bool {
+	switch e {
+	case BackupStorageStatusConditionsStatusFalse:
+		return true
+	case BackupStorageStatusConditionsStatusTrue:
+		return true
+	case BackupStorageStatusConditionsStatusUnknown:
 		return true
 	default:
 		return false
@@ -312,6 +396,24 @@ const (
 func (e ClusterInstancePresetSpecMonitoringDestinationsDestinationRefKind) Valid() bool {
 	switch e {
 	case ClusterInstancePresetSpecMonitoringDestinationsDestinationRefKindMonitoringDestination:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy.
+const (
+	ClusterInstancePresetSpecMonitoringSourcesMetricsPolicyAlways   ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy = "Always"
+	ClusterInstancePresetSpecMonitoringSourcesMetricsPolicyOnDemand ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy = "OnDemand"
+)
+
+// Valid indicates whether the value is a known member of the ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy enum.
+func (e ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy) Valid() bool {
+	switch e {
+	case ClusterInstancePresetSpecMonitoringSourcesMetricsPolicyAlways:
+		return true
+	case ClusterInstancePresetSpecMonitoringSourcesMetricsPolicyOnDemand:
 		return true
 	default:
 		return false
@@ -513,6 +615,24 @@ func (e InstanceSpecMonitoringDestinationsDestinationRefKind) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSpecMonitoringSourcesMetricsPolicy.
+const (
+	InstanceSpecMonitoringSourcesMetricsPolicyAlways   InstanceSpecMonitoringSourcesMetricsPolicy = "Always"
+	InstanceSpecMonitoringSourcesMetricsPolicyOnDemand InstanceSpecMonitoringSourcesMetricsPolicy = "OnDemand"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecMonitoringSourcesMetricsPolicy enum.
+func (e InstanceSpecMonitoringSourcesMetricsPolicy) Valid() bool {
+	switch e {
+	case InstanceSpecMonitoringSourcesMetricsPolicyAlways:
+		return true
+	case InstanceSpecMonitoringSourcesMetricsPolicyOnDemand:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceStatusBackupStoragesPitrState.
 const (
 	InstanceStatusBackupStoragesPitrStateAvailable   InstanceStatusBackupStoragesPitrState = "Available"
@@ -546,6 +666,27 @@ func (e InstanceStatusConditionsStatus) Valid() bool {
 	case InstanceStatusConditionsStatusTrue:
 		return true
 	case InstanceStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceStatusMonitoringDestinationsConditionsStatus.
+const (
+	InstanceStatusMonitoringDestinationsConditionsStatusFalse   InstanceStatusMonitoringDestinationsConditionsStatus = "False"
+	InstanceStatusMonitoringDestinationsConditionsStatusTrue    InstanceStatusMonitoringDestinationsConditionsStatus = "True"
+	InstanceStatusMonitoringDestinationsConditionsStatusUnknown InstanceStatusMonitoringDestinationsConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the InstanceStatusMonitoringDestinationsConditionsStatus enum.
+func (e InstanceStatusMonitoringDestinationsConditionsStatus) Valid() bool {
+	switch e {
+	case InstanceStatusMonitoringDestinationsConditionsStatusFalse:
+		return true
+	case InstanceStatusMonitoringDestinationsConditionsStatusTrue:
+		return true
+	case InstanceStatusMonitoringDestinationsConditionsStatusUnknown:
 		return true
 	default:
 		return false
@@ -611,43 +752,19 @@ func (e InstanceStatusPendingMaintenanceSeverity) Valid() bool {
 
 // Defines values for InstanceStatusPhase.
 const (
-	InstanceStatusPhaseFailed       InstanceStatusPhase = "Failed"
-	InstanceStatusPhaseInitializing InstanceStatusPhase = "Initializing"
-	InstanceStatusPhasePending      InstanceStatusPhase = "Pending"
-	InstanceStatusPhaseProvisioning InstanceStatusPhase = "Provisioning"
-	InstanceStatusPhaseReady        InstanceStatusPhase = "Ready"
-	InstanceStatusPhaseRestoring    InstanceStatusPhase = "Restoring"
-	InstanceStatusPhaseResuming     InstanceStatusPhase = "Resuming"
-	InstanceStatusPhaseSuspended    InstanceStatusPhase = "Suspended"
-	InstanceStatusPhaseSuspending   InstanceStatusPhase = "Suspending"
-	InstanceStatusPhaseTerminating  InstanceStatusPhase = "Terminating"
-	InstanceStatusPhaseUpdating     InstanceStatusPhase = "Updating"
+	InstanceStatusPhasePending     InstanceStatusPhase = "Pending"
+	InstanceStatusPhaseProvisioned InstanceStatusPhase = "Provisioned"
+	InstanceStatusPhaseTerminating InstanceStatusPhase = "Terminating"
 )
 
 // Valid indicates whether the value is a known member of the InstanceStatusPhase enum.
 func (e InstanceStatusPhase) Valid() bool {
 	switch e {
-	case InstanceStatusPhaseFailed:
-		return true
-	case InstanceStatusPhaseInitializing:
-		return true
 	case InstanceStatusPhasePending:
 		return true
-	case InstanceStatusPhaseProvisioning:
-		return true
-	case InstanceStatusPhaseReady:
-		return true
-	case InstanceStatusPhaseRestoring:
-		return true
-	case InstanceStatusPhaseResuming:
-		return true
-	case InstanceStatusPhaseSuspended:
-		return true
-	case InstanceStatusPhaseSuspending:
+	case InstanceStatusPhaseProvisioned:
 		return true
 	case InstanceStatusPhaseTerminating:
-		return true
-	case InstanceStatusPhaseUpdating:
 		return true
 	default:
 		return false
@@ -756,6 +873,24 @@ const (
 func (e InstancePresetSpecMonitoringDestinationsDestinationRefKind) Valid() bool {
 	switch e {
 	case InstancePresetSpecMonitoringDestinationsDestinationRefKindMonitoringDestination:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetSpecMonitoringSourcesMetricsPolicy.
+const (
+	InstancePresetSpecMonitoringSourcesMetricsPolicyAlways   InstancePresetSpecMonitoringSourcesMetricsPolicy = "Always"
+	InstancePresetSpecMonitoringSourcesMetricsPolicyOnDemand InstancePresetSpecMonitoringSourcesMetricsPolicy = "OnDemand"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecMonitoringSourcesMetricsPolicy enum.
+func (e InstancePresetSpecMonitoringSourcesMetricsPolicy) Valid() bool {
+	switch e {
+	case InstancePresetSpecMonitoringSourcesMetricsPolicyAlways:
+		return true
+	case InstancePresetSpecMonitoringSourcesMetricsPolicyOnDemand:
 		return true
 	default:
 		return false
@@ -894,21 +1029,6 @@ func (e MonitoringClassStatusProvidersMode) Valid() bool {
 	}
 }
 
-// Defines values for MonitoringConfigSpecType.
-const (
-	MonitoringConfigSpecTypePmm MonitoringConfigSpecType = "pmm"
-)
-
-// Valid indicates whether the value is a known member of the MonitoringConfigSpecType enum.
-func (e MonitoringConfigSpecType) Valid() bool {
-	switch e {
-	case MonitoringConfigSpecTypePmm:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for MonitoringDestinationStatusConditionsStatus.
 const (
 	MonitoringDestinationStatusConditionsStatusFalse   MonitoringDestinationStatusConditionsStatus = "False"
@@ -951,6 +1071,24 @@ func (e PluginStatusConditionsStatus) Valid() bool {
 	}
 }
 
+// Defines values for ProviderSpecMonitoringComponentTypesConnection.
+const (
+	ProviderSpecMonitoringComponentTypesConnectionNone      ProviderSpecMonitoringComponentTypesConnection = "None"
+	ProviderSpecMonitoringComponentTypesConnectionSupported ProviderSpecMonitoringComponentTypesConnection = "Supported"
+)
+
+// Valid indicates whether the value is a known member of the ProviderSpecMonitoringComponentTypesConnection enum.
+func (e ProviderSpecMonitoringComponentTypesConnection) Valid() bool {
+	switch e {
+	case ProviderSpecMonitoringComponentTypesConnectionNone:
+		return true
+	case ProviderSpecMonitoringComponentTypesConnectionSupported:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProviderSpecMonitoringComponentTypesMetrics.
 const (
 	ProviderSpecMonitoringComponentTypesMetricsExporter ProviderSpecMonitoringComponentTypesMetrics = "Exporter"
@@ -966,6 +1104,24 @@ func (e ProviderSpecMonitoringComponentTypesMetrics) Valid() bool {
 	case ProviderSpecMonitoringComponentTypesMetricsNative:
 		return true
 	case ProviderSpecMonitoringComponentTypesMetricsNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProviderSpecMonitoringComponentTypesPodMetadata.
+const (
+	ProviderSpecMonitoringComponentTypesPodMetadataNone      ProviderSpecMonitoringComponentTypesPodMetadata = "None"
+	ProviderSpecMonitoringComponentTypesPodMetadataSupported ProviderSpecMonitoringComponentTypesPodMetadata = "Supported"
+)
+
+// Valid indicates whether the value is a known member of the ProviderSpecMonitoringComponentTypesPodMetadata enum.
+func (e ProviderSpecMonitoringComponentTypesPodMetadata) Valid() bool {
+	switch e {
+	case ProviderSpecMonitoringComponentTypesPodMetadataNone:
+		return true
+	case ProviderSpecMonitoringComponentTypesPodMetadataSupported:
 		return true
 	default:
 		return false
@@ -1266,6 +1422,12 @@ type Backup struct {
 			Name string `json:"name"`
 		} `json:"operatorBackupRef,omitempty"`
 
+		// Path Path is the directory in the BackupStorage's bucket the source
+		// Instance writes its backups to, recorded when the backup starts so
+		// restores resolve after the Instance is gone. Empty for external
+		// backups, whose path is spec.origin.external.path.
+		Path *string `json:"path,omitempty"`
+
 		// Size Size is the size of the backup data as reported by the engine.
 		// Empty for external backups.
 		Size *string `json:"size,omitempty"`
@@ -1351,6 +1513,43 @@ type BackupClass struct {
 
 	// Spec BackupClassSpec defines the desired state of BackupClass.
 	Spec struct {
+		// BackupStorageClasses BackupStorageClasses lists the BackupStorageClasses the class's executor
+		// can write to, each with the authentication modes it supports. A
+		// BackupStorage is usable with the class only when both its class and
+		// its authentication mode are listed.
+		BackupStorageClasses []struct {
+			// AuthModes AuthModes are the authentication modes of that class the executor
+			// supports.
+			AuthModes []string `json:"authModes"`
+
+			// Name Name of the BackupStorageClass.
+			Name string `json:"name"`
+
+			// ParametersSchema ParametersSchema narrows the BackupStorageClass's parametersSchema to
+			// what the executor supports, typically the parameters of the contract
+			// version it was built with: a storage whose parameters it rejects
+			// cannot be used with the class. Absent adds no restriction.
+			ParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"parametersSchema,omitempty"`
+
+			// Tls TLS declares which settings of BackupStorage.spec.tls the executor
+			// honours. Absent means None for each: a storage that uses a setting the
+			// executor does not support cannot be used with the class, and a
+			// storage without spec.tls always can.
+			Tls *struct {
+				// CustomCA CustomCA is whether the executor verifies the store against the CA
+				// bundle in spec.tls.ca.
+				CustomCA *BackupClassSpecBackupStorageClassesTlsCustomCA `json:"customCA,omitempty"`
+
+				// InsecureSkipVerify InsecureSkipVerify is whether the executor can turn certificate
+				// verification off, as spec.tls.insecureSkipVerify asks.
+				InsecureSkipVerify *BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify `json:"insecureSkipVerify,omitempty"`
+			} `json:"tls,omitempty"`
+		} `json:"backupStorageClasses"`
+
 		// Description Description is the description of the backup class.
 		Description *string `json:"description,omitempty"`
 
@@ -1358,8 +1557,10 @@ type BackupClass struct {
 		DisplayName *string `json:"displayName,omitempty"`
 
 		// ExecutionMode ExecutionMode selects who executes the class's backup and restore
-		// operations. ProviderManaged is the only mode: the provider named in
-		// SupportedProviders executes them.
+		// operations, and discriminates the execution union: the member named
+		// after the mode is required, any other is forbidden. ProviderManaged is
+		// the only mode: the provider in providerManaged.providerRef executes
+		// them.
 		ExecutionMode BackupClassSpecExecutionMode `json:"executionMode"`
 
 		// InstanceConstraints InstanceConstraints defines compatibility requirements that must be
@@ -1380,11 +1581,9 @@ type BackupClass struct {
 			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 		} `json:"parametersSchema,omitempty"`
 
-		// ProviderManaged ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
-		// schema is intentionally open: providers may surface capability
-		// information (e.g., whether PITR is supported, schedule expression
-		// dialect) without forcing a CRD change. Must be unset for any other
-		// execution mode.
+		// ProviderManaged ProviderManaged is the member of the execution union for
+		// ExecutionMode=ProviderManaged: the provider that executes the class and
+		// what it supports. Required for that mode, forbidden for any other.
 		ProviderManaged *struct {
 			// Limits Limits caps how many storages, PITR-enabled storages, and schedules per
 			// storage an Instance may declare under .spec.backup when this class is
@@ -1419,6 +1618,14 @@ type BackupClass struct {
 				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 			} `json:"pitrParametersSchema,omitempty"`
 
+			// ProviderRef ProviderRef names the Provider that claims and executes the class. It
+			// is immutable: moving a class to another provider is delete and
+			// recreate.
+			ProviderRef struct {
+				// Name Name of the referenced object.
+				Name string `json:"name"`
+			} `json:"providerRef"`
+
 			// SupportsPITR SupportsPITR indicates whether this class supports point-in-time recovery.
 			// Used by Restore validation when Restore.spec.dataSource.pitr is set.
 			SupportsPITR *bool `json:"supportsPITR,omitempty"`
@@ -1433,11 +1640,6 @@ type BackupClass struct {
 			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 		} `json:"restoreParametersSchema,omitempty"`
 
-		// SupportedProviders SupportedProviders is the list of provider names that this backup class
-		// supports. The Instance.spec.provider must appear in this list for the
-		// class to be usable on that Instance.
-		SupportedProviders *[]string `json:"supportedProviders,omitempty"`
-
 		// SupportsImport SupportsImport indicates whether the owner of this class can discover and
 		// import restorable backups already sitting in a BackupStorage.
 		SupportsImport *bool `json:"supportsImport,omitempty"`
@@ -1450,8 +1652,13 @@ type BackupClass struct {
 		UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
 	} `json:"spec"`
 
-	// Status BackupClassStatus defines the observed state of BackupClass.
+	// Status BackupClassStatus defines the observed state of BackupClass. It has two
+	// writers, each applying only its own fields with server-side apply: the
+	// executor that claims the class owns the Accepted condition and core owns
+	// providers.
 	Status *struct {
+		// Conditions Conditions: Accepted, set by the class's executor when it claims the
+		// class, with the observedGeneration it judged.
 		Conditions *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
 			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -1479,16 +1686,51 @@ type BackupClass struct {
 			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
 			Type string `json:"type"`
 		} `json:"conditions,omitempty"`
+
+		// Providers Providers is the compatibility of the class with each Provider that
+		// can execute it: for a ProviderManaged class, the Provider in
+		// providerManaged.providerRef. A Provider that is not listed is
+		// incompatible. Written by core.
+		Providers *[]struct {
+			// ClassGeneration ClassGeneration is the generation of the class the entry was computed
+			// for. An entry for another generation counts as Pending.
+			ClassGeneration *int64 `json:"classGeneration,omitempty"`
+
+			// Compatibility Compatibility is whether Instances of the Provider can use the class.
+			Compatibility BackupClassStatusProvidersCompatibility `json:"compatibility"`
+
+			// Message Message is the human-readable detail of Reason.
+			Message *string `json:"message,omitempty"`
+
+			// Name Name is the Provider name.
+			Name string `json:"name"`
+
+			// Reason Reason is why the class is not Compatible.
+			Reason *string `json:"reason,omitempty"`
+		} `json:"providers,omitempty"`
 	} `json:"status,omitempty"`
 }
 
+// BackupClassSpecBackupStorageClassesTlsCustomCA CustomCA is whether the executor verifies the store against the CA
+// bundle in spec.tls.ca.
+type BackupClassSpecBackupStorageClassesTlsCustomCA string
+
+// BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify InsecureSkipVerify is whether the executor can turn certificate
+// verification off, as spec.tls.insecureSkipVerify asks.
+type BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify string
+
 // BackupClassSpecExecutionMode ExecutionMode selects who executes the class's backup and restore
-// operations. ProviderManaged is the only mode: the provider named in
-// SupportedProviders executes them.
+// operations, and discriminates the execution union: the member named
+// after the mode is required, any other is forbidden. ProviderManaged is
+// the only mode: the provider in providerManaged.providerRef executes
+// them.
 type BackupClassSpecExecutionMode string
 
 // BackupClassStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type BackupClassStatusConditionsStatus string
+
+// BackupClassStatusProvidersCompatibility Compatibility is whether Instances of the Provider can use the class.
+type BackupClassStatusProvidersCompatibility string
 
 // BackupClassList BackupClassList is an object that contains the list of the existing backupclasss.
 type BackupClassList struct {
@@ -1649,66 +1891,149 @@ type BackupStorage struct {
 	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
 	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
-	// Spec BackupStorageSpec defines the desired state of a BackupStorage.
-	//
-	// A BackupStorage is a reusable, namespaced reference to an object store
-	// (today only S3-compatible) plus the credentials needed to talk to it.
-	// It is referenced by name from:
-	//
-	//   - Instance.spec.backup.storages[].storageRef
-	//   - Backup.spec.storageRef
-	//
-	// Decoupling storage from individual Backup CRs makes provider-managed
-	// backups (e.g. PBM, pgBackRest) practical: the provider can register a
-	// fixed set of storages on the engine without recomputing them from a
-	// dynamic list of Backup CRs.
+	// Spec BackupStorageSpec defines the desired state of a BackupStorage: an object
+	// store, of the technology a BackupStorageClass describes, that backups are
+	// written to. It is referenced by name from Instance.spec.backup.storages,
+	// Backup.spec.storageRef, Restore point-in-time sources and BackupImports.
 	Spec struct {
-		// S3 S3 contains S3-compatible storage configuration.
-		// Required when Type is "s3".
-		S3 *struct {
-			// AccessKeyId AccessKeyID is a write-only convenience input. When set, a webhook
-			// stores it in the Secret named by CredentialsSecretRef and clears
-			// this field. It is never persisted on the BackupStorage object.
-			AccessKeyId *string `json:"accessKeyId,omitempty"`
-
-			// Bucket Bucket is the name of the S3 bucket.
-			Bucket string `json:"bucket"`
-
-			// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace
-			// that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
-			CredentialsSecretRef struct {
+		// Authentication Authentication names one of the class's authModes and, for every mode
+		// but WorkloadIdentity, the Secret in the same namespace holding that
+		// mode's credentials keys.
+		Authentication struct {
+			// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace that
+			// holds the credentials keys of the mode.
+			CredentialsSecretRef *struct {
 				// Name Name of the referenced Secret.
 				Name string `json:"name"`
-			} `json:"credentialsSecretRef"`
+			} `json:"credentialsSecretRef,omitempty"`
 
-			// EndpointURL EndpointURL is the endpoint URL of the S3-compatible service.
-			EndpointURL string `json:"endpointURL"`
+			// Mode Mode names one of the class's authModes.
+			Mode string `json:"mode"`
+		} `json:"authentication"`
 
-			// ForcePathStyle ForcePathStyle forces path-style URLs (bucket name in the path
-			// instead of the host). Defaults to false.
-			ForcePathStyle *bool `json:"forcePathStyle,omitempty"`
+		// BackupStorageClassRef BackupStorageClassRef names the BackupStorageClass, the object storage
+		// technology.
+		BackupStorageClassRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"backupStorageClassRef"`
 
-			// Region Region is the region of the S3 bucket.
-			Region string `json:"region"`
+		// Location Location is where backups are kept. Engines treat it as their catalog,
+		// so it cannot change: create a new BackupStorage instead.
+		Location struct {
+			// ObjectStore ObjectStore is a bucket, and a prefix within it, in an object store.
+			ObjectStore struct {
+				// Bucket Bucket is the bucket, or the container for technologies that call it
+				// so.
+				Bucket string `json:"bucket"`
 
-			// SecretAccessKey SecretAccessKey is a write-only convenience input. See AccessKeyID.
-			SecretAccessKey *string `json:"secretAccessKey,omitempty"`
+				// Prefix Prefix is the path within the bucket under which backups are written,
+				// without leading or trailing slash.
+				Prefix *string `json:"prefix,omitempty"`
+			} `json:"objectStore"`
+		} `json:"location"`
 
-			// VerifyTLS VerifyTLS enables TLS certificate verification.
-			// Defaults to true.
-			VerifyTLS *bool `json:"verifyTLS,omitempty"`
-		} `json:"s3,omitempty"`
+		// Parameters Parameters are the connection parameters of the technology, validated
+		// against the class's parametersSchema.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-		// Type Type is the object storage type. Today only "s3" is supported.
-		Type BackupStorageSpecType `json:"type"`
+		// Tls TLS is how executors verify the server certificate of the store.
+		// Absent means the system trust store.
+		Tls *struct {
+			// Ca CA is the PEM bundle the server certificate is verified against,
+			// instead of the system trust store.
+			Ca *struct {
+				// SecretKeyRef SecretKeyRef selects the Secret key holding the PEM bundle.
+				SecretKeyRef *struct {
+					// Key Key within the Secret.
+					Key string `json:"key"`
+
+					// Name Name of the referenced Secret.
+					Name string `json:"name"`
+				} `json:"secretKeyRef,omitempty"`
+			} `json:"ca,omitempty"`
+
+			// InsecureSkipVerify InsecureSkipVerify disables verification of the server certificate.
+			InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
+		} `json:"tls,omitempty"`
 	} `json:"spec"`
 
-	// Status BackupStorageStatus defines the observed state of a BackupStorage.
-	Status *map[string]interface{} `json:"status,omitempty"`
+	// Status BackupStorageStatus defines the observed state of a BackupStorage. Core
+	// writes all of it.
+	Status *struct {
+		// BackupClasses BackupClasses is whether each Accepted BackupClass can write to the
+		// storage. Read an entry through CurrentVerdict, which treats an entry
+		// computed from other objects than the current ones as Pending.
+		BackupClasses *[]struct {
+			// Compatibility Compatibility is whether the class can write to the storage.
+			Compatibility BackupStorageStatusBackupClassesCompatibility `json:"compatibility"`
+
+			// Message Message is the human-readable detail of Reason.
+			Message *string `json:"message,omitempty"`
+
+			// Name Name is the BackupClass name.
+			Name string `json:"name"`
+
+			// Observed Observed identifies the objects the verdict was computed from.
+			Observed struct {
+				// ClassGeneration ClassGeneration is the generation of the BackupClass.
+				ClassGeneration *int64 `json:"classGeneration,omitempty"`
+
+				// ClassUID ClassUID is the UID of the BackupClass.
+				ClassUID *string `json:"classUID,omitempty"`
+
+				// StorageClassGeneration StorageClassGeneration is the generation of the storage's
+				// BackupStorageClass.
+				StorageClassGeneration *int64 `json:"storageClassGeneration,omitempty"`
+
+				// StorageClassUID StorageClassUID is the UID of the storage's BackupStorageClass.
+				StorageClassUID *string `json:"storageClassUID,omitempty"`
+
+				// StorageGeneration StorageGeneration is the generation of the BackupStorage.
+				StorageGeneration *int64 `json:"storageGeneration,omitempty"`
+			} `json:"observed"`
+
+			// Reason Reason is why the class cannot write to the storage, or not yet.
+			Reason *string `json:"reason,omitempty"`
+		} `json:"backupClasses,omitempty"`
+
+		// Conditions Conditions: Accepted, and Deleting while a deleted storage waits for
+		// its referrers.
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status BackupStorageStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+	} `json:"status,omitempty"`
 }
 
-// BackupStorageSpecType Type is the object storage type. Today only "s3" is supported.
-type BackupStorageSpecType string
+// BackupStorageStatusBackupClassesCompatibility Compatibility is whether the class can write to the storage.
+type BackupStorageStatusBackupClassesCompatibility string
+
+// BackupStorageStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type BackupStorageStatusConditionsStatus string
 
 // BackupStorageClass BackupStorageClass describes an object storage technology that
 // BackupStorages reference. It is pure data: the backup classes that can write
@@ -1772,6 +2097,26 @@ type BackupStorageClass struct {
 		// spec.location, "storage" for spec.parameters and "credentials" keyed by
 		// authentication mode.
 		UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+
+		// Validations Validations are CEL rules every BackupStorage of the class must
+		// satisfy, for constraints parametersSchema cannot express, such as a
+		// naming rule on location.objectStore.bucket or a rule across parameters
+		// and tls. self is the BackupStorage's spec. A violation sets the
+		// storage's Accepted condition to False with the rule's reason,
+		// InvalidLocation or InvalidParameters, and its message.
+		Validations *[]struct {
+			// Expression Expression is a CEL expression that is true for a valid object. self is
+			// the referencing object's spec, with its parameters typed by the class's
+			// parameters schema. oldSelf is not available.
+			Expression string `json:"expression"`
+
+			// Message Message explains a violation to the user.
+			Message string `json:"message"`
+
+			// Reason Reason is the reason of the condition a violation sets on the
+			// referencing object. Each class kind lists the reasons it accepts.
+			Reason string `json:"reason"`
+		} `json:"validations,omitempty"`
 	} `json:"spec"`
 }
 
@@ -1839,8 +2184,8 @@ type ClusterInstancePreset struct {
 		Backup *struct {
 			// ClassRef ClassRef references the cluster-scoped BackupClass that the provider
 			// should use to configure the engine. The class must have
-			// ExecutionMode=ProviderManaged and list the Instance's provider in its
-			// SupportedProviders.
+			// ExecutionMode=ProviderManaged and name the Instance's provider in
+			// providerManaged.providerRef.
 			ClassRef struct {
 				// Name Name of the referenced object.
 				Name string `json:"name"`
@@ -2700,7 +3045,7 @@ type ClusterInstancePreset struct {
 		//
 		// Only ProviderManaged BackupClasses are supported. The referenced Backup
 		// must be in the same namespace, in Succeeded state, and its BackupClass
-		// must list the Instance's provider in SupportedProviders. Instance must
+		// must be executed by the Instance's provider. Instance must
 		// also have backup enabled and include a storage entry that matches the
 		// storage used by the source Backup so the provider can access the data.
 		DataSource *struct {
@@ -2819,6 +3164,21 @@ type ClusterInstancePreset struct {
 				// Parameters Parameters are validated against the class's instanceParametersSchema.
 				Parameters *map[string]interface{} `json:"parameters,omitempty"`
 			} `json:"destinations,omitempty"`
+
+			// Sources Sources configures the monitoring sources the Instance runs whether or
+			// not a destination needs them.
+			Sources *struct {
+				// Metrics Metrics configures the Instance's OpenMetrics endpoints.
+				Metrics *struct {
+					// Policy Policy says when the provider runs the exporters and turns on the
+					// optional metrics endpoints of the Instance's components. OnDemand runs
+					// them while a destination's class needs metrics. Always runs them
+					// without a destination, for scrapers that OpenEverest does not
+					// configure. The serving endpoints are listed in
+					// status.monitoring.sources.metrics.
+					Policy *ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy `json:"policy,omitempty"`
+				} `json:"metrics,omitempty"`
+			} `json:"sources,omitempty"`
 		} `json:"monitoring,omitempty"`
 
 		// Parameters Parameters contains structured parameters that apply to the Instance
@@ -2828,7 +3188,9 @@ type ClusterInstancePreset struct {
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// ProviderRef ProviderRef references the cluster-scoped Provider that manages this
-		// Instance (e.g., "percona-server-mongodb", "postgresql").
+		// Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+		// providerRef cannot be changed: the provider that picked it up owns its
+		// finalizer and engine resources, and only that provider cleans them up.
 		ProviderRef struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
@@ -2975,6 +3337,14 @@ type ClusterInstancePresetSpecMaintenanceAutoApproveUpTo string
 // ClusterInstancePresetSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
 type ClusterInstancePresetSpecMonitoringDestinationsDestinationRefKind string
 
+// ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy Policy says when the provider runs the exporters and turns on the
+// optional metrics endpoints of the Instance's components. OnDemand runs
+// them while a destination's class needs metrics. Always runs them
+// without a destination, for scrapers that OpenEverest does not
+// configure. The serving endpoints are listed in
+// status.monitoring.sources.metrics.
+type ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy string
+
 // ClusterInstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type ClusterInstancePresetStatusConditionsStatus string
 
@@ -2993,7 +3363,7 @@ type ClusterInstancePresetList struct {
 }
 
 // InstalledExtension InstalledExtension is the cluster-scoped record of an installed extension
-// (a generic plugin or a spec 001 provider). It is created by
+// (a generic plugin or a provider). It is created by
 // `everestctl extension install` and owned by cluster-admin.
 type InstalledExtension struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
@@ -3165,8 +3535,8 @@ type Instance struct {
 		Backup *struct {
 			// ClassRef ClassRef references the cluster-scoped BackupClass that the provider
 			// should use to configure the engine. The class must have
-			// ExecutionMode=ProviderManaged and list the Instance's provider in its
-			// SupportedProviders.
+			// ExecutionMode=ProviderManaged and name the Instance's provider in
+			// providerManaged.providerRef.
 			ClassRef struct {
 				// Name Name of the referenced object.
 				Name string `json:"name"`
@@ -4026,7 +4396,7 @@ type Instance struct {
 		//
 		// Only ProviderManaged BackupClasses are supported. The referenced Backup
 		// must be in the same namespace, in Succeeded state, and its BackupClass
-		// must list the Instance's provider in SupportedProviders. Instance must
+		// must be executed by the Instance's provider. Instance must
 		// also have backup enabled and include a storage entry that matches the
 		// storage used by the source Backup so the provider can access the data.
 		DataSource *struct {
@@ -4145,6 +4515,21 @@ type Instance struct {
 				// Parameters Parameters are validated against the class's instanceParametersSchema.
 				Parameters *map[string]interface{} `json:"parameters,omitempty"`
 			} `json:"destinations,omitempty"`
+
+			// Sources Sources configures the monitoring sources the Instance runs whether or
+			// not a destination needs them.
+			Sources *struct {
+				// Metrics Metrics configures the Instance's OpenMetrics endpoints.
+				Metrics *struct {
+					// Policy Policy says when the provider runs the exporters and turns on the
+					// optional metrics endpoints of the Instance's components. OnDemand runs
+					// them while a destination's class needs metrics. Always runs them
+					// without a destination, for scrapers that OpenEverest does not
+					// configure. The serving endpoints are listed in
+					// status.monitoring.sources.metrics.
+					Policy *InstanceSpecMonitoringSourcesMetricsPolicy `json:"policy,omitempty"`
+				} `json:"metrics,omitempty"`
+			} `json:"sources,omitempty"`
 		} `json:"monitoring,omitempty"`
 
 		// Parameters Parameters contains structured parameters that apply to the Instance
@@ -4154,7 +4539,9 @@ type Instance struct {
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// ProviderRef ProviderRef references the cluster-scoped Provider that manages this
-		// Instance (e.g., "percona-server-mongodb", "postgresql").
+		// Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+		// providerRef cannot be changed: the provider that picked it up owns its
+		// finalizer and engine resources, and only that provider cleans them up.
 		ProviderRef struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
@@ -4202,6 +4589,13 @@ type Instance struct {
 			// Storages Storages is the per-storage backup status, keyed by the logical storage
 			// name declared in spec.backup.storages.
 			Storages *[]struct {
+				// Location Location is the path in the storage's bucket under which the engine
+				// writes this Instance's backups.
+				Location *string `json:"location,omitempty"`
+
+				// Message Message explains Reason.
+				Message *string `json:"message,omitempty"`
+
 				// Name Name is the BackupStorage name (matches
 				// spec.backup.storages[].storageRef.name).
 				Name string `json:"name"`
@@ -4227,11 +4621,30 @@ type Instance struct {
 					// State State summarises whether a trustworthy window exists.
 					State *InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
 				} `json:"pitr,omitempty"`
+
+				// Reason Reason is why the entry is not configured on the engine as specified,
+				// empty when it is. An entry the engine already had keeps its last
+				// configuration meanwhile.
+				Reason *string `json:"reason,omitempty"`
 			} `json:"storages,omitempty"`
 		} `json:"backup,omitempty"`
 
 		// Components Components reports how many pods each component has and how many are Ready.
 		Components *[]struct {
+			// DesiredReplicas DesiredReplicas is how many pods the component will have once the
+			// current generation has converged, as the provider reports it. It
+			// describes status.observedGeneration: it is absent until the provider
+			// reports for that generation, during deletion, and for providers that
+			// don't report it; clients then show readyReplicas over replicas. Zero is
+			// a real target, for example a model scaled to zero. A cluster paused
+			// outside OpenEverest keeps its target, so it reads 0 of N; one stopped
+			// through its spec has a target of zero.
+			//
+			// It is meant for display. When a component sums several groups, such as
+			// the replica sets of every shard, it cannot tell whether each group has
+			// a majority.
+			DesiredReplicas *int32 `json:"desiredReplicas,omitempty"`
+
 			// Name Name is a key of spec.components.
 			Name string `json:"name"`
 
@@ -4290,35 +4703,110 @@ type Instance struct {
 			Name string `json:"name"`
 		} `json:"connectionSecretRef,omitempty"`
 
-		// Message Message is a custom user-facing message describing the current state of the instance.
-		Message *string `json:"message,omitempty"`
-
 		// Monitoring Monitoring is what the Instance exposes to monitoring (sources) and
 		// one read-only summary per spec.monitoring.destinations[] entry.
 		// Written only by provider-runtime.
 		Monitoring *struct {
 			// Destinations Destinations has one entry per spec.monitoring.destinations[] entry.
 			Destinations *[]struct {
-				// Configured Configured mirrors the binding's Configured condition; False when the
-				// binding is not Accepted, Unknown while it is missing or pending.
-				Configured *string `json:"configured,omitempty"`
+				// Conditions Conditions are the entry's Configured and Ready conditions.
+				Conditions *[]struct {
+					// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+					// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+					LastTransitionTime time.Time `json:"lastTransitionTime"`
 
-				// Message Message is the human-readable detail for Configured.
-				Message *string `json:"message,omitempty"`
+					// Message message is a human readable message indicating details about the transition.
+					// This may be an empty string.
+					Message string `json:"message"`
+
+					// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+					// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+					// with respect to the current state of the instance.
+					ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+					// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+					// Producers of specific condition types may define expected values and meanings for this field,
+					// and whether the values are considered a guaranteed API.
+					// The value should be a CamelCase string.
+					// This field may not be empty.
+					Reason string `json:"reason"`
+
+					// Status status of the condition, one of True, False, Unknown.
+					Status InstanceStatusMonitoringDestinationsConditionsStatus `json:"status"`
+
+					// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+					Type string `json:"type"`
+				} `json:"conditions,omitempty"`
 
 				// Mode Mode is the resolved execution mode.
 				Mode *InstanceStatusMonitoringDestinationsMode `json:"mode,omitempty"`
 
 				// Name Name matches spec.monitoring.destinations[].name.
 				Name string `json:"name"`
-
-				// Reason Reason is the machine-readable reason for Configured.
-				Reason *string `json:"reason,omitempty"`
 			} `json:"destinations,omitempty"`
 
 			// Sources Sources is the per-Instance publication of the provider's monitoring
 			// contract, consumed by ExtensionManaged class controllers.
 			Sources *struct {
+				// Connections Connections lists the endpoints monitoring agents connect to over the
+				// engine's native protocol (e.g. agents discovering databases through
+				// pod annotations), one per serving component.
+				Connections *[]struct {
+					// Auth Auth names the credential profile agents log in with, normally
+					// CredentialProfileMonitor.
+					Auth *struct {
+						// CredentialProfile CredentialProfile matches MonitoringSources.credentials[].profile.
+						CredentialProfile string `json:"credentialProfile"`
+					} `json:"auth,omitempty"`
+
+					// Component Component is the Instance component name (e.g. "engine").
+					Component string `json:"component"`
+
+					// Container Container is the name of the container serving the endpoint, for
+					// agents that address containers (e.g. Datadog Autodiscovery).
+					Container *string `json:"container,omitempty"`
+
+					// Kind Kind is the kind of the component's type
+					// (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+					// A provider may leave it empty; an endpoint it computes with another
+					// kind is not published.
+					Kind string `json:"kind"`
+
+					// PodSelector PodSelector selects the pods serving the endpoint.
+					PodSelector map[string]string `json:"podSelector"`
+
+					// Port Port is the container port, by name or number.
+					Port Instance_Status_Monitoring_Sources_Connections_Port `json:"port"`
+
+					// Tls TLS is set when the endpoint accepts TLS connections; absent means
+					// plaintext only.
+					Tls *struct {
+						// Ca CA is the PEM bundle that verifies the server certificate. Server
+						// certificates name Services, not pod IPs, so agents verify the chain
+						// only.
+						Ca *struct {
+							// SecretKeyRef SecretKeyRef selects the Secret key holding the PEM bundle.
+							SecretKeyRef *struct {
+								// Key Key within the Secret.
+								Key string `json:"key"`
+
+								// Name Name of the referenced Secret.
+								Name string `json:"name"`
+							} `json:"secretKeyRef,omitempty"`
+						} `json:"ca,omitempty"`
+
+						// ClientCertificateSecretRef ClientCertificateSecretRef references a kubernetes.io/tls Secret
+						// (keys tls.crt and tls.key) agents present as a client certificate.
+						ClientCertificateSecretRef *struct {
+							// Name Name of the referenced Secret.
+							Name string `json:"name"`
+						} `json:"clientCertificateSecretRef,omitempty"`
+
+						// Required Required means the endpoint rejects connections without TLS.
+						Required *bool `json:"required,omitempty"`
+					} `json:"tls,omitempty"`
+				} `json:"connections,omitempty"`
+
 				// Credentials Credentials lists the Instance-owned monitoring credential Secrets by
 				// profile.
 				Credentials *[]struct {
@@ -4356,7 +4844,10 @@ type Instance struct {
 					// Component Component is the Instance component name (e.g. "engine", "proxy").
 					Component string `json:"component"`
 
-					// Kind Kind is the component's engine kind.
+					// Kind Kind is the kind of the component's type
+					// (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+					// A provider may leave it empty; an endpoint it computes with another
+					// kind is not published.
 					Kind string `json:"kind"`
 
 					// Params Params are extra scrape query parameters (e.g. target for /probe).
@@ -4409,7 +4900,8 @@ type Instance struct {
 
 		// ObservedGeneration ObservedGeneration is the metadata.generation the provider-runtime last
 		// reconciled. Status describes an older spec while it is lower than
-		// metadata.generation.
+		// metadata.generation. It defaults to -1, so an Instance no provider has
+		// reconciled reads as in progress, never as current.
 		ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 		// PendingMaintenance PendingMaintenance lists the disruptive actions currently held awaiting
@@ -4430,7 +4922,10 @@ type Instance struct {
 			Severity InstanceStatusPendingMaintenanceSeverity `json:"severity"`
 		} `json:"pendingMaintenance,omitempty"`
 
-		// Phase Phase of the database cluster.
+		// Phase Phase is where the Instance is in its life: Pending until the database
+		// is first available, Provisioned afterwards, Terminating once deletion
+		// is requested. The CRD sets Pending at creation; only provider-runtime
+		// changes it. Read the conditions for everything else.
 		Phase *InstanceStatusPhase `json:"phase,omitempty"`
 
 		// Version Version is the effective version bundle that is currently applied to this
@@ -4521,14 +5016,36 @@ type InstanceSpecMaintenanceAutoApproveUpTo string
 // InstanceSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
 type InstanceSpecMonitoringDestinationsDestinationRefKind string
 
+// InstanceSpecMonitoringSourcesMetricsPolicy Policy says when the provider runs the exporters and turns on the
+// optional metrics endpoints of the Instance's components. OnDemand runs
+// them while a destination's class needs metrics. Always runs them
+// without a destination, for scrapers that OpenEverest does not
+// configure. The serving endpoints are listed in
+// status.monitoring.sources.metrics.
+type InstanceSpecMonitoringSourcesMetricsPolicy string
+
 // InstanceStatusBackupStoragesPitrState State summarises whether a trustworthy window exists.
 type InstanceStatusBackupStoragesPitrState string
 
 // InstanceStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstanceStatusConditionsStatus string
 
+// InstanceStatusMonitoringDestinationsConditionsStatus status of the condition, one of True, False, Unknown.
+type InstanceStatusMonitoringDestinationsConditionsStatus string
+
 // InstanceStatusMonitoringDestinationsMode Mode is the resolved execution mode.
 type InstanceStatusMonitoringDestinationsMode string
+
+// InstanceStatusMonitoringSourcesConnectionsPort0 defines model for .
+type InstanceStatusMonitoringSourcesConnectionsPort0 = int
+
+// InstanceStatusMonitoringSourcesConnectionsPort1 defines model for .
+type InstanceStatusMonitoringSourcesConnectionsPort1 = string
+
+// Instance_Status_Monitoring_Sources_Connections_Port Port is the container port, by name or number.
+type Instance_Status_Monitoring_Sources_Connections_Port struct {
+	union json.RawMessage
+}
 
 // InstanceStatusMonitoringSourcesMetricsPort0 defines model for .
 type InstanceStatusMonitoringSourcesMetricsPort0 = int
@@ -4547,7 +5064,10 @@ type InstanceStatusMonitoringSourcesMetricsScheme string
 // InstanceStatusPendingMaintenanceSeverity Severity is the action's observable database impact.
 type InstanceStatusPendingMaintenanceSeverity string
 
-// InstanceStatusPhase Phase of the database cluster.
+// InstanceStatusPhase Phase is where the Instance is in its life: Pending until the database
+// is first available, Provisioned afterwards, Terminating once deletion
+// is requested. The CRD sets Pending at creation; only provider-runtime
+// changes it. Read the conditions for everything else.
 type InstanceStatusPhase string
 
 // InstanceConnectionDetails ConnectionDetails holds the typed connection details for a database instance. These are written by the provider-runtime reconciler to a Kubernetes Secret and later read back by the API server to serve the connection endpoint. They follow the Service Binding well-known keys where applicable.
@@ -4631,8 +5151,8 @@ type InstancePreset struct {
 		Backup *struct {
 			// ClassRef ClassRef references the cluster-scoped BackupClass that the provider
 			// should use to configure the engine. The class must have
-			// ExecutionMode=ProviderManaged and list the Instance's provider in its
-			// SupportedProviders.
+			// ExecutionMode=ProviderManaged and name the Instance's provider in
+			// providerManaged.providerRef.
 			ClassRef struct {
 				// Name Name of the referenced object.
 				Name string `json:"name"`
@@ -5492,7 +6012,7 @@ type InstancePreset struct {
 		//
 		// Only ProviderManaged BackupClasses are supported. The referenced Backup
 		// must be in the same namespace, in Succeeded state, and its BackupClass
-		// must list the Instance's provider in SupportedProviders. Instance must
+		// must be executed by the Instance's provider. Instance must
 		// also have backup enabled and include a storage entry that matches the
 		// storage used by the source Backup so the provider can access the data.
 		DataSource *struct {
@@ -5611,6 +6131,21 @@ type InstancePreset struct {
 				// Parameters Parameters are validated against the class's instanceParametersSchema.
 				Parameters *map[string]interface{} `json:"parameters,omitempty"`
 			} `json:"destinations,omitempty"`
+
+			// Sources Sources configures the monitoring sources the Instance runs whether or
+			// not a destination needs them.
+			Sources *struct {
+				// Metrics Metrics configures the Instance's OpenMetrics endpoints.
+				Metrics *struct {
+					// Policy Policy says when the provider runs the exporters and turns on the
+					// optional metrics endpoints of the Instance's components. OnDemand runs
+					// them while a destination's class needs metrics. Always runs them
+					// without a destination, for scrapers that OpenEverest does not
+					// configure. The serving endpoints are listed in
+					// status.monitoring.sources.metrics.
+					Policy *InstancePresetSpecMonitoringSourcesMetricsPolicy `json:"policy,omitempty"`
+				} `json:"metrics,omitempty"`
+			} `json:"sources,omitempty"`
 		} `json:"monitoring,omitempty"`
 
 		// Parameters Parameters contains structured parameters that apply to the Instance
@@ -5620,7 +6155,9 @@ type InstancePreset struct {
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// ProviderRef ProviderRef references the cluster-scoped Provider that manages this
-		// Instance (e.g., "percona-server-mongodb", "postgresql").
+		// Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+		// providerRef cannot be changed: the provider that picked it up owns its
+		// finalizer and engine resources, and only that provider cleans them up.
 		ProviderRef struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
@@ -5767,6 +6304,14 @@ type InstancePresetSpecMaintenanceAutoApproveUpTo string
 // InstancePresetSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
 type InstancePresetSpecMonitoringDestinationsDestinationRefKind string
 
+// InstancePresetSpecMonitoringSourcesMetricsPolicy Policy says when the provider runs the exporters and turns on the
+// optional metrics endpoints of the Instance's components. OnDemand runs
+// them while a destination's class needs metrics. Always runs them
+// without a destination, for scrapers that OpenEverest does not
+// configure. The serving endpoints are listed in
+// status.monitoring.sources.metrics.
+type InstancePresetSpecMonitoringSourcesMetricsPolicy string
+
 // InstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstancePresetStatusConditionsStatus string
 
@@ -5872,6 +6417,19 @@ type MonitoringBinding struct {
 			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
 			Type string `json:"type"`
 		} `json:"conditions,omitempty"`
+
+		// PodMetadata PodMetadata is the pod metadata the class controller of an
+		// ExtensionManaged binding requests per component, written together
+		// with Configured. provider-runtime hands the annotations allowed by
+		// the class's spec.extensionManaged.podMetadata to the provider, which
+		// renders them on the component's pods.
+		PodMetadata *[]struct {
+			// Annotations Annotations to set on the component's pods.
+			Annotations *map[string]string `json:"annotations,omitempty"`
+
+			// Component Component is the Instance component name.
+			Component string `json:"component"`
+		} `json:"podMetadata,omitempty"`
 	} `json:"status,omitempty"`
 }
 
@@ -5941,6 +6499,12 @@ type MonitoringClass struct {
 			Name string `json:"name"`
 		} `json:"authModes"`
 
+		// ControllerName ControllerName is the controller that claims the class and sets its
+		// Accepted condition, as GatewayClass.spec.controllerName: a
+		// domain-qualified path (e.g. "openeverest.io/monitoring-pmm"). One
+		// controller may claim several classes. Immutable.
+		ControllerName string `json:"controllerName"`
+
 		// Description Description describes the monitoring technology.
 		Description *string `json:"description,omitempty"`
 
@@ -5958,9 +6522,32 @@ type MonitoringClass struct {
 		// from the provider's monitoring contract alone
 		// (Instance.status.monitoring.sources).
 		ExtensionManaged *struct {
+			// PodMetadata PodMetadata lets the class controller request annotations on the
+			// pods of bound Instances (status.podMetadata of its bindings), for
+			// backends whose agents discover databases through pod annotations. The
+			// provider renders them into the pod templates, which rolls the pods.
+			// When set, only component types declaring podMetadata: Supported are
+			// eligible.
+			PodMetadata *struct {
+				// AnnotationPrefixes AnnotationPrefixes are the annotation key prefixes the class
+				// controller may request, each a DNS subdomain followed by "/"
+				// (e.g. "coroot.com/"). Kubernetes and OpenEverest prefixes are
+				// reserved.
+				AnnotationPrefixes []string `json:"annotationPrefixes"`
+			} `json:"podMetadata,omitempty"`
+
 			// Requires Requires lists the source capabilities a component must satisfy to
 			// be eligible for this class.
 			Requires *struct {
+				// Connection Connection requires the component to accept native-protocol
+				// connections from monitoring agents (connection: Supported).
+				Connection *bool `json:"connection,omitempty"`
+
+				// Kinds Kinds, when set, makes only the components whose type's kind
+				// (Provider.spec.componentTypes.<type>.kind) is listed eligible. Empty
+				// means any kind.
+				Kinds *[]string `json:"kinds,omitempty"`
+
 				// Metrics Metrics requires the component to expose OpenMetrics
 				// (metrics: Native or Exporter).
 				Metrics *bool `json:"metrics,omitempty"`
@@ -6034,6 +6621,10 @@ type MonitoringClass struct {
 		// Providers Providers is the compatibility of this class with every installed
 		// Provider.
 		Providers *[]struct {
+			// ClassGeneration ClassGeneration is the class's metadata.generation the entry was
+			// computed for. An entry computed for another generation is stale.
+			ClassGeneration *int64 `json:"classGeneration,omitempty"`
+
 			// Disruption Disruption is the worst that enabling the class does to the pods of
 			// one of the Provider's Instances. Set when Mode is set.
 			Disruption *MonitoringClassStatusProvidersDisruption `json:"disruption,omitempty"`
@@ -6076,85 +6667,6 @@ type MonitoringClassList struct {
 	Metadata *struct {
 		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
 		Name *string `json:"name,omitempty"`
-	} `json:"metadata,omitempty"`
-}
-
-// MonitoringConfig MonitoringConfig is the Schema for the monitoringconfigs API.
-type MonitoringConfig struct {
-	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
-	// Servers should convert recognized schemas to the latest internal value, and
-	// may reject unrecognized values.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-	ApiVersion *string `json:"apiVersion,omitempty"`
-
-	// Kind Kind is a string value representing the REST resource this object represents.
-	// Servers may infer this from the endpoint the client submits requests to.
-	// Cannot be updated.
-	// In CamelCase.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind *string `json:"kind,omitempty"`
-
-	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
-	Metadata *ObjectMeta `json:"metadata,omitempty"`
-
-	// Spec spec defines the desired state of MonitoringConfig
-	Spec struct {
-		// Pmm PMM contains PMM-specific monitoring configuration.
-		// Required when type is "pmm".
-		Pmm *struct {
-			// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace
-			// containing the API key. It contains an `apiKey` key with the API key
-			// value.
-			CredentialsSecretRef struct {
-				// Name Name of the referenced Secret.
-				Name string `json:"name"`
-			} `json:"credentialsSecretRef"`
-
-			// Url URL is the URL of the PMM server.
-			Url string `json:"url"`
-
-			// VerifyTLS VerifyTLS is set to ensure TLS/SSL verification.
-			// If unspecified, the default value is true.
-			VerifyTLS *bool `json:"verifyTLS,omitempty"`
-		} `json:"pmm,omitempty"`
-
-		// Type Type is the name of monitoring tool (e.g., "pmm").
-		Type MonitoringConfigSpecType `json:"type"`
-	} `json:"spec"`
-
-	// Status status defines the observed state of MonitoringConfig
-	Status *struct {
-		// InUse InUse is a flag that indicates if any Instance uses the monitoring config.
-		InUse *bool `json:"inUse,omitempty"`
-
-		// LastObservedGeneration LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
-		LastObservedGeneration *int64 `json:"lastObservedGeneration,omitempty"`
-
-		// Pmm PMM contains PMM-specific status information.
-		Pmm *struct {
-			// ServerVersion ServerVersion shows the PMM server version.
-			ServerVersion *string `json:"serverVersion,omitempty"`
-		} `json:"pmm,omitempty"`
-	} `json:"status,omitempty"`
-}
-
-// MonitoringConfigSpecType Type is the name of monitoring tool (e.g., "pmm").
-type MonitoringConfigSpecType string
-
-// MonitoringConfigList MonitoringConfigList is an object that contains the list of the existing monitoringconfigs.
-type MonitoringConfigList struct {
-	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-	ApiVersion *string             `json:"apiVersion,omitempty"`
-	Items      *[]MonitoringConfig `json:"items,omitempty"`
-
-	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string `json:"kind,omitempty"`
-	Metadata *struct {
-		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
-		Name *string `json:"name,omitempty"`
-
-		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
-		Namespace *string `json:"namespace,omitempty"`
 	} `json:"metadata,omitempty"`
 }
 
@@ -6232,8 +6744,12 @@ type MonitoringDestination struct {
 	Status *struct {
 		// AttachedInstances AttachedInstances is the number of Instances in this namespace whose
 		// spec.monitoring.destinations lists this destination, whatever the
-		// state of their binding, including Instances being deleted. Written by
-		// core; deleting the destination is refused while it is above zero.
+		// state of their binding. While the destination is not being deleted,
+		// Instances being deleted are left out, so an Instance and then its
+		// destination can be deleted right away; once the destination is being
+		// deleted, they count too, and the number is what its deletion waits
+		// for. Written by core; deleting the destination is refused while it is
+		// above zero.
 		AttachedInstances *int32 `json:"attachedInstances,omitempty"`
 		Conditions        *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
@@ -6512,7 +7028,14 @@ type Provider struct {
 			// DefaultVersion DefaultVersion names the entry in Versions used when neither the
 			// Instance nor a version bundle selects one.
 			DefaultVersion *string `json:"defaultVersion,omitempty"`
-			Versions       *[]struct {
+
+			// Kind Kind is the shared classification of the software the component type
+			// runs (e.g. "mongodb", "mysql", "haproxy"), matched by monitoring class
+			// filters and set on the component's published monitoring endpoints.
+			// Databases use OpenTelemetry db.system.name values; unknown kinds are
+			// allowed. A type without a kind matches no kind filter.
+			Kind     *string `json:"kind,omitempty"`
+			Versions *[]struct {
 				// Deprecated Deprecated marks a version as still supported but scheduled for
 				// removal. Instances running on it get a proactive warning with a
 				// remediation runway instead of a blocked upgrade.
@@ -6560,12 +7083,17 @@ type Provider struct {
 			// ComponentTypes ComponentTypes declares what each component type exposes, keyed by
 			// component type (the software), not by component name.
 			ComponentTypes *map[string]struct {
-				// Kind Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
-				// follow OpenTelemetry db.system.name; unknown kinds are allowed.
-				Kind string `json:"kind"`
+				// Connection Connection states whether monitoring agents can connect to the
+				// component over its native protocol, with the monitor credential.
+				Connection *ProviderSpecMonitoringComponentTypesConnection `json:"connection,omitempty"`
 
 				// Metrics Metrics states how the component exposes OpenMetrics.
 				Metrics *ProviderSpecMonitoringComponentTypesMetrics `json:"metrics,omitempty"`
+
+				// PodMetadata PodMetadata states whether the provider renders the pod annotations
+				// monitoring classes request (Context.MonitoringPodAnnotations) into the
+				// pods of the component type.
+				PodMetadata *ProviderSpecMonitoringComponentTypesPodMetadata `json:"podMetadata,omitempty"`
 			} `json:"componentTypes,omitempty"`
 
 			// Integrations Integrations lists the operator-native monitoring integrations the
@@ -6579,6 +7107,27 @@ type Provider struct {
 				// MonitoringClass the provider can render. A destination whose mode is
 				// not listed is not bound.
 				AuthModes *[]string `json:"authModes,omitempty"`
+
+				// DestinationParametersSchema DestinationParametersSchema is the schema of MonitoringDestination
+				// parameters in the integration contract version the provider was built
+				// with, generated by provider-sdk. Core will check destination parameters
+				// against it as well as against the class.
+				DestinationParametersSchema *struct {
+					// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+					// parameters payload.
+					OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+				} `json:"destinationParametersSchema,omitempty"`
+
+				// InstanceParametersSchema InstanceParametersSchema is the schema of
+				// Instance.spec.monitoring.destinations[].parameters in the integration
+				// contract version the provider was built with, generated by
+				// provider-sdk. Core will check entry parameters against it as well as
+				// against the class.
+				InstanceParametersSchema *struct {
+					// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+					// parameters payload.
+					OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+				} `json:"instanceParametersSchema,omitempty"`
 			} `json:"integrations,omitempty"`
 		} `json:"monitoring,omitempty"`
 
@@ -6704,8 +7253,17 @@ type Provider struct {
 	} `json:"status,omitempty"`
 }
 
+// ProviderSpecMonitoringComponentTypesConnection Connection states whether monitoring agents can connect to the
+// component over its native protocol, with the monitor credential.
+type ProviderSpecMonitoringComponentTypesConnection string
+
 // ProviderSpecMonitoringComponentTypesMetrics Metrics states how the component exposes OpenMetrics.
 type ProviderSpecMonitoringComponentTypesMetrics string
+
+// ProviderSpecMonitoringComponentTypesPodMetadata PodMetadata states whether the provider renders the pod annotations
+// monitoring classes request (Context.MonitoringPodAnnotations) into the
+// pods of the component type.
+type ProviderSpecMonitoringComponentTypesPodMetadata string
 
 // ProviderStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type ProviderStatusConditionsStatus string
@@ -6798,8 +7356,8 @@ type Restore struct {
 		} `json:"dataSource"`
 
 		// InstanceRef InstanceRef references the Instance to restore into. The Instance
-		// must already exist in the same namespace and use a provider listed in
-		// the BackupClass's SupportedProviders.
+		// must already exist in the same namespace and use the provider that
+		// executes the BackupClass.
 		InstanceRef struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
@@ -7439,6 +7997,68 @@ func (t Instance_Spec_Components_Storage_Size) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Instance_Spec_Components_Storage_Size) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsInstanceStatusMonitoringSourcesConnectionsPort0 returns the union data inside the Instance_Status_Monitoring_Sources_Connections_Port as a InstanceStatusMonitoringSourcesConnectionsPort0
+func (t Instance_Status_Monitoring_Sources_Connections_Port) AsInstanceStatusMonitoringSourcesConnectionsPort0() (InstanceStatusMonitoringSourcesConnectionsPort0, error) {
+	var body InstanceStatusMonitoringSourcesConnectionsPort0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInstanceStatusMonitoringSourcesConnectionsPort0 overwrites any union data inside the Instance_Status_Monitoring_Sources_Connections_Port as the provided InstanceStatusMonitoringSourcesConnectionsPort0
+func (t *Instance_Status_Monitoring_Sources_Connections_Port) FromInstanceStatusMonitoringSourcesConnectionsPort0(v InstanceStatusMonitoringSourcesConnectionsPort0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInstanceStatusMonitoringSourcesConnectionsPort0 performs a merge with any union data inside the Instance_Status_Monitoring_Sources_Connections_Port, using the provided InstanceStatusMonitoringSourcesConnectionsPort0
+func (t *Instance_Status_Monitoring_Sources_Connections_Port) MergeInstanceStatusMonitoringSourcesConnectionsPort0(v InstanceStatusMonitoringSourcesConnectionsPort0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsInstanceStatusMonitoringSourcesConnectionsPort1 returns the union data inside the Instance_Status_Monitoring_Sources_Connections_Port as a InstanceStatusMonitoringSourcesConnectionsPort1
+func (t Instance_Status_Monitoring_Sources_Connections_Port) AsInstanceStatusMonitoringSourcesConnectionsPort1() (InstanceStatusMonitoringSourcesConnectionsPort1, error) {
+	var body InstanceStatusMonitoringSourcesConnectionsPort1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInstanceStatusMonitoringSourcesConnectionsPort1 overwrites any union data inside the Instance_Status_Monitoring_Sources_Connections_Port as the provided InstanceStatusMonitoringSourcesConnectionsPort1
+func (t *Instance_Status_Monitoring_Sources_Connections_Port) FromInstanceStatusMonitoringSourcesConnectionsPort1(v InstanceStatusMonitoringSourcesConnectionsPort1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInstanceStatusMonitoringSourcesConnectionsPort1 performs a merge with any union data inside the Instance_Status_Monitoring_Sources_Connections_Port, using the provided InstanceStatusMonitoringSourcesConnectionsPort1
+func (t *Instance_Status_Monitoring_Sources_Connections_Port) MergeInstanceStatusMonitoringSourcesConnectionsPort1(v InstanceStatusMonitoringSourcesConnectionsPort1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t Instance_Status_Monitoring_Sources_Connections_Port) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *Instance_Status_Monitoring_Sources_Connections_Port) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

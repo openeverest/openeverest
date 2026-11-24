@@ -3,6 +3,7 @@ kind: MonitoringClass
 metadata:
   name: test-monitoring-class
 spec:
+  controllerName: test.openeverest.io/api-tests
   displayName: Test Monitoring Class
   description: Defines the credentials Secrets the api-tests create.
   extensionManaged:

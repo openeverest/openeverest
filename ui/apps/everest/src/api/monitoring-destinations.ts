@@ -18,6 +18,7 @@ import {
   MonitoringDestinationList,
   MonitoringDestinationPayload,
 } from 'shared-types/monitoring-destinations.types';
+import { isDestinationInUseError } from 'utils/monitoring-destinations';
 
 const destinationsPath = (cluster: string, namespace: string) =>
   `clusters/${cluster}/namespaces/${namespace}/monitoring-destinations`;
@@ -69,10 +70,17 @@ export const updateMonitoringDestinationFn = async (
   return response.data;
 };
 
+// With dryRun the server runs every check, the in-use one included, and
+// deletes nothing.
 export const deleteMonitoringDestinationFn = async (
   cluster: string,
   namespace: string,
-  name: string
+  name: string,
+  dryRun = false
 ) => {
-  await api.delete(`${destinationsPath(cluster, namespace)}/${name}`);
+  await api.delete(`${destinationsPath(cluster, namespace)}/${name}`, {
+    params: dryRun ? { dryRun: 'All' } : undefined,
+    // A destination in use is explained in the delete dialog.
+    disableNotifications: isDestinationInUseError,
+  });
 };

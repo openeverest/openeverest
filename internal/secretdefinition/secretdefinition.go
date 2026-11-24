@@ -21,11 +21,18 @@
 //
 //   - openeverest.io/provider: a key of the Provider's spec.secrets;
 //   - openeverest.io/monitoring-class: an authentication mode of the
-//     MonitoringClass.
+//     MonitoringClass;
+//   - openeverest.io/backup-storage-class: an authentication mode of the
+//     BackupStorageClass.
 //
 // The one exception is the definition core owns, ca-bundle: a CA bundle is
 // not a credential of any Provider or class, so it carries
-// openeverest.io/definition: ca-bundle and no source label.
+// openeverest.io/definition: ca-bundle and no source label. It holds its
+// certificates under ca.crt.
+//
+// Labels that name a definition this way make a Secret labelled (Labelled):
+// the HTTP API shows every labelled Secret, whoever wrote it. Writable
+// decides which of them the HTTP API may change.
 package secretdefinition
 
 import (
@@ -41,6 +48,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
@@ -57,6 +65,9 @@ const (
 	// KindMonitoringClass is a MonitoringClass; the definition is one of its
 	// authentication modes.
 	KindMonitoringClass Kind = "MonitoringClass"
+	// KindBackupStorageClass is a BackupStorageClass; the definition is one of
+	// its authentication modes.
+	KindBackupStorageClass Kind = "BackupStorageClass"
 	// KindCore is OpenEverest itself, for the definitions no Provider or class
 	// owns. A Secret of a core definition carries no source label.
 	KindCore Kind = "Core"
@@ -83,6 +94,7 @@ func sourceLabels() []sourceLabel {
 	return []sourceLabel{
 		{label: common.OpenEverestProviderLabel, kind: KindProvider},
 		{label: common.OpenEverestMonitoringClassLabel, kind: KindMonitoringClass},
+		{label: common.OpenEverestBackupStorageClassLabel, kind: KindBackupStorageClass},
 	}
 }
 
@@ -90,13 +102,21 @@ func sourceLabels() []sourceLabel {
 type Getter interface {
 	GetProvider(ctx context.Context, key ctrlclient.ObjectKey) (*corev1alpha1.Provider, error)
 	GetMonitoringClass(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringClass, error)
+	GetBackupStorageClass(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupStorageClass, error)
+}
+
+// authModeClass is a class that defines Secrets through its authentication
+// modes.
+type authModeClass interface {
+	FindAuthMode(name string) *commonv1alpha1.AuthMode
+	AuthModeNames() []string
 }
 
 // Ref names the definition a Secret follows.
 type Ref struct {
 	// Kind is the kind of the source.
 	Kind Kind
-	// Source is the name of the Provider or MonitoringClass; empty for a core
+	// Source is the name of the Provider or class; empty for a core
 	// definition.
 	Source string
 	// Definition is the definition within the source.
@@ -155,7 +175,17 @@ func Validate(ctx context.Context, g Getter, secret *corev1.Secret) error {
 	case KindProvider:
 		return validateProviderSecret(ctx, g, ref, secret)
 	case KindMonitoringClass:
-		return validateMonitoringClassSecret(ctx, g, ref, secret)
+		class, err := g.GetMonitoringClass(ctx, ctrlclient.ObjectKey{Name: ref.Source})
+		if err != nil {
+			return sourceError(ref, err)
+		}
+		return validateClassSecret(ref, &class.Spec, secret)
+	case KindBackupStorageClass:
+		class, err := g.GetBackupStorageClass(ctx, ctrlclient.ObjectKey{Name: ref.Source})
+		if err != nil {
+			return sourceError(ref, err)
+		}
+		return validateClassSecret(ref, &class.Spec, secret)
 	case KindCore:
 		return validateCABundleSecret(secret)
 	default:
@@ -163,17 +193,29 @@ func Validate(ctx context.Context, g Getter, secret *corev1.Secret) error {
 	}
 }
 
-// validateCABundleSecret checks that every key of the Secret holds PEM CA
-// certificates and nothing else: a private key pasted along with its
-// certificate would otherwise be stored as public trust material.
+// sourceError reports a failed lookup of the source: a missing source is the
+// request's fault, any other failure is not.
+func sourceError(ref Ref, err error) error {
+	if k8serrors.IsNotFound(err) {
+		return fmt.Errorf("%w: %s %q", ErrSourceNotFound, ref.Kind, ref.Source)
+	}
+	return fmt.Errorf("get %s %q: %w", ref.Kind, ref.Source, err)
+}
+
+// validateCABundleSecret checks that the Secret holds its certificates under
+// the key every reference to a labelled bundle reads, ca.crt, and that every
+// key holds PEM CA certificates and nothing else: a private key pasted along
+// with its certificate would otherwise be stored as public trust material.
 func validateCABundleSecret(secret *corev1.Secret) error {
 	if t := secretType(secret.Type); t != corev1.SecretTypeOpaque {
 		return fmt.Errorf("%w: a CA bundle must be of type %q, not %q", ErrInvalidSecret, corev1.SecretTypeOpaque, t)
 	}
 
 	data := secretData(secret)
-	if len(data) == 0 {
-		return fmt.Errorf("%w: a CA bundle needs at least one key", ErrInvalidSecret)
+	if _, found := data[common.OpenEverestCABundleKey]; !found {
+		return fmt.Errorf("%w: missing key %q; a CA bundle holds its certificates under it",
+			ErrInvalidSecret, common.OpenEverestCABundleKey,
+		)
 	}
 	for _, key := range slices.Sorted(maps.Keys(data)) {
 		for rest := data[key]; ; {
@@ -197,10 +239,7 @@ func validateCABundleSecret(secret *corev1.Secret) error {
 func validateProviderSecret(ctx context.Context, g Getter, ref Ref, secret *corev1.Secret) error {
 	provider, err := g.GetProvider(ctx, ctrlclient.ObjectKey{Name: ref.Source})
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("%w: Provider %q", ErrSourceNotFound, ref.Source)
-		}
-		return fmt.Errorf("get Provider %q: %w", ref.Source, err)
+		return sourceError(ref, err)
 	}
 
 	if err := controller.ValidateSecretSchema(secret, &provider.Spec); err != nil {
@@ -209,30 +248,24 @@ func validateProviderSecret(ctx context.Context, g Getter, ref Ref, secret *core
 	return nil
 }
 
-func validateMonitoringClassSecret(ctx context.Context, g Getter, ref Ref, secret *corev1.Secret) error {
-	class, err := g.GetMonitoringClass(ctx, ctrlclient.ObjectKey{Name: ref.Source})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("%w: MonitoringClass %q", ErrSourceNotFound, ref.Source)
-		}
-		return fmt.Errorf("get MonitoringClass %q: %w", ref.Source, err)
-	}
-
-	mode := class.Spec.FindAuthMode(ref.Definition)
+// validateClassSecret checks the credentials of one of a class's
+// authentication modes: an Opaque Secret carrying every key the mode requires.
+func validateClassSecret(ref Ref, class authModeClass, secret *corev1.Secret) error {
+	mode := class.FindAuthMode(ref.Definition)
 	if mode == nil {
-		return fmt.Errorf("%w: MonitoringClass %q has no authentication mode %q; it supports %s",
-			ErrInvalidSecret, class.Name, ref.Definition, strings.Join(class.Spec.AuthModeNames(), ", "),
+		return fmt.Errorf("%w: %s %q has no authentication mode %q; it supports %s",
+			ErrInvalidSecret, ref.Kind, ref.Source, ref.Definition, strings.Join(class.AuthModeNames(), ", "),
 		)
 	}
 	// The reserved modes (WorkloadIdentity, Anonymous) declare no credentials.
 	if mode.Credentials == nil {
-		return fmt.Errorf("%w: authentication mode %q of MonitoringClass %q takes no Secret",
-			ErrInvalidSecret, mode.Name, class.Name,
+		return fmt.Errorf("%w: authentication mode %q of %s %q takes no Secret",
+			ErrInvalidSecret, mode.Name, ref.Kind, ref.Source,
 		)
 	}
 	if t := secretType(secret.Type); t != corev1.SecretTypeOpaque {
-		return fmt.Errorf("%w: credentials of MonitoringClass %q must be of type %q, not %q",
-			ErrInvalidSecret, class.Name, corev1.SecretTypeOpaque, t,
+		return fmt.Errorf("%w: credentials of %s %q must be of type %q, not %q",
+			ErrInvalidSecret, ref.Kind, ref.Source, corev1.SecretTypeOpaque, t,
 		)
 	}
 	if err := mode.ValidateCredentials(secretData(secret)); err != nil {

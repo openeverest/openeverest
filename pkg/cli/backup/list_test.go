@@ -16,6 +16,7 @@
 package backup
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -27,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
@@ -192,4 +194,13 @@ func TestBackupList_JSONOutput(t *testing.T) {
 	runner := NewListRunner(Config{Pretty: false}, zap.NewNop().Sugar())
 	err := runner.Run(t.Context(), ListOptions{Cluster: "main", Namespace: "everest", Instance: "my-mongo"}, cfgPath)
 	require.NoError(t, err)
+}
+
+func TestBackupList_YAMLOutput(t *testing.T) {
+	t.Parallel()
+
+	b := backupFromJSON(t, `{"metadata":{"name":"my-mongo-20260722"}}`)
+	var buf bytes.Buffer
+	NewListRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, []client.Backup{*b})
+	assert.Contains(t, buf.String(), "- metadata:\n    name: my-mongo-20260722\n")
 }

@@ -43,6 +43,10 @@ export type InstanceMonitoringDestination = NonNullable<
   InstanceMonitoringSpec['destinations']
 >[number];
 
+export type InstanceMonitoringStatus = NonNullable<
+  NonNullable<NonNullable<Instance['status']>['monitoring']>['destinations']
+>[number];
+
 // The generated types keep `parameters` opaque; what the UI writes is the
 // class-defined object.
 export type InstanceMonitoringDestinationPayload = Omit<
@@ -63,6 +67,7 @@ export enum MonitoringDestinationState {
   Ready = 'ready',
   Pending = 'pending',
   Failing = 'failing',
+  Deleting = 'deleting',
 }
 
 // Accepted (core) and Ready (class controller) rolled into one state, with

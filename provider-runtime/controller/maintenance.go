@@ -23,9 +23,6 @@ package controller
 // approved by token (spec.maintenance.approved); everything else is held and
 // flushed to status.pendingMaintenance by the reconciler, so a provider
 // upgrade never causes surprise downtime.
-//
-// Design background: spec 009 (provider upgrades) in the openeverest/specs
-// repository.
 
 import (
 	"slices"

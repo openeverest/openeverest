@@ -14,14 +14,20 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { getExtensionCatalogFn } from 'api/extension-catalog';
-import { ResolvedExtensionMeta } from 'shared-types/extension-catalog.types';
+import { ResolvedExtensionCatalog } from 'shared-types/extension-catalog.types';
 import { useClusterName } from 'hooks/api/useClusterName';
-import { buildProviderMetaMap } from './useExtensionCatalog.utils';
+import { buildExtensionCatalog } from './useExtensionCatalog.utils';
+
+const EMPTY_CATALOG: ResolvedExtensionCatalog = {
+  providerMeta: new Map(),
+  providers: [],
+};
 
 // Fetches the extension catalog from the plugin-hub plugin and exposes a helper
-// to resolve human-readable metadata for an installed provider. When plugin-hub
-// is not installed (or the catalog is unreachable), the map is empty and callers
-// fall back to the raw resource name.
+// to resolve human-readable metadata for an installed provider, plus the list of
+// every provider the catalog offers. When plugin-hub is not installed (or the
+// catalog is unreachable), both are empty and callers fall back to the raw
+// resource name.
 export const useExtensionCatalog = () => {
   const clusterName = useClusterName();
   const query = useQuery({
@@ -30,14 +36,16 @@ export const useExtensionCatalog = () => {
     retry: false,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
-    select: (data) => buildProviderMetaMap(data, clusterName),
+    select: (data) => buildExtensionCatalog(data, clusterName),
   });
 
-  const providerMeta = query.data ?? new Map<string, ResolvedExtensionMeta>();
+  const { providerMeta, providers: catalogProviders } =
+    query.data ?? EMPTY_CATALOG;
 
   return {
     ...query,
     providerMeta,
+    catalogProviders,
     getProviderMeta: (providerName?: string | null) =>
       providerName ? providerMeta.get(providerName) : undefined,
   };

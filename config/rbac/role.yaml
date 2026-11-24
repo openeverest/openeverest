@@ -17,17 +17,15 @@ rules:
   resources:
   - secrets
   verbs:
-  - create
-  - delete
   - get
   - list
   - patch
-  - update
   - watch
 - apiGroups:
   - backup.openeverest.io
   resources:
   - backupclasses
+  - backupstorageclasses
   verbs:
   - get
   - list
@@ -35,9 +33,20 @@ rules:
 - apiGroups:
   - backup.openeverest.io
   resources:
+  - backupclasses/status
+  - backupimports/status
+  - backups/status
+  - backupstorages/status
+  - restores/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - backup.openeverest.io
+  resources:
   - backupimports
   - backups
-  - backupstorages
   - restores
   verbs:
   - create
@@ -50,14 +59,13 @@ rules:
 - apiGroups:
   - backup.openeverest.io
   resources:
-  - backupimports/status
-  - backups/status
-  - backupstorages/status
-  - restores/status
+  - backupstorages
   verbs:
   - get
+  - list
   - patch
   - update
+  - watch
 - apiGroups:
   - backup.openeverest.io
   resources:
@@ -79,6 +87,12 @@ rules:
   - instances/finalizers
   verbs:
   - update
+- apiGroups:
+  - core.openeverest.io
+  resources:
+  - instances/status
+  verbs:
+  - patch
 - apiGroups:
   - events.k8s.io
   resources:
@@ -145,33 +159,6 @@ rules:
 - apiGroups:
   - monitoring.openeverest.io
   resources:
-  - monitoringconfigs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - monitoring.openeverest.io
-  resources:
-  - monitoringconfigs/finalizers
-  - monitoringdestinations/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - monitoring.openeverest.io
-  resources:
-  - monitoringconfigs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - monitoring.openeverest.io
-  resources:
   - monitoringdestinations
   verbs:
   - get
@@ -179,13 +166,8 @@ rules:
   - patch
   - watch
 - apiGroups:
-  - operator.victoriametrics.com
+  - monitoring.openeverest.io
   resources:
-  - vmagents
+  - monitoringdestinations/finalizers
   verbs:
-  - create
-  - delete
-  - get
-  - list
   - update
-  - watch

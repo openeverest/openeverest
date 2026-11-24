@@ -42,7 +42,7 @@ the history record; no stored backup data is touched.
 
 Interactively (a terminal, no --yes), you'll be asked to confirm with y/N.
 Pass --yes/-y to skip the prompt; in a non-interactive context (no terminal,
-or --json) omitting --yes fails immediately instead of hanging on a prompt
+or -o json|yaml) omitting --yes fails immediately instead of hanging on a prompt
 nobody can answer.
 
 If the restore is still Pending or Running, or hasn't reported a status
@@ -90,8 +90,9 @@ func init() {
 }
 
 func deletePreRun(cmd *cobra.Command, _ []string) {
-	deleteCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
-	deleteOpts.JSON = cmd.Flag(cli.FlagJSON).Changed
+	deleteCfg.Pretty = cli.IsPretty(cmd)
+	deleteCfg.YAML = cli.IsYAML(cmd)
+	deleteOpts.MachineReadable = cli.IsMachineReadable(cmd)
 }
 
 func deleteRun(cmd *cobra.Command, _ []string) {

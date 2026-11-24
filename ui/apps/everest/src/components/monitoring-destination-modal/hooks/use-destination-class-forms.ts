@@ -1,0 +1,74 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import { useEffect, useMemo, useRef } from 'react';
+import { useFormContext, useWatch } from 'react-hook-form';
+import { AuthenticationFormFields } from 'components/class-authentication';
+import {
+  MonitoringClass,
+  MonitoringDestination,
+} from 'shared-types/monitoring-destinations.types';
+import { DestinationFormFields } from '../monitoring-destination-modal.constants';
+import {
+  DestinationClassForms,
+  MonitoringDestinationFormValues,
+} from '../monitoring-destination-modal.types';
+import {
+  getDestinationClassForms,
+  getFormMode,
+  getNewDestinationClassDefaults,
+} from '../monitoring-destination-modal.utils';
+
+// The forms of the picked class and auth mode. Picking another class starts
+// its forms from their defaults, and preselects a class's only auth mode; the
+// credentials block drops what was picked or typed for the previous one.
+export const useDestinationClassForms = (
+  classes: MonitoringClass[],
+  original: MonitoringDestination | undefined
+): {
+  monitoringClass: MonitoringClass | undefined;
+  forms: DestinationClassForms;
+} => {
+  const { control, setValue } =
+    useFormContext<MonitoringDestinationFormValues>();
+  const [className, authMode] = useWatch({
+    control,
+    name: [DestinationFormFields.className, AuthenticationFormFields.authMode],
+  });
+  const monitoringClass = classes.find((c) => c.metadata?.name === className);
+  const formMode = getFormMode(original);
+  const forms = useMemo(
+    () => getDestinationClassForms(monitoringClass, authMode, formMode),
+    [monitoringClass, authMode, formMode]
+  );
+
+  const previousClassName = useRef(className);
+  useEffect(() => {
+    if (previousClassName.current === className) {
+      return;
+    }
+    previousClassName.current = className;
+    const defaults = getNewDestinationClassDefaults(monitoringClass);
+    setValue(AuthenticationFormFields.authMode, defaults.authMode, {
+      shouldValidate: true,
+    });
+    setValue(DestinationFormFields.spec, defaults.spec);
+    setValue(
+      DestinationFormFields.fallbackParameters,
+      defaults.fallbackParameters
+    );
+  }, [className, monitoringClass, setValue]);
+
+  return { monitoringClass, forms };
+};

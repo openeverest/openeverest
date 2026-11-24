@@ -14,6 +14,10 @@
 
 A numeric input field for integer and decimal values.
 
+For Kubernetes CPU / memory / disk quantities, prefer the
+[`quantity`](quantity-field.md) field type instead of `number` + `badge` /
+`badgeToApi`.
+
 ## Properties:
 
 - `uiType`: `"number"` (required)

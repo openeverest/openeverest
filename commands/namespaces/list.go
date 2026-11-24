@@ -48,7 +48,8 @@ func init() {
 
 func namespacesListPreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	namespacesListCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	namespacesListCfg.Pretty = cli.IsPretty(cmd)
+	namespacesListCfg.YAML = cli.IsYAML(cmd)
 	namespacesListCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 }
 

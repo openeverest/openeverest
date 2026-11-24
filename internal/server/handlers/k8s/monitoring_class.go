@@ -16,7 +16,6 @@ package k8s
 
 import (
 	"context"
-	"slices"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -24,6 +23,7 @@ import (
 )
 
 // ListMonitoringClasses returns the monitoring classes, only those compatible with provider when it is set.
+// An entry of status.providers computed for another generation of the class is not trusted.
 func (h *k8sHandler) ListMonitoringClasses(ctx context.Context, _, provider string) (*monitoringv1alpha1.MonitoringClassList, error) {
 	list, err := h.kubeConnector.ListMonitoringClasses(ctx)
 	if err != nil {
@@ -34,9 +34,7 @@ func (h *k8sHandler) ListMonitoringClasses(ctx context.Context, _, provider stri
 	}
 	filtered := make([]monitoringv1alpha1.MonitoringClass, 0, len(list.Items))
 	for _, class := range list.Items {
-		if slices.ContainsFunc(class.Status.Providers, func(p monitoringv1alpha1.ProviderCompatibility) bool {
-			return p.Name == provider && p.Mode != ""
-		}) {
+		if pc := class.CurrentProviderCompatibility(provider); pc != nil && pc.Mode != "" {
 			filtered = append(filtered, class)
 		}
 	}

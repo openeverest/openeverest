@@ -15,22 +15,27 @@
 import { List, ListItem } from '@mui/material';
 import { ShowMoreDialog } from '@percona/ui-lib';
 import { Messages } from '../monitoring-destinations.messages';
+import { DestinationUsage } from '../monitoring-destinations.types';
 
 interface UsedByCellProps {
   destination: string;
-  instances: string[];
+  usage: DestinationUsage;
 }
 
 // A count that opens the full list, so the cell stays one line however
-// many databases use the destination.
-export const UsedByCell = ({ destination, instances }: UsedByCellProps) => {
-  if (instances.length === 0) {
+// many instances use the destination.
+export const UsedByCell = ({
+  destination,
+  usage: { count, instances },
+}: UsedByCellProps) => {
+  if (count === 0) {
     return Messages.none;
   }
+  const hidden = count - instances.length;
   return (
     <ShowMoreDialog
       dialogTitle={Messages.usedByDialogTitle(destination)}
-      linkLabel={Messages.usedByCount(instances.length)}
+      linkLabel={Messages.usedByCount(count)}
       linkTypographyProps={{ variant: 'body2' }}
       dataTestId={`used-by-${destination}`}
       dialogProps={{ maxWidth: 'sm' }}
@@ -41,6 +46,9 @@ export const UsedByCell = ({ destination, instances }: UsedByCellProps) => {
             {instance}
           </ListItem>
         ))}
+        {hidden > 0 && (
+          <ListItem disableGutters>{Messages.hiddenInstances(hidden)}</ListItem>
+        )}
       </List>
     </ShowMoreDialog>
   );

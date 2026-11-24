@@ -25,7 +25,7 @@ export const gridSx: SxProps<Theme> = {
   maxWidth: 900,
 };
 
-export const cardSx: SxProps<Theme> = {
+export const cardSx = {
   // Fixed width so cards don't jump as rows reflow.
   flex: '0 1 260px',
   minWidth: 240,
@@ -33,21 +33,24 @@ export const cardSx: SxProps<Theme> = {
   position: 'relative',
   display: 'flex',
   flexDirection: 'column',
-  borderRadius: (theme) => `${theme.shape.borderRadius}px`,
-  border: '1px solid',
   // Let the hover extension grow past the card bottom.
   overflow: 'visible',
-  borderColor: (theme) => theme.palette.dividers?.divider,
-  backgroundColor: (theme) => theme.palette.surfaces?.elevation1,
-  transition: (theme) =>
+} satisfies SxProps<Theme>;
+
+export const installedCardSx = {
+  ...cardSx,
+  border: '1px solid',
+  borderColor: (theme: Theme) => theme.palette.dividers?.divider,
+  backgroundColor: (theme: Theme) => theme.palette.surfaces?.elevation1,
+  transition: (theme: Theme) =>
     theme.transitions.create(['border-color', 'box-shadow'], {
       duration: theme.transitions.duration.shorter,
     }),
   '&:hover': {
-    borderColor: (theme) => theme.palette.dividers?.dividerStrong,
+    borderColor: (theme: Theme) => theme.palette.dividers?.dividerStrong,
     boxShadow: 1,
   },
-};
+} satisfies SxProps<Theme>;
 
 export const cardActionAreaSx: SxProps<Theme> = {
   height: '100%',
@@ -61,32 +64,32 @@ export const cardActionAreaSx: SxProps<Theme> = {
 };
 
 // Icon strip on `elevation2` — one step darker than the elevation0 page.
-export const cardHeaderSx: SxProps<Theme> = {
-  position: 'relative',
+export const cardHeaderSx = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   py: 2.5,
   px: 2,
-  backgroundColor: (theme) => theme.palette.surfaces?.elevation2,
+  backgroundColor: (theme: Theme) => theme.palette.surfaces?.elevation2,
   borderBottom: '1px solid',
-  borderColor: (theme) => theme.palette.dividers?.divider,
+  borderColor: (theme: Theme) => theme.palette.dividers?.divider,
   // Round top corners (card is overflow-visible).
-  borderRadius: (theme) =>
+  borderRadius: (theme: Theme) =>
     `${theme.shape.borderRadius}px ${theme.shape.borderRadius}px 0 0`,
-};
+} satisfies SxProps<Theme>;
+
+// Not-installed tiles follow the dashed card outline.
+export const availableCardHeaderSx = {
+  ...cardHeaderSx,
+  backgroundColor: 'transparent',
+  borderBottomStyle: 'dashed',
+} satisfies SxProps<Theme>;
 
 export const headerAvatarSx: SxProps<Theme> = {
   width: 48,
   height: 48,
   textTransform: 'uppercase',
   color: (theme) => theme.palette.text.primary,
-};
-
-export const headerChipSx: SxProps<Theme> = {
-  position: 'absolute',
-  top: (theme) => theme.spacing(1),
-  right: (theme) => theme.spacing(1),
 };
 
 export const cardContentSx: SxProps<Theme> = {
@@ -127,7 +130,7 @@ export const descriptionFullSx: SxProps<Theme> = {
 
 // Overlay that duplicates the card tail, continuing the side borders + rounded
 // bottom so it reads as the card lengthening (mounted only while active).
-export const expandedSx: SxProps<Theme> = {
+export const expandedSx = {
   position: 'absolute',
   top: 0,
   left: -1,
@@ -136,12 +139,12 @@ export const expandedSx: SxProps<Theme> = {
   minHeight: '100%',
   display: 'flex',
   flexDirection: 'column',
-  backgroundColor: (theme) => theme.palette.surfaces?.elevation1,
+  backgroundColor: (theme: Theme) => theme.palette.surfaces?.elevation1,
   borderLeft: '1px solid',
   borderRight: '1px solid',
   borderBottom: '1px solid',
-  borderColor: (theme) => theme.palette.dividers?.dividerStrong,
-  borderRadius: (theme) =>
+  borderColor: (theme: Theme) => theme.palette.dividers?.dividerStrong,
+  borderRadius: (theme: Theme) =>
     `0 0 ${theme.shape.borderRadius}px ${theme.shape.borderRadius}px`,
   boxShadow: 3,
   overflow: 'hidden',
@@ -150,9 +153,16 @@ export const expandedSx: SxProps<Theme> = {
     from: { opacity: 0 },
     to: { opacity: 1 },
   },
-  animation: (theme) =>
+  animation: (theme: Theme) =>
     `providerTileExpand ${theme.transitions.duration.shorter}ms ease`,
-};
+} satisfies SxProps<Theme>;
+
+export const availableExpandedSx = {
+  ...expandedSx,
+  backgroundColor: (theme: Theme) => theme.palette.surfaces?.elevation0,
+  borderStyle: 'dashed',
+  borderTopStyle: 'none',
+} satisfies SxProps<Theme>;
 
 export const categoriesRowSx: SxProps<Theme> = {
   display: 'flex',
@@ -161,13 +171,12 @@ export const categoriesRowSx: SxProps<Theme> = {
   mt: 0.5,
 };
 
-export const cardFooterEndSx: SxProps<Theme> = {
+export const cardFooterEndSx = {
   display: 'flex',
   alignItems: 'center',
   gap: 1,
   py: 1.25,
   px: 2,
-  // Only the forward arrow lives here now; keep it right-aligned.
   justifyContent: 'flex-end',
   borderTop: '1px solid',
   borderColor: (theme: Theme) => theme.palette.dividers?.divider,
@@ -175,4 +184,9 @@ export const cardFooterEndSx: SxProps<Theme> = {
   // Round bottom corners (card is overflow-visible).
   borderRadius: (theme: Theme) =>
     `0 0 ${theme.shape.borderRadius}px ${theme.shape.borderRadius}px`,
-};
+} satisfies SxProps<Theme>;
+
+export const availableCardFooterEndSx = {
+  ...cardFooterEndSx,
+  borderTopStyle: 'dashed',
+} satisfies SxProps<Theme>;

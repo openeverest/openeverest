@@ -26,8 +26,10 @@ Project security policy: `SECURITY.md`.
     plugin backend APIs, injected credentials or other upstreams through it without a token is in scope. Check
     the JWT middleware's skipper (`newSkipperFunc`) and the hand-registered routes in
     `internal/server/everest.go`.
-  - `GET /v1/events` is an authenticated event stream registered outside OpenAPI validation and the handler
-    chain. Events about resources the user is not allowed to see must not be sent to them.
+  - `GET /v1/clusters/{cluster}/events` lists, or with `watch=true` streams, the lifecycle events stored as
+    Kubernetes Events. Each event is filtered by the `events` `read` grant on `{cluster}/{namespace}/{name}` of
+    the object it is about (`internal/server/handlers/rbac/events.go`). Events about resources the user is not
+    allowed to see must not be sent to them, including on the stream.
   - `GET .../instances/{instance}/connection` returns database host, username and password. It is the most
     sensitive read endpoint.
   - `.../secrets` endpoints must never return `Secret.data`. List and get return metadata only.
@@ -58,11 +60,12 @@ Project security policy: `SECURITY.md`.
   plugin backend that should not get it, and plugin tokens being accepted with more privilege than intended.
 - **Controller manager** (`cmd/controller`, `internal/controller/{backup,monitoring,extension}`) and
   **admission webhooks** (`internal/webhook`). These reconcile the CRDs in `api/` (instances, backups,
-  restores, backup classes and storages, monitoring configs, providers and plugins). Backup and restore jobs
-  build Pod specs and container commands from CR fields (`internal/controller/backup/backup_controller.go`,
-  `restore_controller.go`). Fields a namespace-level user controls (Backup, Restore, BackupStorage,
-  MonitoringConfig, instance specs) must not let them inject commands, args, env, volumes, images or service
-  accounts beyond what the administrator-defined BackupClass allows, or reach Secrets in other namespaces.
+  restores, backup classes and storages, monitoring destinations, providers and plugins). Backup and restore
+  jobs build Pod specs and container commands from CR fields
+  (`internal/controller/backup/backup_controller.go`, `restore_controller.go`). Fields a namespace-level user
+  controls (Backup, Restore, BackupStorage, MonitoringDestination, instance specs) must not let them inject
+  commands, args, env, volumes, images or service accounts beyond what the administrator-defined BackupClass
+  allows, or reach Secrets in other namespaces.
 - **Provider runtime** (`provider-runtime/`). This SDK is used by database-provider operators. It runs an HTTP
   server (`provider-runtime/server/server.go`) with `/validate`, `/healthz` and `/readyz`; treat
   validation request bodies as untrusted.

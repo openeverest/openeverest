@@ -18,17 +18,30 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"sigs.k8s.io/yaml"
+
+	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	rbachandler "github.com/openeverest/openeverest/v2/internal/server/handlers/rbac"
+	"github.com/openeverest/openeverest/v2/pkg/oidc"
 )
 
 func TestEverestErrorHandler_Conflict(t *testing.T) {
@@ -88,6 +101,22 @@ func TestEverestErrorHandler_Conflict(t *testing.T) {
 				"reason": "Conflict"
 			}`,
 		},
+		{
+			name: "Secret owned by a controller",
+			err:  &secretdefinition.ManagedByControllerError{Kind: "ExternalSecret", Name: "pmm-credentials"},
+			want: `{
+				"message": "managed by ExternalSecret/pmm-credentials",
+				"reason": "ManagedByController"
+			}`,
+		},
+		{
+			name: "Secret not created through the API",
+			err:  secretdefinition.ErrManagedOutside,
+			want: `{
+				"message": "managed outside OpenEverest; change it at its source",
+				"reason": "ManagedOutside"
+			}`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -107,12 +136,94 @@ func TestEverestErrorHandler_Conflict(t *testing.T) {
 	}
 }
 
+func TestEverestErrorHandler_Forbidden(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "missing permission",
+			err:  rbachandler.ErrInsufficientPermissions,
+			want: `{"message": "insufficient permissions for performing the operation"}`,
+		},
+		{
+			name: "instance differs from its preset",
+			err: fmt.Errorf("create: %w", &rbachandler.PresetMismatchError{
+				PresetKind: "ClusterInstancePreset",
+				PresetName: "small",
+				Fields:     []string{"spec.version"},
+				Metadata:   []string{"metadata.labels[team]"},
+			}),
+			want: `{
+				"message": "instance does not match ClusterInstancePreset \"small\": it changes spec.version and sets metadata.labels[team]. instances:create-from-preset allows only an exact copy of the preset; changes need instances:create",
+				"reason": "PresetMismatch",
+				"causes": [
+					{"reason": "FieldValueForbidden", "message": "differs from ClusterInstancePreset \"small\"", "field": "spec.version"},
+					{"reason": "FieldValueForbidden", "message": "not allowed on an instance created from a preset", "field": "metadata.labels[team]"}
+				]
+			}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			e := echo.New()
+			rec := httptest.NewRecorder()
+			c := e.NewContext(httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil), rec)
+
+			handler := everestErrorHandler(e.DefaultHTTPErrorHandler)
+			handler(tt.err, c)
+
+			require.Equal(t, http.StatusForbidden, rec.Code)
+			assert.JSONEq(t, tt.want, rec.Body.String())
+		})
+	}
+}
+
+func TestNewSSOTokenVerifier(t *testing.T) {
+	t.Parallel()
+
+	provider := func(clientID string) *oidc.ProviderConfig {
+		return &oidc.ProviderConfig{
+			Issuer:   "https://idp.example.com",
+			JWKSURL:  "https://idp.example.com/jwks",
+			ClientID: clientID,
+		}
+	}
+
+	t.Run("OIDC not configured disables SSO", func(t *testing.T) {
+		t.Parallel()
+		assert.Nil(t, newSSOTokenVerifier(t.Context(), zap.NewNop().Sugar(), nil))
+	})
+
+	t.Run("invalid OIDC settings disable SSO instead of failing the server", func(t *testing.T) {
+		t.Parallel()
+		core, logs := observer.New(zap.ErrorLevel)
+		assert.Nil(t, newSSOTokenVerifier(t.Context(), zap.New(core).Sugar(), provider("")))
+		assert.Equal(t, 1, logs.FilterMessageSnippet("SSO is disabled").Len())
+	})
+
+	t.Run("valid OIDC settings enable SSO", func(t *testing.T) {
+		t.Parallel()
+		assert.NotNil(t, newSSOTokenVerifier(t.Context(), zap.NewNop().Sugar(), provider("everest")))
+	})
+}
+
 func TestEverestErrorHandler_AdmissionDenial(t *testing.T) {
 	t.Parallel()
 
 	destinations := schema.GroupResource{Group: "monitoring.openeverest.io", Resource: "monitoringdestinations"}
 	inUse := "in use by 1 database; remove the destination from them first " +
 		"(kubectl get monitoringbindings -n team-a -l monitoring.openeverest.io/destination=pmm-prod)"
+	secrets := schema.GroupResource{Resource: "secrets"}
+	secretInUse := "in use by 2 monitoring destination(s) and 0 backup storage(s); replace its values instead, " +
+		"or point them at another Secret first (kubectl get monitoringdestinations,backupstorages -n team-a " +
+		"--field-selector spec.tls.ca.secretKeyRef.name=pmm-ca)"
 
 	tests := []struct {
 		name       string
@@ -143,12 +254,43 @@ func TestEverestErrorHandler_AdmissionDenial(t *testing.T) {
 			wantReason: "InUse",
 		},
 		{
+			name: "Secret in-use policy denial is a conflict",
+			err: k8serrors.NewForbidden(secrets, "pmm-ca", errors.New(
+				"ValidatingAdmissionPolicy 'secret-in-use.openeverest.io' with binding "+
+					"'secret-in-use.openeverest.io' denied request: "+secretInUse,
+			)),
+			code:       http.StatusConflict,
+			want:       secretInUse,
+			wantReason: "InUse",
+		},
+		{
+			name: "Secret in-use policy named with kustomize's prefix",
+			err: k8serrors.NewForbidden(secrets, "pmm-ca", errors.New(
+				"ValidatingAdmissionPolicy 'openeverest-secret-in-use.openeverest.io' with binding "+
+					"'openeverest-secret-in-use.openeverest.io' denied request: "+secretInUse,
+			)),
+			code:       http.StatusConflict,
+			want:       secretInUse,
+			wantReason: "InUse",
+		},
+		{
 			name: "other policy denial stays forbidden",
 			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
 				"ValidatingAdmissionPolicy 'destination-naming.example.com' denied request: names must start with team-",
 			)),
 			code: http.StatusForbidden,
 			want: "names must start with team-",
+		},
+		{
+			// A missing permission, not a state the caller can wait out.
+			name: "secret-reference policy denial stays forbidden",
+			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
+				"ValidatingAdmissionPolicy 'openeverest-secret-reference.openeverest.io' with binding "+
+					"'openeverest-secret-reference.openeverest.io' denied request: "+
+					"you need get on Secret pmm-prod-credentials to reference it or to change an object that uses it",
+			)),
+			code: http.StatusForbidden,
+			want: "you need get on Secret pmm-prod-credentials to reference it or to change an object that uses it",
 		},
 		{
 			name: "webhook denial",
@@ -190,6 +332,37 @@ func TestEverestErrorHandler_AdmissionDenial(t *testing.T) {
 			assert.Equal(t, tt.want, body.Message)
 			assert.Equal(t, tt.wantReason, body.Reason)
 		})
+	}
+}
+
+// TestInUsePolicyCoversPolicies proves every in-use policy core ships
+// answers 409 InUse over HTTP, named as in the chart or with the prefix
+// kustomize's config/default adds.
+func TestInUsePolicyCoversPolicies(t *testing.T) {
+	t.Parallel()
+
+	files, err := filepath.Glob(filepath.Join("..", "..", "config", "policy", "*_in_use.yaml"))
+	require.NoError(t, err)
+	var names []string
+	for _, file := range files {
+		content, err := os.ReadFile(file) //nolint:gosec // the repository's own policy files
+		require.NoError(t, err)
+		for _, doc := range regexp.MustCompile(`(?m)^---\s*$`).Split(string(content), -1) {
+			obj := &metav1.PartialObjectMetadata{}
+			require.NoError(t, yaml.Unmarshal([]byte(doc), obj), file)
+			if obj.Kind == "ValidatingAdmissionPolicy" {
+				names = append(names, obj.Name)
+			}
+		}
+	}
+	require.Contains(t, names, "secret-in-use.openeverest.io")
+	require.Contains(t, names, "monitoringdestination-in-use.monitoring.openeverest.io")
+	for _, name := range names {
+		for _, deployed := range []string{name, "openeverest-" + name} {
+			assert.True(t, inUsePolicy.MatchString("ValidatingAdmissionPolicy '"+deployed+"' with binding '"+deployed+"' denied request: in use"),
+				deployed,
+			)
+		}
 	}
 }
 
@@ -273,4 +446,42 @@ func TestEverestErrorHandler_Invalid(t *testing.T) {
 			assert.JSONEq(t, tt.want, rec.Body.String())
 		})
 	}
+}
+
+// TestRequestValidator_SystemMetadata pins that the object metadata fields
+// the API server populates stay out of readOnly in the OpenAPI schema. The
+// validator rejects readOnly properties in a request body, so an update that
+// sends back an Instance as it was read, generation included, would fail.
+func TestRequestValidator_SystemMetadata(t *testing.T) {
+	t.Parallel()
+
+	swagger, err := api.GetSpec()
+	require.NoError(t, err)
+	e := echo.New()
+	g := e.Group("/v1")
+	g.Use(requestValidator(swagger))
+	g.PUT("/clusters/:cluster/namespaces/:namespace/instances/:instance", func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	})
+
+	body := `{
+		"apiVersion": "core.openeverest.io/v1alpha1",
+		"kind": "Instance",
+		"metadata": {
+			"name": "orders",
+			"namespace": "everest",
+			"generation": 3,
+			"resourceVersion": "4821",
+			"uid": "fac71796-33d0-4b11-96fa-ce19ec150d80",
+			"creationTimestamp": "2026-11-18T13:39:44Z"
+		},
+		"spec": {"providerRef": {"name": "percona-server-mongodb"}}
+	}`
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut,
+		"/v1/clusters/main/namespaces/everest/instances/orders", strings.NewReader(body),
+	)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 }

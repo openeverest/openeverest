@@ -19,6 +19,7 @@ import {
   useNamespacePermissionsForResource,
   useRBACAction,
   useRBACAllowedObjects,
+  useRBACCheck,
   useRBACPermissions,
 } from './rbac';
 
@@ -42,6 +43,20 @@ describe('RBAC hooks with v2 policies', () => {
     );
 
     await waitFor(() => expect(result.current.canCreate).toEqual(['ns1']));
+  });
+
+  it('checks an action on one object, as a per-object grant gives it', async () => {
+    await grantRBAC(
+      ['secrets', 'read', 'main/ns1/*'],
+      ['secrets', 'use', 'main/ns1/pmm-credentials']
+    );
+
+    const { result } = renderHook(() => useRBACCheck());
+
+    expect(await result.current('use', 'secrets', 'ns1/pmm-credentials')).toBe(
+      true
+    );
+    expect(await result.current('use', 'secrets', 'ns1/other')).toBe(false);
   });
 
   it('matches a cluster-scoped grant', async () => {

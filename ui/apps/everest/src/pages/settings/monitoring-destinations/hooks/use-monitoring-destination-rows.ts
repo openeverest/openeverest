@@ -21,7 +21,7 @@ import { toMonitoringDestinationRows } from '../monitoring-destinations.utils';
 
 const NO_CLASSES: MonitoringClass[] = [];
 
-// The destinations of every namespace the user can read, with the databases
+// The destinations of every namespace the user can read, with the instances
 // using each where the user can read the bindings.
 export const useMonitoringDestinationRows = () => {
   const destinationPermissions = useNamespacePermissionsForResource(

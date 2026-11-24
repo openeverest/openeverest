@@ -56,6 +56,9 @@ export type FormEngineConfig = {
   formMode?: FormMode;
   // Host-provided renderers for schema widgets
   widgetRegistry?: WidgetRegistry;
+  // Restore / edit source instance (same path shape as form data). Untouched
+  // quantity fields are written back as stored when this is set.
+  originalData?: Record<string, unknown>;
 };
 
 export type FormEngineResult = {

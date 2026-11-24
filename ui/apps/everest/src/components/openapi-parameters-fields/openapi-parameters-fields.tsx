@@ -21,6 +21,8 @@ import {
 import { Messages } from './openapi-parameters-fields.messages';
 
 // A small form for an OpenAPI parameters schema that ships no uiSchema.
+// Temporary: replaced by the UI Generator key/value array field and an
+// OpenAPI-to-Section converter, see https://github.com/openeverest/openeverest/issues/2398.
 export const OpenApiParametersFields = ({
   name,
   parameterFields: { fields, skipped },

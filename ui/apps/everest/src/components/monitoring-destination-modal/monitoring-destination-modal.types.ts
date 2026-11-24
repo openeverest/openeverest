@@ -1,0 +1,74 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import { AuthenticationFormValues } from 'components/class-authentication';
+import { OpenApiParameterFields } from 'components/openapi-parameters-fields';
+import { TlsConfigFormValues } from 'components/tls-config-fields';
+import { SectionForm } from 'components/ui-generator/utils/section-form';
+import {
+  MonitoringClass,
+  MonitoringDestination,
+} from 'shared-types/monitoring-destinations.types';
+
+export interface MonitoringDestinationFormValues
+  extends AuthenticationFormValues,
+    TlsConfigFormValues {
+  name: string;
+  namespace: string;
+  className: string;
+  spec: Record<string, unknown>;
+  fallbackParameters: Record<string, unknown>;
+}
+
+// The forms a class renders for a destination, for the chosen auth mode.
+export interface DestinationClassForms {
+  destination?: SectionForm;
+  // Used when the class ships no destination form.
+  parameterFields: OpenApiParameterFields;
+  credentials?: SectionForm;
+}
+
+export interface MonitoringDestinationTarget {
+  namespace: string;
+  name: string;
+}
+
+export interface MonitoringDestinationModalProps {
+  // The destination to edit; a new one is created without it.
+  target?: MonitoringDestinationTarget;
+  classes: MonitoringClass[];
+  // Namespaces the user may create destinations in.
+  namespaces: string[];
+  // The class a new destination starts with.
+  className?: string;
+  onClose: () => void;
+}
+
+export interface MonitoringDestinationFormProps {
+  original?: MonitoringDestination;
+  classes: MonitoringClass[];
+  namespaces: string[];
+  className?: string;
+  // Set after a save was refused because the destination changed meanwhile.
+  changedMeanwhile: boolean;
+  onChangedMeanwhile: () => void;
+  onClose: () => void;
+}
+
+// Who may change destinations, per namespace.
+export interface MonitoringDestinationPermissions {
+  createNamespaces: string[];
+  updateNamespaces: string[];
+  deleteNamespaces: string[];
+}

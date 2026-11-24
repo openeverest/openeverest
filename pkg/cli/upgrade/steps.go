@@ -304,15 +304,6 @@ func (u *Upgrade) cleanupLegacyResources(ctx context.Context) error {
 			err,
 		)
 	}
-	// Delete resources related to victoria metrics operator Subscription.
-	if err := deleteOLMOperator(ctx, u.kubeConnector, common.VictoriaMetricsOperatorName, common.MonitoringNamespace); err != nil {
-		return fmt.Errorf(
-			"could not delete operator='%s' in namespace='%s': %w",
-			common.VictoriaMetricsOperatorName,
-			common.MonitoringNamespace,
-			err,
-		)
-	}
 	delDep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: u.kubeConnector.Namespace(),

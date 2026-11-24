@@ -52,7 +52,7 @@ func init() {
 
 func accountsSetPasswordPreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	accountsSetPasswordCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	accountsSetPasswordCfg.Pretty = cli.IsPretty(cmd)
 	accountsSetPasswordCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 
 	// Check username

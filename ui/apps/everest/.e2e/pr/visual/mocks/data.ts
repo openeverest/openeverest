@@ -14,7 +14,7 @@
 
 // Deterministic, pure fixtures for the visual-regression suite.
 //
-// NOTE ON TYPES: the src shared-types (e.g. `Instance`, `MonitoringConfigList`)
+// NOTE ON TYPES: the src shared-types (e.g. `Instance`, `MonitoringDestinationList`)
 // live behind the `shared-types/*` path alias which is NOT exposed to the e2e
 // tsconfig (only `@generated/api-types`, `@e2e/*`, etc. are). The generated CRD
 // types also model `metadata` as an opaque `Record<string, never>`, which makes
@@ -164,63 +164,318 @@ export const mockInstanceConnection = {
 // useNamespaces which sorts the array as strings). Must include `default`.
 export const mockNamespaces = [DB_NAMESPACE];
 
-// MonitoringConfigList = { items: MonitoringConfig[] }.
-// Lifted verbatim from the proven inline fixture in visual-baseline.e2e.ts.
-export const mockMonitoringConfigs = {
+// MonitoringClassList = { items: MonitoringClass[] } (see the PMM class in
+// monitoring-pmm/charts/monitoring-pmm/templates/monitoringclass.yaml). The
+// class is Accepted and claimed by the mocked provider, so the wizard shows its
+// Monitoring step.
+export const mockMonitoringClasses = {
   apiVersion: 'monitoring.openeverest.io/v1alpha1',
-  kind: 'MonitoringConfigList',
+  kind: 'MonitoringClassList',
   items: [
     {
       apiVersion: 'monitoring.openeverest.io/v1alpha1',
-      kind: 'MonitoringConfig',
-      metadata: { name: 'pmm-prod', namespace: 'default' },
+      kind: 'MonitoringClass',
+      metadata: { name: 'pmm' },
       spec: {
-        type: 'pmm',
-        pmm: {
-          credentialsSecretRef: {
-            name: 'monitoring-config-pmm-prod-credentials',
+        displayName: 'Percona Monitoring and Management',
+        description: 'Percona Monitoring and Management 3.',
+        providerManaged: {
+          integration: 'pmm',
+          agentImage: 'percona/pmm-client:3.8.0',
+          agentVersion: '3.8.0',
+        },
+        authModes: [
+          { name: 'ServiceAccountToken', credentials: { required: ['token'] } },
+        ],
+        uiSchema: {
+          destination: {
+            components: {
+              url: {
+                path: 'parameters.url',
+                uiType: 'text',
+                fieldParams: { label: 'PMM server URL' },
+                validation: { required: true, url: true },
+              },
+            },
           },
-          url: 'http://monitoring.example.com',
-          verifyTLS: false,
         },
       },
-      status: { inUse: false, lastObservedGeneration: 1 },
+      status: {
+        conditions: [
+          {
+            type: 'Accepted',
+            status: 'True',
+            reason: 'Accepted',
+            message: '',
+            lastTransitionTime: '2026-01-01T00:00:00Z',
+          },
+        ],
+        providers: [
+          {
+            name: 'percona-server-mongodb',
+            mode: 'ProviderManaged',
+            disruption: 'RollingRestart',
+          },
+        ],
+      },
     },
   ],
 };
 
-// Empty variant so the create-DB wizard monitoring step renders the
-// no-endpoint-available state deterministically.
-export const mockMonitoringConfigsEmpty = {
+// MonitoringDestinationList = { items: MonitoringDestination[] }.
+export const mockMonitoringDestinations = {
   apiVersion: 'monitoring.openeverest.io/v1alpha1',
-  kind: 'MonitoringConfigList',
-  items: [] as (typeof mockMonitoringConfigs)['items'],
+  kind: 'MonitoringDestinationList',
+  items: [
+    {
+      apiVersion: 'monitoring.openeverest.io/v1alpha1',
+      kind: 'MonitoringDestination',
+      metadata: { name: 'pmm-prod', namespace: 'default' },
+      spec: {
+        classRef: { name: 'pmm' },
+        authentication: {
+          mode: 'ServiceAccountToken',
+          credentialsSecretRef: { name: 'pmm-prod-credentials' },
+        },
+        parameters: { url: 'http://monitoring.example.com' },
+      },
+      status: {
+        serverVersion: '3.8.0',
+        conditions: [
+          {
+            type: 'Accepted',
+            status: 'True',
+            reason: 'Accepted',
+            message: '',
+            lastTransitionTime: '2026-01-01T00:00:00Z',
+          },
+          {
+            type: 'Ready',
+            status: 'True',
+            reason: 'Ready',
+            message: '',
+            lastTransitionTime: '2026-01-01T00:00:00Z',
+          },
+        ],
+      },
+    },
+  ],
+};
+
+const noMonitoringDestinations: (typeof mockMonitoringDestinations)['items'] =
+  [];
+
+// Empty variant so the create-DB wizard monitoring step renders the
+// no-destination state deterministically.
+export const mockMonitoringDestinationsEmpty = {
+  ...mockMonitoringDestinations,
+  items: noMonitoringDestinations,
+};
+
+// MonitoringBindingList = { items: MonitoringBinding[] }: nothing uses the
+// destination yet.
+export const mockMonitoringBindings = {
+  apiVersion: 'monitoring.openeverest.io/v1alpha1',
+  kind: 'MonitoringBindingList',
+  items: [],
 };
 
 // BackupStorageList = { items: BackupStorage[] } (see src/api/backupStorage.ts).
-// Lifted verbatim from the proven inline fixture.
+// One storage core accepted and one it rejected, so the table and the pickers
+// show both states.
+const acceptedCondition = (status: 'True' | 'False', reason: string) => ({
+  type: 'Accepted',
+  status,
+  reason,
+  message: status === 'True' ? '' : 'secret "s3-staging-credentials" not found',
+  lastTransitionTime: '2026-07-01T00:00:00Z',
+  observedGeneration: 1,
+});
 export const mockBackupStorages = {
-  apiVersion: 'storage.openeverest.io/v1alpha1',
+  apiVersion: 'backup.openeverest.io/v1alpha1',
   kind: 'BackupStorageList',
   items: [
     {
-      apiVersion: 'storage.openeverest.io/v1alpha1',
+      apiVersion: 'backup.openeverest.io/v1alpha1',
       kind: 'BackupStorage',
-      metadata: { name: 's3-prod-backups', namespace: 'default' },
+      metadata: {
+        name: 's3-prod-backups',
+        namespace: 'default',
+        generation: 1,
+      },
       spec: {
-        type: 's3',
-        s3: {
-          bucket: 'everest-backups-prod',
+        backupStorageClassRef: { name: 's3' },
+        location: { objectStore: { bucket: 'everest-backups-prod' } },
+        parameters: {
           region: 'us-east-1',
-          credentialsSecretRef: {
-            name: 'backup-storage-s3-prod-credentials',
-          },
           endpointURL: 'https://s3.amazonaws.com',
-          verifyTLS: true,
-          forcePathStyle: false,
+        },
+        authentication: {
+          mode: 'AccessKey',
+          credentialsSecretRef: { name: 'backup-storage-s3-prod-credentials' },
         },
       },
-      status: {},
+      status: { conditions: [acceptedCondition('True', 'Accepted')] },
+    },
+    {
+      apiVersion: 'backup.openeverest.io/v1alpha1',
+      kind: 'BackupStorage',
+      metadata: { name: 's3-staging', namespace: 'default', generation: 1 },
+      spec: {
+        backupStorageClassRef: { name: 's3' },
+        location: {
+          objectStore: { bucket: 'everest-backups-staging', prefix: 'team-a' },
+        },
+        parameters: {
+          region: 'eu-west-1',
+          endpointURL: 'https://minio.example.com',
+          forcePathStyle: true,
+          implementation: 'minio',
+        },
+        authentication: {
+          mode: 'AccessKey',
+          credentialsSecretRef: { name: 's3-staging-credentials' },
+        },
+        tls: { insecureSkipVerify: true },
+      },
+      status: {
+        conditions: [acceptedCondition('False', 'CredentialsNotFound')],
+      },
+    },
+  ],
+};
+
+// BackupStorageClassList (see src/api/backupStorageClasses.ts): the s3
+// class core ships (backupstorageclasses/s3/class.yaml), its CEL rules left
+// out.
+export const mockBackupStorageClasses = {
+  apiVersion: 'backup.openeverest.io/v1alpha1',
+  kind: 'BackupStorageClassList',
+  items: [
+    {
+      apiVersion: 'backup.openeverest.io/v1alpha1',
+      kind: 'BackupStorageClass',
+      metadata: { name: 's3' },
+      spec: {
+        displayName: 'S3-compatible object storage',
+        description:
+          'Amazon S3 and S3-compatible object stores such as MinIO, Ceph RGW and the GCS interoperability endpoint.',
+        authModes: [
+          {
+            name: 'AccessKey',
+            credentials: {
+              required: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'],
+            },
+          },
+        ],
+        parametersSchema: {
+          openAPIV3Schema: {
+            type: 'object',
+            required: ['endpointURL', 'region'],
+            properties: {
+              endpointURL: {
+                type: 'string',
+                maxLength: 2048,
+                pattern: '^https?://[^/?#@]+([/?#].*)?$',
+              },
+              forcePathStyle: { type: 'boolean' },
+              implementation: {
+                type: 'string',
+                enum: ['aws', 'minio', 'ceph', 'gcs', 'other'],
+              },
+              region: { type: 'string', minLength: 1, maxLength: 63 },
+            },
+          },
+        },
+        uiSchema: {
+          location: {
+            components: {
+              bucket: {
+                path: 'location.objectStore.bucket',
+                uiType: 'text',
+                fieldParams: { label: 'Bucket', placeholder: 'my-backups' },
+                validation: { required: true },
+              },
+              prefix: {
+                path: 'location.objectStore.prefix',
+                uiType: 'text',
+                fieldParams: {
+                  label: 'Prefix',
+                  helperText: 'Optional path within the bucket',
+                },
+              },
+            },
+            componentsOrder: ['bucket', 'prefix'],
+          },
+          storage: {
+            components: {
+              region: {
+                path: 'parameters.region',
+                uiType: 'text',
+                fieldParams: { label: 'Region', placeholder: 'us-east-1' },
+                validation: { required: true },
+              },
+              endpointURL: {
+                path: 'parameters.endpointURL',
+                uiType: 'text',
+                fieldParams: {
+                  label: 'Endpoint URL',
+                  placeholder: 'https://s3.us-east-1.amazonaws.com',
+                  helperText: 'An http:// URL uses plain HTTP',
+                },
+                validation: { required: true },
+              },
+              implementation: {
+                path: 'parameters.implementation',
+                uiType: 'select',
+                fieldParams: {
+                  label: 'Implementation',
+                  options: [
+                    { label: 'Amazon S3', value: 'aws' },
+                    { label: 'MinIO', value: 'minio' },
+                    { label: 'Ceph RGW', value: 'ceph' },
+                    {
+                      label: 'Google Cloud Storage (S3 interoperability)',
+                      value: 'gcs',
+                    },
+                    { label: 'Other S3-compatible', value: 'other' },
+                  ],
+                },
+              },
+              forcePathStyle: {
+                path: 'parameters.forcePathStyle',
+                uiType: 'toggle',
+                fieldParams: { label: 'Force path-style URLs' },
+              },
+            },
+            componentsOrder: [
+              'region',
+              'endpointURL',
+              'implementation',
+              'forcePathStyle',
+            ],
+          },
+          credentials: {
+            AccessKey: {
+              components: {
+                AWS_ACCESS_KEY_ID: {
+                  path: 'AWS_ACCESS_KEY_ID',
+                  uiType: 'text',
+                  fieldParams: { label: 'Access key ID' },
+                  validation: { required: true },
+                },
+                AWS_SECRET_ACCESS_KEY: {
+                  path: 'AWS_SECRET_ACCESS_KEY',
+                  uiType: 'text',
+                  fieldParams: { label: 'Secret access key', type: 'password' },
+                  validation: { required: true },
+                },
+              },
+              componentsOrder: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'],
+            },
+          },
+        },
+      },
     },
   ],
 };
@@ -301,6 +556,25 @@ export const mockBackupClasses = {
           { name: 's3-storage', backupStorageRef: { name: 's3-prod-backups' } },
         ],
       },
+    },
+  ],
+};
+
+// StorageClassList (see src/api/storageClassesApi.ts ->
+// clusters/{cluster}/storage-classes). Feeds the `storageClasses` data source.
+export const mockStorageClasses = {
+  apiVersion: 'storage.k8s.io/v1',
+  kind: 'StorageClassList',
+  items: [
+    {
+      metadata: {
+        name: 'local-path',
+        annotations: { 'storageclass.kubernetes.io/is-default-class': 'true' },
+      },
+      provisioner: 'rancher.io/local-path',
+      reclaimPolicy: 'Delete',
+      volumeBindingMode: 'WaitForFirstConsumer',
+      allowVolumeExpansion: false,
     },
   ],
 };

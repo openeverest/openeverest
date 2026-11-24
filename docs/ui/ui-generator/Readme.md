@@ -18,6 +18,7 @@
   - [Validation-level modes](#validation-level-modes)
 - Field Types
   - [Number Field](components/number-field.md)
+  - [Quantity Field](components/quantity-field.md)
   - [Secret Field](components/secret-field.md)
   - [Select Field](components/select-field.md)
   - [Text Field](components/text-field.md)
@@ -359,6 +360,7 @@ uiSchema:
               optionsPathConfig:
                 labelPath: "version"
                 valuePath: "version"
+                defaultValuePath: "spec.componentTypes.mongod.defaultVersion"
             validation:
               required: true
       resources:
@@ -465,6 +467,7 @@ uiSchema:
               optionsPathConfig:
                 labelPath: "version"
                 valuePath: "version"
+                defaultValuePath: "spec.componentTypes.mongod.defaultVersion"
             validation:
               required: true
       resources:
@@ -475,9 +478,10 @@ uiSchema:
             uiType: number
             path: "spec.sharding.shards"
             fieldParams:
-              required: true
               label: "Nº of shards"
               defaultValue: 1
+            validation:
+              required: true
           numberOfnodes:
             path: "spec.components.engine.replicas"
             uiType: number
@@ -525,10 +529,10 @@ uiSchema:
                   defaultValue: 25
                   badge: "Gi"
                   badgeToApi: true
-                  validation:
-                    min: 1
-                    int: true
-                    required: true
+                validation:
+                  min: 1
+                  int: true
+                  required: true
           numberOfRouters:
             path: "spec.components.proxy.replicas"
             uiType: number

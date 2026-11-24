@@ -15,7 +15,7 @@
 // limitations under the License.
 
 import { test } from '@playwright/test';
-import { checkK8sMetrics } from '@e2e/utils/monitoring-config';
+import { checkK8sMetrics } from '@e2e/utils/pmm';
 
 test(`T31 - Check PMM K8s metrics`, async () => {
   await checkK8sMetrics('kube_node_info', 'admin:admin');

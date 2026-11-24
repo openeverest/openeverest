@@ -146,6 +146,33 @@ describe('renderComponent - string values are shown correctly in preview', () =>
     expect(screen.getByText('Replicas: 3')).toBeInTheDocument();
   });
 
+  it('renders quantity fields with unitLabel / unit', () => {
+    const cpu: Component = {
+      uiType: FieldType.Quantity,
+      path: 'spec.resources.cpu',
+      fieldParams: { label: 'CPU', unitLabel: 'cores', step: 0.1 },
+    };
+    const memory: Component = {
+      uiType: FieldType.Quantity,
+      path: 'spec.resources.memory',
+      fieldParams: { label: 'Memory', unit: 'Gi' },
+    };
+
+    render(
+      <TestWrapper>
+        <>
+          {renderComponent('cpu', cpu, { spec: { resources: { cpu: 0.5 } } })}
+          {renderComponent('memory', memory, {
+            spec: { resources: { memory: 10 } },
+          })}
+        </>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('CPU: 0.5 cores')).toBeInTheDocument();
+    expect(screen.getByText('Memory: 10 Gi')).toBeInTheDocument();
+  });
+
   it('uses first path from multipath field for preview lookup', () => {
     const component: Component = {
       uiType: FieldType.Text,

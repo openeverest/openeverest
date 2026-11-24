@@ -50,7 +50,16 @@ func monitoringTestContext(t *testing.T, in *v1alpha1.Instance, objs ...client.O
 			Integrations: map[string]v1alpha1.MonitoringIntegration{"pmm": {}},
 		}},
 	}
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(append(objs, provider)...).Build()
+	// The fake client stamps the objects it is seeded with, and parallel
+	// subtests may share them: seed copies.
+	seeded := make([]client.Object, 0, len(objs)+1)
+	for _, o := range objs {
+		obj, ok := o.DeepCopyObject().(client.Object)
+		require.True(t, ok, "%T is not a client.Object", o)
+		seeded = append(seeded, obj)
+	}
+	seeded = append(seeded, provider)
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(seeded...).Build()
 	return NewContext(t.Context(), c, in, "test-provider")
 }
 
@@ -114,6 +123,7 @@ func pmmClass() *monitoringv1alpha1.MonitoringClass {
 	return &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pmm"},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName:  "openeverest.io/monitoring-pmm",
 			ProviderManaged: &monitoringv1alpha1.ProviderManagedFulfilment{Integration: "pmm"},
 		},
 	}
@@ -123,6 +133,7 @@ func extensionManagedClass(name string, metrics bool) *monitoringv1alpha1.Monito
 	return &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName: "openeverest.io/monitoring-" + name,
 			ExtensionManaged: &monitoringv1alpha1.ExtensionManagedFulfilment{
 				Requires: monitoringv1alpha1.SourceRequirements{Metrics: metrics},
 			},
@@ -144,11 +155,42 @@ func TestRequiredSources(t *testing.T) {
 	tests := []struct {
 		name             string
 		entries          []string
+		metricsPolicy    v1alpha1.MonitoringSourcePolicy
 		rendered         []string
 		objs             []client.Object
 		wantMetrics      Requirement
 		wantIntegrations map[string]Requirement
 	}{
+		{
+			name:             "the Always metrics policy without entries",
+			metricsPolicy:    v1alpha1.MonitoringSourcePolicyAlways,
+			wantMetrics:      Required,
+			wantIntegrations: map[string]Requirement{"pmm": NotRequired},
+		},
+		{
+			name:             "the Always metrics policy wins over an unresolved entry",
+			entries:          []string{"pending"},
+			metricsPolicy:    v1alpha1.MonitoringSourcePolicyAlways,
+			wantMetrics:      Required,
+			wantIntegrations: map[string]Requirement{"pmm": Unresolved},
+		},
+		{
+			name:          "the Always metrics policy with a class that does not require metrics",
+			entries:       []string{"logs"},
+			metricsPolicy: v1alpha1.MonitoringSourcePolicyAlways,
+			objs: []client.Object{
+				monitoringBinding("logs", em, "logs", metav1.ConditionTrue),
+				extensionManagedClass("logs", false),
+			},
+			wantMetrics:      Required,
+			wantIntegrations: map[string]Requirement{"pmm": NotRequired},
+		},
+		{
+			name:             "the OnDemand metrics policy without entries",
+			metricsPolicy:    v1alpha1.MonitoringSourcePolicyOnDemand,
+			wantMetrics:      NotRequired,
+			wantIntegrations: map[string]Requirement{"pmm": NotRequired},
+		},
 		{
 			name:    "a not Accepted ExtensionManaged binding whose class requires metrics",
 			entries: []string{"prometheus"},
@@ -274,12 +316,22 @@ func TestRequiredSources(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			c := monitoringTestContext(t, monitoredInstance(tc.entries...), tc.objs...)
+			in := monitoredInstance(tc.entries...)
+			if tc.metricsPolicy != "" {
+				if in.Spec.Monitoring == nil {
+					in.Spec.Monitoring = &v1alpha1.InstanceMonitoringSpec{}
+				}
+				in.Spec.Monitoring.Sources = &v1alpha1.InstanceMonitoringSources{
+					Metrics: &v1alpha1.InstanceMetricsSource{Policy: tc.metricsPolicy},
+				}
+			}
+			c := monitoringTestContext(t, in, tc.objs...)
 			c.SetMonitoringIntegrations(tc.rendered...)
 
 			got, err := c.RequiredSources()
 			require.NoError(t, err)
-			assert.Equal(t, RequiredSources{Metrics: tc.wantMetrics, Integrations: tc.wantIntegrations}, got)
+			assert.Equal(t, tc.wantMetrics, got.Metrics)
+			assert.Equal(t, tc.wantIntegrations, got.Integrations)
 		})
 	}
 }

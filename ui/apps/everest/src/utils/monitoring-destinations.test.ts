@@ -12,20 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Secret } from 'shared-types/api.types';
+import { AxiosError, AxiosHeaders } from 'axios';
 import {
   MonitoringClass,
   MonitoringDestination,
   MonitoringDestinationState,
 } from 'shared-types/monitoring-destinations.types';
 import {
-  getCredentialsSecretLabels,
   getDefaultCredentialsSecretName,
   getDestinationAddress,
   getDestinationStatus,
-  getRotatedCredentialsSecretName,
-  isCredentialsSecretFor,
-  isFormCreatedCredentialsSecret,
+  isDestinationInUseError,
 } from './monitoring-destinations';
 
 type Condition = {
@@ -132,12 +129,54 @@ describe('getDestinationStatus', () => {
       MonitoringDestinationState.Pending
     );
   });
+
+  it('is deleting once core holds a requested deletion', () => {
+    const destination = withStatus([
+      accepted,
+      { type: 'Ready', status: 'True', reason: 'Ready' },
+    ]);
+    destination.metadata = {
+      ...destination.metadata,
+      deletionTimestamp: '2026-01-02T00:00:00Z',
+    };
+
+    expect(getDestinationStatus(destination).state).toBe(
+      MonitoringDestinationState.Deleting
+    );
+  });
+});
+
+const httpError = (status: number, data: object) =>
+  new AxiosError('failed', String(status), undefined, undefined, {
+    status,
+    statusText: '',
+    data,
+    headers: {},
+    config: { headers: new AxiosHeaders() },
+  });
+
+describe('isDestinationInUseError', () => {
+  it('recognises only the 409 that refuses deleting a destination in use', () => {
+    expect(isDestinationInUseError(httpError(409, { reason: 'InUse' }))).toBe(
+      true
+    );
+    expect(
+      isDestinationInUseError(httpError(409, { reason: 'AlreadyExists' }))
+    ).toBe(false);
+    expect(isDestinationInUseError(httpError(403, { reason: 'InUse' }))).toBe(
+      false
+    );
+    expect(isDestinationInUseError(new Error('InUse'))).toBe(false);
+  });
 });
 
 const classWithUiSchema = (uiSchema: unknown): MonitoringClass => {
   const monitoringClass: MonitoringClass = {
     metadata: { name: 'pmm' },
-    spec: { authModes: [{ name: 'Anonymous' }] },
+    spec: {
+      controllerName: 'openeverest.io/monitoring-pmm',
+      authModes: [{ name: 'Anonymous' }],
+    },
   };
   Reflect.set(monitoringClass.spec, 'uiSchema', uiSchema);
   return monitoringClass;
@@ -178,78 +217,6 @@ describe('credentials Secret names', () => {
   it('names the Secret after the kind and the destination', () => {
     expect(getDefaultCredentialsSecretName('pmm')).toBe(
       'monitoring-destination-pmm-credentials'
-    );
-  });
-
-  it('gives rotated credentials a fresh name within the Secret name limit', () => {
-    expect(getRotatedCredentialsSecretName('pmm', 'k2x9a')).toBe(
-      'monitoring-destination-pmm-credentials-k2x9a'
-    );
-    expect(getRotatedCredentialsSecretName('pmm')).toMatch(
-      /^monitoring-destination-pmm-credentials-[a-z0-9]+$/
-    );
-    expect(
-      getRotatedCredentialsSecretName('x'.repeat(260), 'k2x9a')
-    ).toHaveLength(253);
-  });
-
-  it('tells the Secrets the form created from those the user brought', () => {
-    expect(
-      isFormCreatedCredentialsSecret(
-        'pmm',
-        'monitoring-destination-pmm-credentials'
-      )
-    ).toBe(true);
-    expect(
-      isFormCreatedCredentialsSecret(
-        'pmm',
-        'monitoring-destination-pmm-credentials-k2x9a'
-      )
-    ).toBe(true);
-    expect(
-      isFormCreatedCredentialsSecret(
-        'pmm',
-        'monitoring-destination-pmm-eu-credentials'
-      )
-    ).toBe(false);
-    expect(
-      isFormCreatedCredentialsSecret(
-        'pmm',
-        'monitoring-destination-pmm-credentials-old-token'
-      )
-    ).toBe(false);
-    expect(isFormCreatedCredentialsSecret('pmm', 'pmm-credentials')).toBe(
-      false
-    );
-    expect(isFormCreatedCredentialsSecret('pmm', 'team-pmm-token')).toBe(false);
-  });
-});
-
-describe('credentials Secret labels', () => {
-  it('labels the Secret with the class and the authentication mode', () => {
-    expect(getCredentialsSecretLabels('pmm', 'ServiceAccountToken')).toEqual({
-      'openeverest.io/monitoring-class': 'pmm',
-      'openeverest.io/definition': 'ServiceAccountToken',
-    });
-  });
-
-  it('reuses only a Secret labelled for the same class and mode', () => {
-    const secret = (labels?: Record<string, string>): Secret => ({
-      metadata: { name: 'monitoring-destination-pmm-credentials', labels },
-    });
-    const labels = getCredentialsSecretLabels('pmm', 'ServiceAccountToken');
-
-    expect(
-      isCredentialsSecretFor(secret(labels), 'pmm', 'ServiceAccountToken')
-    ).toBe(true);
-    expect(
-      isCredentialsSecretFor(secret(labels), 'grafana', 'ServiceAccountToken')
-    ).toBe(false);
-    expect(isCredentialsSecretFor(secret(labels), 'pmm', 'BasicAuth')).toBe(
-      false
-    );
-    expect(isCredentialsSecretFor(secret(), 'pmm', 'ServiceAccountToken')).toBe(
-      false
     );
   });
 });

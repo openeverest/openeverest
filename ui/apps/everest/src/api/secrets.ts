@@ -12,8 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { AxiosError } from 'axios';
 import { api } from 'api/api';
-import { Secret, SecretList, SecretListFilter } from 'shared-types/api.types';
+import {
+  Secret,
+  SecretDataPatch,
+  SecretList,
+  SecretListFilter,
+} from 'shared-types/api.types';
 
 export const getSecretsFn = async (
   cluster: string,
@@ -46,11 +52,30 @@ export const getSecretFn = async (
   cluster: string,
   namespace: string,
   name: string,
-  disableNotifications = false
+  disableNotifications: boolean | ((error: AxiosError) => boolean) = false
 ): Promise<Secret> => {
   const response = await api.get<Secret>(
     `clusters/${cluster}/namespaces/${namespace}/secrets/${name}`,
     { disableNotifications }
+  );
+  return response.data;
+};
+
+// Sets the keys in stringData and keeps the others. A stale resourceVersion is
+// refused with 409, which the caller reports.
+export const patchSecretFn = async (
+  cluster: string,
+  namespace: string,
+  name: string,
+  patch: SecretDataPatch
+): Promise<Secret> => {
+  const response = await api.patch<Secret>(
+    `clusters/${cluster}/namespaces/${namespace}/secrets/${name}`,
+    patch,
+    {
+      headers: { 'Content-Type': 'application/merge-patch+json' },
+      disableNotifications: (e) => e.status === 409,
+    }
   );
   return response.data;
 };

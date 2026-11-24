@@ -179,3 +179,19 @@ func TestCollectingWarningHandler_ClientWrite(t *testing.T) {
 		})
 	}
 }
+
+// A warning the caller raises itself is reported once with those the Kubernetes API returns.
+func TestAddWarning(t *testing.T) {
+	t.Parallel()
+
+	AddWarning(context.Background(), "no collector, no effect")
+
+	ctx, collector := WithWarningCollector(context.Background())
+	AddWarning(ctx, `BackupClass "pbm" is Pending for Provider "psmdb"`)
+	AddWarning(ctx, "")
+	CollectingWarningHandler{Next: &warningRecorder{}}.HandleWarningHeaderWithContext(
+		ctx, 299, "-", `BackupClass "pbm" is Pending for Provider "psmdb"`,
+	)
+
+	assert.Equal(t, []string{`BackupClass "pbm" is Pending for Provider "psmdb"`}, collector.Warnings())
+}

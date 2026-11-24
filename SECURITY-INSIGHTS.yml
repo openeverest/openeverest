@@ -1,7 +1,7 @@
 header:
   schema-version: 2.0.0
-  last-updated: '2026-04-30'
-  last-reviewed: '2026-04-30'
+  last-updated: '2026-11-14'
+  last-reviewed: '2026-11-14'
   url: https://github.com/openeverest/openeverest/blob/main/SECURITY-INSIGHTS.yml
 
 project:

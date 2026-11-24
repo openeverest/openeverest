@@ -15,6 +15,8 @@
 import { Tooltip, Typography } from '@mui/material';
 import StatusField from 'components/status-field';
 import { MonitoringDestinationStatus } from 'shared-types/monitoring-destinations.types';
+import { describeCondition } from 'utils/monitoring-destinations';
+import { DestinationStateMessages } from 'utils/monitoring-destinations.messages';
 import { DESTINATION_STATE_TO_STATUS } from '../monitoring-destinations.constants';
 import { Messages } from '../monitoring-destinations.messages';
 
@@ -26,9 +28,9 @@ interface DestinationStatusCellProps {
 export const DestinationStatusCell = ({
   status: { state, reason, message, serverVersion },
 }: DestinationStatusCellProps) => {
-  const explanation = [reason, message].filter(Boolean).join(': ');
+  const explanation = describeCondition({ reason, message });
   const label = [
-    Messages.state[state],
+    DestinationStateMessages[state],
     serverVersion && Messages.serverVersion(serverVersion),
   ]
     .filter(Boolean)

@@ -43,9 +43,11 @@ import {
 } from '@e2e/constants';
 import {
   waitForStatus,
+  waitForInstanceStatus,
   waitForDelete,
   findRowAndClickActions,
   waitForDbListLoad,
+  confirmDeletion,
 } from '@e2e/utils/table';
 import { clickOnDemandBackup } from '@e2e/pr/db-cluster-details/utils';
 import {
@@ -390,12 +392,7 @@ test.describe.serial(
         await page.waitForURL('**/databases', {
           timeout: TIMEOUTS.ThirtySeconds,
         });
-        try {
-          await waitForStatus(page, clusterName, 'Provisioning', 30000);
-        } catch {
-          // Transitional status can be short-lived; continue with readiness checks.
-        }
-        await waitForStatus(page, clusterName, 'Ready', 900000);
+        await waitForInstanceStatus(page, clusterName, 'Ready', 900000);
       });
 
       await test.step('Verify PITR is enabled on the created cluster', async () => {
@@ -578,8 +575,8 @@ test.describe.serial(
       await submitRestoreDialog(page, namespace);
 
       await page.goto('/databases');
-      await waitForStatus(page, clusterName, 'Restoring', 30000);
-      await waitForStatus(page, clusterName, 'Ready', 900000);
+      await waitForInstanceStatus(page, clusterName, 'Restoring', 30000);
+      await waitForInstanceStatus(page, clusterName, 'Ready', 900000);
 
       await gotoDbClusterRestores(page, clusterName);
       await waitForStatus(page, 'restore-', 'Succeeded', 120000);
@@ -611,7 +608,7 @@ test.describe.serial(
       await gotoDbClusterRestores(page, clusterName);
       await findRowAndClickActions(page, firstRestoreName, 'Delete');
       await expect(page.getByLabel('Delete restore')).toBeVisible();
-      await page.getByTestId('confirm-dialog-delete').click();
+      await confirmDeletion(page, 'confirm-dialog-delete');
       // Restore cleanup is a provider finalizer that can wait a 10s requeue.
       await waitForDelete(page, firstRestoreName, TIMEOUTS.OneMinute);
     });
@@ -664,8 +661,8 @@ test.describe.serial(
       await submitRestoreDialog(page, namespace);
 
       await page.goto('/databases');
-      await waitForStatus(page, clusterName, 'Restoring', 30000);
-      await waitForStatus(page, clusterName, 'Ready', 900000);
+      await waitForInstanceStatus(page, clusterName, 'Restoring', 30000);
+      await waitForInstanceStatus(page, clusterName, 'Ready', 900000);
 
       await gotoDbClusterRestores(page, clusterName);
       await waitForStatus(page, 'restore-', 'Succeeded', 120000);
@@ -678,8 +675,8 @@ test.describe.serial(
 
     // -----------------------------------------------------------------------
     // DEFERRED: PITR restore to a NEW cluster (seed). Kept verbatim (v1) as a
-    // reference to port later. Scope: docs/ui/testing/pitr-golden-e2e-plan.md
-    // (§1, §4: "restore-to-new-cluster → separate branch"). Revisit in the
+    // reference to port later. Scope: docs/ui/testing/pitr-golden-e2e-plan.md,
+    // which defers restore-to-new-cluster to a separate branch. Revisit in the
     // dedicated seed PR.
     // When reviving for v2: replace the v1 restore interaction
     // (radio-option-fromPITR → CalendarIcon → OK) with the v2 recoveryTarget

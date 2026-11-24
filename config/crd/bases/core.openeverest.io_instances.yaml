@@ -24,23 +24,28 @@ spec:
     - jsonPath: .status.version
       name: Version
       type: string
-    - jsonPath: .status.phase
-      name: Phase
-      type: string
-    - jsonPath: .status.conditions[?(@.type=="Ready")].status
-      name: Ready
+    - jsonPath: .status.conditions[?(@.type=="Available")].status
+      name: Available
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].reason
-      name: Reason
+      name: Status
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.phase
+      name: Phase
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Stalled")].status
+      name: Stalled
+      priority: 1
+      type: string
     - jsonPath: .spec.topology.type
       name: Topology
       priority: 1
       type: string
-    - jsonPath: .status.message
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
       name: Message
       priority: 1
       type: string
@@ -81,8 +86,8 @@ spec:
                     description: |-
                       ClassRef references the cluster-scoped BackupClass that the provider
                       should use to configure the engine. The class must have
-                      ExecutionMode=ProviderManaged and list the Instance's provider in its
-                      SupportedProviders.
+                      ExecutionMode=ProviderManaged and name the Instance's provider in
+                      providerManaged.providerRef.
                     properties:
                       name:
                         description: Name of the referenced object.
@@ -1588,7 +1593,7 @@ spec:
 
                   Only ProviderManaged BackupClasses are supported. The referenced Backup
                   must be in the same namespace, in Succeeded state, and its BackupClass
-                  must list the Instance's provider in SupportedProviders. Instance must
+                  must be executed by the Instance's provider. Instance must
                   also have backup enabled and include a storage entry that matches the
                   storage used by the source Backup so the provider can access the data.
                 properties:
@@ -1817,6 +1822,30 @@ spec:
                     - message: each MonitoringDestination may be listed at most once
                       rule: self.all(a, self.exists_one(b, b.destinationRef.name ==
                         a.destinationRef.name))
+                  sources:
+                    description: |-
+                      Sources configures the monitoring sources the Instance runs whether or
+                      not a destination needs them.
+                    properties:
+                      metrics:
+                        description: Metrics configures the Instance's OpenMetrics
+                          endpoints.
+                        properties:
+                          policy:
+                            default: OnDemand
+                            description: |-
+                              Policy says when the provider runs the exporters and turns on the
+                              optional metrics endpoints of the Instance's components. OnDemand runs
+                              them while a destination's class needs metrics. Always runs them
+                              without a destination, for scrapers that OpenEverest does not
+                              configure. The serving endpoints are listed in
+                              status.monitoring.sources.metrics.
+                            enum:
+                            - OnDemand
+                            - Always
+                            type: string
+                        type: object
+                    type: object
                 type: object
               parameters:
                 description: |-
@@ -1829,7 +1858,9 @@ spec:
               providerRef:
                 description: |-
                   ProviderRef references the cluster-scoped Provider that manages this
-                  Instance (e.g., "percona-server-mongodb", "postgresql").
+                  Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                  providerRef cannot be changed: the provider that picked it up owns its
+                  finalizer and engine resources, and only that provider cleans them up.
                 properties:
                   name:
                     description: Name of the referenced object.
@@ -1891,6 +1922,9 @@ spec:
             - providerRef
             type: object
             x-kubernetes-validations:
+            - message: 'spec.providerRef is immutable: delete the Instance and create
+                it again with the provider you want'
+              rule: self.providerRef == oldSelf.providerRef
             - message: spec.dataSource requires spec.backup.enabled=true with at least
                 one storage so the provider can read the source backup
               rule: '!has(self.dataSource) || (has(self.backup) && self.backup.enabled)'
@@ -1906,6 +1940,7 @@ spec:
               rule: '!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef
                 == oldSelf.userSecretRef)'
           status:
+            default: {}
             description: InstanceStatus defines the observed state of Instance.
             properties:
               backup:
@@ -1922,6 +1957,14 @@ spec:
                         InstanceBackupStorageStatus reports the observed backup state of a single
                         entry in spec.backup.storages.
                       properties:
+                        location:
+                          description: |-
+                            Location is the path in the storage's bucket under which the engine
+                            writes this Instance's backups.
+                          type: string
+                        message:
+                          description: Message explains Reason.
+                          type: string
                         name:
                           description: |-
                             Name is the BackupStorage name (matches
@@ -1961,6 +2004,12 @@ spec:
                               - Unavailable
                               type: string
                           type: object
+                        reason:
+                          description: |-
+                            Reason is why the entry is not configured on the engine as specified,
+                            empty when it is. An entry the engine already had keeps its last
+                            configuration meanwhile.
+                          type: string
                       required:
                       - name
                       type: object
@@ -1975,6 +2024,23 @@ spec:
                 items:
                   description: ComponentStatus counts the pods of one component.
                   properties:
+                    desiredReplicas:
+                      description: |-
+                        DesiredReplicas is how many pods the component will have once the
+                        current generation has converged, as the provider reports it. It
+                        describes status.observedGeneration: it is absent until the provider
+                        reports for that generation, during deletion, and for providers that
+                        don't report it; clients then show readyReplicas over replicas. Zero is
+                        a real target, for example a model scaled to zero. A cluster paused
+                        outside OpenEverest keeps its target, so it reads 0 of N; one stopped
+                        through its spec has a target of zero.
+
+                        It is meant for display. When a component sums several groups, such as
+                        the replica sets of every shard, it cannot tell whether each group has
+                        a majority.
+                      format: int32
+                      minimum: 0
+                      type: integer
                     name:
                       description: Name is a key of spec.components.
                       type: string
@@ -2084,10 +2150,6 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              message:
-                description: Message is a custom user-facing message describing the
-                  current state of the instance.
-                type: string
               monitoring:
                 description: |-
                   Monitoring is what the Instance exposes to monitoring (sources) and
@@ -2102,14 +2164,70 @@ spec:
                         InstanceMonitoringDestinationStatus is the read-only summary of one entry,
                         mirrored from its MonitoringBinding.
                       properties:
-                        configured:
-                          description: |-
-                            Configured mirrors the binding's Configured condition; False when the
-                            binding is not Accepted, Unknown while it is missing or pending.
-                          type: string
-                        message:
-                          description: Message is the human-readable detail for Configured.
-                          type: string
+                        conditions:
+                          description: Conditions are the entry's Configured and Ready
+                            conditions.
+                          items:
+                            description: Condition contains details for one aspect
+                              of the current state of this API Resource.
+                            properties:
+                              lastTransitionTime:
+                                description: |-
+                                  lastTransitionTime is the last time the condition transitioned from one status to another.
+                                  This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                                format: date-time
+                                type: string
+                              message:
+                                description: |-
+                                  message is a human readable message indicating details about the transition.
+                                  This may be an empty string.
+                                maxLength: 32768
+                                type: string
+                              observedGeneration:
+                                description: |-
+                                  observedGeneration represents the .metadata.generation that the condition was set based upon.
+                                  For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                                  with respect to the current state of the instance.
+                                format: int64
+                                minimum: 0
+                                type: integer
+                              reason:
+                                description: |-
+                                  reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                                  Producers of specific condition types may define expected values and meanings for this field,
+                                  and whether the values are considered a guaranteed API.
+                                  The value should be a CamelCase string.
+                                  This field may not be empty.
+                                maxLength: 1024
+                                minLength: 1
+                                pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                                type: string
+                              status:
+                                description: status of the condition, one of True,
+                                  False, Unknown.
+                                enum:
+                                - "True"
+                                - "False"
+                                - Unknown
+                                type: string
+                              type:
+                                description: type of condition in CamelCase or in
+                                  foo.example.com/CamelCase.
+                                maxLength: 316
+                                pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                                type: string
+                            required:
+                            - lastTransitionTime
+                            - message
+                            - reason
+                            - status
+                            - type
+                            type: object
+                          maxItems: 8
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - type
+                          x-kubernetes-list-type: map
                         mode:
                           description: Mode is the resolved execution mode.
                           enum:
@@ -2118,9 +2236,6 @@ spec:
                           type: string
                         name:
                           description: Name matches spec.monitoring.destinations[].name.
-                          type: string
-                        reason:
-                          description: Reason is the machine-readable reason for Configured.
                           type: string
                       required:
                       - name
@@ -2134,6 +2249,122 @@ spec:
                       Sources is the per-Instance publication of the provider's monitoring
                       contract, consumed by ExtensionManaged class controllers.
                     properties:
+                      connections:
+                        description: |-
+                          Connections lists the endpoints monitoring agents connect to over the
+                          engine's native protocol (e.g. agents discovering databases through
+                          pod annotations), one per serving component.
+                        items:
+                          description: |-
+                            ConnectionEndpoint is one component's native-protocol endpoint, reached on
+                            each selected pod directly (not through a proxy or a Service), so agents
+                            collect per-instance statistics.
+                          properties:
+                            auth:
+                              description: |-
+                                Auth names the credential profile agents log in with, normally
+                                CredentialProfileMonitor.
+                              properties:
+                                credentialProfile:
+                                  description: CredentialProfile matches MonitoringSources.credentials[].profile.
+                                  type: string
+                              required:
+                              - credentialProfile
+                              type: object
+                            component:
+                              description: Component is the Instance component name
+                                (e.g. "engine").
+                              type: string
+                            container:
+                              description: |-
+                                Container is the name of the container serving the endpoint, for
+                                agents that address containers (e.g. Datadog Autodiscovery).
+                              type: string
+                            kind:
+                              description: |-
+                                Kind is the kind of the component's type
+                                (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                                A provider may leave it empty; an endpoint it computes with another
+                                kind is not published.
+                              pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                              type: string
+                            podSelector:
+                              additionalProperties:
+                                type: string
+                              description: PodSelector selects the pods serving the
+                                endpoint.
+                              minProperties: 1
+                              type: object
+                            port:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: Port is the container port, by name or
+                                number.
+                              x-kubernetes-int-or-string: true
+                            tls:
+                              description: |-
+                                TLS is set when the endpoint accepts TLS connections; absent means
+                                plaintext only.
+                              properties:
+                                ca:
+                                  description: |-
+                                    CA is the PEM bundle that verifies the server certificate. Server
+                                    certificates name Services, not pod IPs, so agents verify the chain
+                                    only.
+                                  minProperties: 1
+                                  properties:
+                                    secretKeyRef:
+                                      description: SecretKeyRef selects the Secret
+                                        key holding the PEM bundle.
+                                      properties:
+                                        key:
+                                          description: Key within the Secret.
+                                          maxLength: 253
+                                          minLength: 1
+                                          pattern: ^[-._a-zA-Z0-9]+$
+                                          type: string
+                                        name:
+                                          description: Name of the referenced Secret.
+                                          maxLength: 253
+                                          minLength: 1
+                                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                          type: string
+                                      required:
+                                      - key
+                                      - name
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                  type: object
+                                clientCertificateSecretRef:
+                                  description: |-
+                                    ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                    (keys tls.crt and tls.key) agents present as a client certificate.
+                                  properties:
+                                    name:
+                                      description: Name of the referenced Secret.
+                                      maxLength: 253
+                                      minLength: 1
+                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                required:
+                                  description: Required means the endpoint rejects
+                                    connections without TLS.
+                                  type: boolean
+                              type: object
+                          required:
+                          - component
+                          - kind
+                          - podSelector
+                          - port
+                          type: object
+                        maxItems: 32
+                        type: array
+                        x-kubernetes-list-type: atomic
                       credentials:
                         description: |-
                           Credentials lists the Instance-owned monitoring credential Secrets by
@@ -2212,7 +2443,11 @@ spec:
                                 (e.g. "engine", "proxy").
                               type: string
                             kind:
-                              description: Kind is the component's engine kind.
+                              description: |-
+                                Kind is the kind of the component's type
+                                (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                                A provider may leave it empty; an endpoint it computes with another
+                                kind is not published.
                               pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
                               type: string
                             params:
@@ -2320,10 +2555,12 @@ spec:
                     type: object
                 type: object
               observedGeneration:
+                default: -1
                 description: |-
                   ObservedGeneration is the metadata.generation the provider-runtime last
                   reconciled. Status describes an older spec while it is lower than
-                  metadata.generation.
+                  metadata.generation. It defaults to -1, so an Instance no provider has
+                  reconciled reads as in progress, never as current.
                 format: int64
                 type: integer
               pendingMaintenance:
@@ -2363,19 +2600,16 @@ spec:
                   type: object
                 type: array
               phase:
-                description: Phase of the database cluster.
+                default: Pending
+                description: |-
+                  Phase is where the Instance is in its life: Pending until the database
+                  is first available, Provisioned afterwards, Terminating once deletion
+                  is requested. The CRD sets Pending at creation; only provider-runtime
+                  changes it. Read the conditions for everything else.
                 enum:
                 - Pending
-                - Provisioning
-                - Initializing
-                - Ready
-                - Updating
+                - Provisioned
                 - Terminating
-                - Failed
-                - Restoring
-                - Suspending
-                - Suspended
-                - Resuming
                 type: string
               version:
                 description: |-
@@ -2393,6 +2627,8 @@ spec:
         required:
         - spec
         type: object
+    selectableFields:
+    - jsonPath: .status.phase
     served: true
     storage: true
     subresources:

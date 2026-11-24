@@ -17,30 +17,35 @@ package backupstorage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 
 	"go.uber.org/zap"
+	"sigs.k8s.io/yaml"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
-// UpdateOptions holds the inputs for the update command. VerifyTLS and ForcePathStyle are pointers: nil means the flag was not passed, so the
-// merge patch must not name that field at all and the stored value is left untouched.
+// UpdateOptions holds the inputs for the update command. InsecureSkipTLSVerify
+// is a pointer: nil means the flag was not passed, so the merge patch must not
+// name that field at all and the stored value is left untouched.
 type UpdateOptions struct {
-	Name              string
-	Namespace         string
-	Cluster           string
-	Context           string
-	CredentialsSecret string
-	AccessKeyID       string
-	SecretAccessKey   string
-	VerifyTLS         *bool
-	ForcePathStyle    *bool
+	Name                  string
+	Namespace             string
+	Cluster               string
+	Context               string
+	Parameters            ParameterOptions
+	AuthMode              string
+	CredentialsSecret     string
+	CASecret              string
+	InsecureSkipTLSVerify *bool
+	DryRun                string // cli.DryRunClient prints the patch without sending it, cli.DryRunServer sends it with dryRun=All
 }
 
 // Updater implements `backupstorage update` business logic.
@@ -60,9 +65,21 @@ func NewUpdater(cfg Config, l *zap.SugaredLogger) *Updater {
 
 // Run sends the changed fields as a single merge patch to the PatchBackupStorage endpoint where the server performs the read-merge-write.
 func (u *Updater) Run(ctx context.Context, opts UpdateOptions, cfgPath string) error {
-	s3 := buildS3Patch(opts)
-	if len(s3) == 0 {
-		return fmt.Errorf("at least one of --access-key-id, --credentials-secret, --verify-tls, or --force-path-style is required")
+	if err := cli.CheckDryRun(opts.DryRun); err != nil {
+		return err
+	}
+	spec, err := buildSpecPatch(opts)
+	if err != nil {
+		return err
+	}
+	if len(spec) == 0 {
+		return errors.New("nothing to update: pass at least one of --parameter, --region, --endpoint-url, --force-path-style, " +
+			"--implementation, --auth-mode, --credentials-secret, --ca-secret or --insecure-skip-tls-verify")
+	}
+
+	patch := map[string]any{"spec": spec}
+	if opts.DryRun == cli.DryRunClient {
+		return u.emitClientDryRun(patch, opts.Name)
 	}
 
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: u.config.Pretty}, u.l.Desugar().Sugar(), cfgPath, opts.Context)
@@ -70,44 +87,90 @@ func (u *Updater) Run(ctx context.Context, opts UpdateOptions, cfgPath string) e
 		return err
 	}
 
-	patch := map[string]any{"spec": map[string]any{"s3": s3}}
-	resp, err := c.PatchBackupStorageWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, patch)
+	var params *client.PatchBackupStorageParams
+	if opts.DryRun == cli.DryRunServer {
+		dryRun := client.PatchBackupStorageParamsDryRunAll
+		params = &client.PatchBackupStorageParams{DryRun: &dryRun}
+	}
+	resp, err := c.PatchBackupStorageWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, params, patch)
 	if err != nil {
 		return fmt.Errorf("patch backup storage request failed: %w", err)
 	}
 
 	switch resp.StatusCode() {
 	case http.StatusOK:
+		if opts.DryRun == cli.DryRunServer {
+			return u.emitServerDryRun(resp.JSON200, opts)
+		}
 		u.l.Infof("updated backup storage %q in namespace %q", opts.Name, opts.Namespace)
 		return u.emitUpdated(resp.JSON200, opts)
 	case http.StatusNotFound:
 		return fmt.Errorf("backup storage %q not found in namespace %q", opts.Name, opts.Namespace)
 	default:
-		if msg, ok := clienterr.Message(resp.JSON400, resp.JSON415, clienterr.FromAPIError(resp.JSON422), resp.JSONDefault); ok {
+		if msg, ok := clienterr.Message(resp.JSON400, resp.JSON403, resp.JSON415, clienterr.FromAPIError(resp.JSON422), resp.JSONDefault); ok {
 			return fmt.Errorf("server error: %s", msg)
 		}
 		return fmt.Errorf("unexpected response updating backup storage %q: %s", opts.Name, resp.Status())
 	}
 }
 
-// buildS3Patch names only the s3 fields the caller actually set, so the merge patch leaves every other field,
-// including the identity fields this command never exposes a flag for, untouched.
-func buildS3Patch(opts UpdateOptions) map[string]any {
-	s3 := map[string]any{}
-	switch {
-	case opts.CredentialsSecret != "":
-		s3["credentialsSecretRef"] = map[string]any{"name": opts.CredentialsSecret}
-	case opts.AccessKeyID != "":
-		s3["accessKeyId"] = opts.AccessKeyID
-		s3["secretAccessKey"] = opts.SecretAccessKey
+// buildSpecPatch names only the fields the caller actually set, so the merge
+// patch leaves every other field untouched; parameters merge key by key.
+func buildSpecPatch(opts UpdateOptions) (map[string]any, error) {
+	spec := make(map[string]any)
+
+	params, err := opts.Parameters.build()
+	if err != nil {
+		return nil, err
 	}
-	if opts.VerifyTLS != nil {
-		s3["verifyTLS"] = *opts.VerifyTLS
+	if len(params) > 0 {
+		spec["parameters"] = params
 	}
-	if opts.ForcePathStyle != nil {
-		s3["forcePathStyle"] = *opts.ForcePathStyle
+
+	auth := make(map[string]any)
+	if opts.AuthMode != "" {
+		auth["mode"] = opts.AuthMode
 	}
-	return s3
+	if opts.CredentialsSecret != "" {
+		auth["credentialsSecretRef"] = map[string]any{"name": opts.CredentialsSecret}
+	}
+	if len(auth) > 0 {
+		spec["authentication"] = auth
+	}
+
+	tls, err := buildTLSPatch(opts)
+	if err != nil {
+		return nil, err
+	}
+	if len(tls) > 0 {
+		spec["tls"] = tls
+	}
+	return spec, nil
+}
+
+// buildTLSPatch sets a CA bundle or skipping verification, clearing the
+// other, since a storage cannot have both.
+func buildTLSPatch(opts UpdateOptions) (map[string]any, error) {
+	insecure := opts.InsecureSkipTLSVerify != nil && *opts.InsecureSkipTLSVerify
+	tls := make(map[string]any)
+	if opts.CASecret != "" {
+		if insecure {
+			return nil, fmt.Errorf("--%s cannot be combined with --%s", cli.FlagBackupStorageInsecureSkipTLSVerify, cli.FlagBackupStorageCASecret)
+		}
+		name, key, err := parseCASecret(opts.CASecret)
+		if err != nil {
+			return nil, err
+		}
+		tls["ca"] = map[string]any{"secretKeyRef": map[string]any{"name": name, "key": key}}
+		tls["insecureSkipVerify"] = nil
+	}
+	if opts.InsecureSkipTLSVerify != nil {
+		tls["insecureSkipVerify"] = insecure
+	}
+	if insecure {
+		tls["ca"] = nil
+	}
+	return tls, nil
 }
 
 // emitUpdated reports a successful update.
@@ -119,5 +182,37 @@ func (u *Updater) emitUpdated(updated *client.BackupStorage, opts UpdateOptions)
 	if updated == nil {
 		return fmt.Errorf("backup storage %q was updated but the server returned an unreadable response body", opts.Name)
 	}
-	return writeBackupStorageJSON(updated)
+	return writeBackupStorage(updated, u.config.YAML)
+}
+
+// emitClientDryRun prints the merge patch update would send: as YAML under a
+// header in pretty mode, as JSON/YAML otherwise.
+func (u *Updater) emitClientDryRun(patch map[string]any, name string) error {
+	if !u.config.Pretty {
+		if err := cli.Encode(os.Stdout, patch, u.config.YAML); err != nil {
+			return fmt.Errorf("failed to encode patch: %w", err)
+		}
+		return nil
+	}
+	out, err := yaml.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("failed to encode patch: %w", err)
+	}
+	_, _ = fmt.Fprint(os.Stdout, output.Info("Dry run for backup storage %q, nothing sent", name))
+	_, _ = os.Stdout.Write(out)
+	return nil
+}
+
+// emitServerDryRun reports an update the server accepted without persisting
+// it: a line in pretty mode, the backup storage it would have stored in JSON
+// mode.
+func (u *Updater) emitServerDryRun(updated *client.BackupStorage, opts UpdateOptions) error {
+	if u.config.Pretty {
+		_, _ = fmt.Fprint(os.Stdout, output.Success("Dry run for backup storage %q accepted by the server, nothing updated", opts.Name))
+		return nil
+	}
+	if updated == nil {
+		return fmt.Errorf("the server accepted the update of backup storage %q but returned an unreadable response body", opts.Name)
+	}
+	return writeBackupStorage(updated, u.config.YAML)
 }

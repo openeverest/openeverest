@@ -21,11 +21,13 @@ import TableActionsMenu from 'components/table-actions-menu';
 import { DeleteDestinationDialog } from './delete-destination-dialog/delete-destination-dialog';
 import { DestinationStatusCell } from './destination-status-cell/destination-status-cell';
 import { useDestinationDeletion } from './hooks/use-destination-deletion';
-import { useMonitoringDestinationPermissions } from './hooks/use-monitoring-destination-permissions';
 import { useMonitoringDestinationRows } from './hooks/use-monitoring-destination-rows';
 import { getMonitoringDestinationMenuItems } from './monitoring-destination-menu-actions';
-import { MonitoringDestinationModal } from './monitoring-destination-modal/monitoring-destination-modal';
-import { MonitoringDestinationTarget } from './monitoring-destination-modal/monitoring-destination-modal.types';
+import {
+  MonitoringDestinationModal,
+  MonitoringDestinationTarget,
+  useMonitoringDestinationPermissions,
+} from 'components/monitoring-destination-modal';
 import { Messages } from './monitoring-destinations.messages';
 import { MonitoringDestinationRow } from './monitoring-destinations.types';
 import { UsedByCell } from './used-by-cell/used-by-cell';
@@ -36,7 +38,7 @@ export const MonitoringDestinations = () => {
   const { rows, classes, isLoading } = useMonitoringDestinationRows();
   const permissions = useMonitoringDestinationPermissions();
   const { deletion, isDeleting, request, confirm, cancel } =
-    useDestinationDeletion(rows);
+    useDestinationDeletion();
   const [modal, setModal] = useState<ModalState>();
   const hasAddress = rows.some((row) => !!row.address);
 
@@ -71,11 +73,11 @@ export const MonitoringDestinations = () => {
       {
         id: 'usedBy',
         header: Messages.columns.usedBy,
-        accessorFn: (row) => row.usedBy.length,
+        accessorFn: (row) => row.usedBy.count,
         Cell: ({ row }) => (
           <UsedByCell
             destination={row.original.name}
-            instances={row.original.usedBy}
+            usage={row.original.usedBy}
           />
         ),
       },

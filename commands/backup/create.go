@@ -69,7 +69,7 @@ server-side.`,
 
   # Bounded wait for CI, then grab the state (Ctrl-C only stops waiting; the backup keeps running)
   everestctl backup create --instance my-mongo --namespace everest \
-    --class percona-backup-mongodb --storage my-s3 --wait --timeout 15m --json | jq '.status.state'`,
+    --class percona-backup-mongodb --storage my-s3 --wait --timeout 15m -o json | jq '.status.state'`,
 		PreRun: createPreRun,
 		Run:    createRun,
 	}
@@ -96,7 +96,8 @@ func init() {
 }
 
 func createPreRun(cmd *cobra.Command, _ []string) {
-	createCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	createCfg.Pretty = cli.IsPretty(cmd)
+	createCfg.YAML = cli.IsYAML(cmd)
 }
 
 func createRun(cmd *cobra.Command, _ []string) {

@@ -17,9 +17,9 @@ import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
 import { MonitoringClass } from 'shared-types/monitoring-destinations.types';
 import {
   buildMonitoringParametersSchema,
+  useMonitoringInstanceForms,
   writeMonitoringEntries,
-} from '../monitoring-step.utils';
-import { useMonitoringInstanceForms } from './use-monitoring-instance-forms';
+} from 'components/monitoring-destinations-picker';
 
 const NO_CLASSES: MonitoringClass[] = [];
 

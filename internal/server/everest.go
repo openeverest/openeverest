@@ -33,6 +33,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/golang-jwt/jwt/v5"
 	echojwt "github.com/labstack/echo-jwt/v4"
@@ -49,6 +50,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/cmd/config"
+	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	k8shandler "github.com/openeverest/openeverest/v2/internal/server/handlers/k8s"
@@ -57,7 +59,6 @@ import (
 	"github.com/openeverest/openeverest/v2/internal/tokenregistry"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
-	"github.com/openeverest/openeverest/v2/pkg/events"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/oidc"
 	"github.com/openeverest/openeverest/v2/pkg/session"
@@ -76,17 +77,21 @@ const (
 
 // EverestServer represents the server struct.
 type EverestServer struct {
-	config        *config.EverestConfig
-	l             *zap.SugaredLogger
-	echo          *echo.Echo
-	kubeConnector kubernetes.KubernetesConnector
-	kubeStreamer  clientgo.Interface
-	sessionMgr    *session.Manager
-	tokenRegistry *tokenregistry.Registry
-	attemptsStore *RateLimiterMemoryStore
-	handler       handlers.Handler
-	oidcProvider  *oidc.ProviderConfig
-	eventHub      *events.Hub
+	config         *config.EverestConfig
+	l              *zap.SugaredLogger
+	echo           *echo.Echo
+	kubeConnector  kubernetes.KubernetesConnector
+	kubeStreamer   clientgo.Interface
+	sessionMgr     *session.Manager
+	tokenRegistry  *tokenregistry.Registry
+	attemptsStore  *RateLimiterMemoryStore
+	authEventSlots chan struct{}
+	// ssoAttemptsStore is separate so SSO renewals neither consume nor penalize password logins.
+	ssoAttemptsStore *RateLimiterMemoryStore
+	handler          handlers.Handler
+	oidcProvider     *oidc.ProviderConfig
+	// ssoTokenVerifier validates the ID tokens exchanged for Everest JWTs; nil when OIDC is not configured.
+	ssoTokenVerifier *oidc.IDTokenVerifier
 }
 
 var errFailedToReadRequestBody = errors.New("failed to read request body")
@@ -110,8 +115,24 @@ func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.Kubernetes
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to create OIDC provider config"))
 	}
+	oidcProvider.ClientID = oidcConfig.ClientID
 
 	return &oidcProvider, nil
+}
+
+// newSSOTokenVerifier returns nil, disabling only the SSO token exchange, when OIDC is not
+// configured or its settings are invalid. Password login must keep working while an
+// administrator fixes the OIDC settings.
+func newSSOTokenVerifier(ctx context.Context, l *zap.SugaredLogger, provider *oidc.ProviderConfig) *oidc.IDTokenVerifier {
+	if provider == nil {
+		return nil
+	}
+	verifier, err := provider.NewIDTokenVerifier(ctx)
+	if err != nil {
+		l.Errorf("SSO is disabled because the OIDC settings are invalid: %v", err)
+		return nil
+	}
+	return verifier
 }
 
 // NewEverestServer creates and configures everest API.
@@ -129,6 +150,9 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	}
 
 	echoServer := echo.New()
+	if err := configureProxyTrust(echoServer, c.TrustedProxies); err != nil {
+		return nil, err
+	}
 	// Pre() so it also wraps the Pre() middlewares; the bare HTTPError keeps the
 	// panic text out of the response body.
 	echoServer.Pre(echomiddleware.RecoverWithConfig(echomiddleware.RecoverConfig{
@@ -143,7 +167,8 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		},
 	}))
 	echoServer.Use(echomiddleware.RateLimiter(echomiddleware.NewRateLimiterMemoryStore(rate.Limit(c.APIRequestsRateLimit))))
-	store := newPasswordGrantLimiter(c.LoginRateLimit)
+	store := newGrantRateLimiter(c.LoginRateLimit)
+	ssoStore := newGrantRateLimiter(c.SSOTokenExchangeRateLimit)
 
 	sessionManagerClient, err := createSessionManagerClient(ctx, l, kubeConnector.Namespace())
 	if err != nil {
@@ -168,16 +193,18 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	}
 
 	e := &EverestServer{
-		config:        c,
-		l:             l,
-		echo:          echoServer,
-		kubeConnector: kubeConnector,
-		kubeStreamer:  kubeStreamer,
-		sessionMgr:    sessMgr,
-		tokenRegistry: tokenRegistry,
-		attemptsStore: store,
-		oidcProvider:  oidcProvider,
-		eventHub:      events.NewHub(l, kubeConnector, events.NewRingBuffer(c.EventBufferMaxEvents, c.EventBufferMaxAge)),
+		config:           c,
+		l:                l,
+		echo:             echoServer,
+		kubeConnector:    kubeConnector,
+		kubeStreamer:     kubeStreamer,
+		sessionMgr:       sessMgr,
+		tokenRegistry:    tokenRegistry,
+		attemptsStore:    store,
+		authEventSlots:   make(chan struct{}, maxConcurrentAuthEventWrites),
+		ssoAttemptsStore: ssoStore,
+		oidcProvider:     oidcProvider,
+		ssoTokenVerifier: newSSOTokenVerifier(ctx, l, oidcProvider),
 	}
 	e.echo.HTTPErrorHandler = e.errorHandlerChain()
 
@@ -193,13 +220,6 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 
 // Start starts everest server.
 func (e *EverestServer) Start(ctx context.Context) error {
-	// Start the event hub in the background.
-	go func() {
-		if err := e.eventHub.Start(ctx); err != nil && ctx.Err() == nil {
-			e.l.Errorf("event hub stopped: %v", err)
-		}
-	}()
-
 	// Periodically prune expired API token records.
 	go e.pruneExpiredTokens(ctx)
 
@@ -285,18 +305,10 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	apiGroup := e.echo.Group(basePath)
 
 	// Use our validation middleware to check all requests against the OpenAPI schema.
-	apiGroup.Use(middleware.OapiRequestValidatorWithOptions(swagger, &middleware.Options{
-		SilenceServersWarning: true,
-		ErrorHandler:          validationErrorHandler,
-		// This field is required if a security scheme is specified.
-		// However, the actual authentication is handled by the JWT middleware, so we can use a noop function here.
-		Options: openapi3filter.Options{
-			AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
-		},
-	}))
+	apiGroup.Use(requestValidator(swagger))
 
 	// Setup and use JWT middleware.
-	jwtMW, err := e.jwtMiddleWare(ctx)
+	jwtMW, err := e.jwtMiddleWare()
 	if err != nil {
 		return err
 	}
@@ -340,12 +352,6 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	pluginGroup.PUT("/:name/*", pp.authedProxyHandler)
 	pluginGroup.DELETE("/:name/*", pp.authedProxyHandler)
 	pluginGroup.PATCH("/:name/*", pp.authedProxyHandler)
-
-	// Event stream — JWT protected, outside OpenAPI validation.
-	eventsGroup := e.echo.Group("/v1/events")
-	eventsGroup.Use(jwtMW)
-	eventsGroup.Use(blocklistMW)
-	eventsGroup.GET("", e.eventsHandler)
 
 	return nil
 }
@@ -424,44 +430,25 @@ func newHandlerChain(hs ...handlers.Handler) handlers.Handler { //nolint:ireturn
 	return hs[0]
 }
 
-func (e *EverestServer) newJWTKeyFunc(ctx context.Context) (jwt.Keyfunc, error) {
-	var oidcKeyFn jwt.Keyfunc
-	if e.oidcProvider != nil {
-		fn, err := e.oidcProvider.NewKeyFunc(ctx)
-		if err != nil {
-			return nil, errors.Join(err, errors.New("failed to get OIDC key function"))
-		}
-		oidcKeyFn = fn
+// everestJWTKeyFunc accepts only Everest-signed JWTs. Tokens issued by the OIDC provider are
+// never accepted as API credentials: they must be exchanged first (see handleTokenExchangeGrant),
+// which checks that the provider issued them to the Everest client.
+func (e *EverestServer) everestJWTKeyFunc(token *jwt.Token) (any, error) {
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("failed to get claims from token")
 	}
-
-	return func(token *jwt.Token) (any, error) {
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			return nil, errors.New("failed to get claims from token")
-		}
-		issuer, err := claims.GetIssuer()
-		if err != nil {
-			return "", errors.Join(err, errors.New("failed to get issuer from claims"))
-		}
-
-		if issuer == session.SessionManagerClaimsIssuer {
-			return e.sessionMgr.KeyFunc()(token)
-		}
-		// XXX: currently we use OIDC only, but once we have multiple protocols supported,
-		// we should have a way to select which KeyFunc to use.
-		if oidcKeyFn != nil {
-			return oidcKeyFn(token)
-		}
-		return nil, errors.New("no key found for token")
-	}, nil
+	issuer, err := claims.GetIssuer()
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to get issuer from claims"))
+	}
+	if issuer != session.SessionManagerClaimsIssuer {
+		return nil, fmt.Errorf("tokens issued by %q are not accepted", issuer)
+	}
+	return e.sessionMgr.KeyFunc()(token)
 }
 
-func (e *EverestServer) jwtMiddleWare(ctx context.Context) (echo.MiddlewareFunc, error) {
-	keyFunc, err := e.newJWTKeyFunc(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+func (e *EverestServer) jwtMiddleWare() (echo.MiddlewareFunc, error) {
 	skipper, err := newSkipperFunc()
 	if err != nil {
 		return nil, err
@@ -471,7 +458,7 @@ func (e *EverestServer) jwtMiddleWare(ctx context.Context) (echo.MiddlewareFunc,
 	return echojwt.WithConfig(echojwt.Config{
 		Skipper:     skipper,
 		TokenLookup: tokenLookup,
-		KeyFunc:     keyFunc,
+		KeyFunc:     e.everestJWTKeyFunc,
 		ContextKey:  common.UserCtxKey,
 		SuccessHandler: func(c echo.Context) {
 			// The user key exists only in the echo.Context object.
@@ -578,9 +565,23 @@ func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
 	return nil
 }
 
-func newPasswordGrantLimiter(limit int) *RateLimiterMemoryStore {
+func newGrantRateLimiter(limit int) *RateLimiterMemoryStore {
 	return NewRateLimiterMemoryStoreWithConfig(RateLimiterMemoryStoreConfig{
 		Rate: rate.Limit(limit),
+	})
+}
+
+// requestValidator checks requests against the OpenAPI schema. It also sets the
+// schema defaults of omitted parameters on the request.
+func requestValidator(swagger *openapi3.T) echo.MiddlewareFunc {
+	return middleware.OapiRequestValidatorWithOptions(swagger, &middleware.Options{
+		SilenceServersWarning: true,
+		ErrorHandler:          validationErrorHandler,
+		// This field is required if a security scheme is specified.
+		// However, the actual authentication is handled by the JWT middleware, so we can use a noop function here.
+		Options: openapi3filter.Options{
+			AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
+		},
 	})
 }
 
@@ -593,13 +594,20 @@ func (e *EverestServer) errorHandlerChain() echo.HTTPErrorHandler {
 func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 	return func(err error, c echo.Context) {
 		echoErrTarget := &echo.HTTPError{}
+		presetMismatch := &rbachandler.PresetMismatchError{}
 		inUseMessage, inUse := inUseDenialMessage(err)
+		notWritable, managedElsewhere := secretManagedElsewhere(err)
 		switch {
 		case errors.As(err, &echoErrTarget):
 		case inUse:
 			err = &echo.HTTPError{
 				Code:    http.StatusConflict,
 				Message: apiErrorBody{Message: inUseMessage, Reason: reasonInUse},
+			}
+		case managedElsewhere:
+			err = &echo.HTTPError{
+				Code:    http.StatusConflict,
+				Message: notWritable,
 			}
 		case k8serrors.IsNotFound(err):
 			statusError := &k8serrors.StatusError{}
@@ -659,6 +667,16 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 					Message: message,
 					Reason:  string(metav1.StatusReasonConflict),
 					Field:   conflictField(message),
+				},
+			}
+		// Before the plain 403 it also is, so the user can tell the two apart.
+		case errors.As(err, &presetMismatch):
+			err = &echo.HTTPError{
+				Code: http.StatusForbidden,
+				Message: apiErrorBody{
+					Message: presetMismatch.Error(),
+					Reason:  reasonPresetMismatch,
+					Causes:  presetMismatch.Causes(),
 				},
 			}
 		case errors.Is(err, rbachandler.ErrInsufficientPermissions):
@@ -756,9 +774,13 @@ func trimWebhookErrorText(fullText string) string {
 // the object is still in use.
 const reasonInUse = "InUse"
 
+// reasonPresetMismatch is the reason of the 403 answering an instance created
+// with instances:create-from-preset that is not an exact copy of its preset.
+const reasonPresetMismatch = "PresetMismatch"
+
 // inUsePolicy matches the name of a ValidatingAdmissionPolicy that refuses
-// deleting an object still in use (spec 015 §4.5): <resource>-in-use.<group>,
-// whatever prefix kustomize's namePrefix adds.
+// deleting an object still in use: <resource>-in-use.<group>, whatever
+// prefix kustomize's namePrefix adds.
 var inUsePolicy = regexp.MustCompile(`ValidatingAdmissionPolicy '[^']*-in-use\.[^']*openeverest\.io'`)
 
 // inUseDenialMessage reports whether err is the denial of an in-use policy
@@ -772,6 +794,31 @@ func inUseDenialMessage(err error) (string, bool) {
 		return "", false
 	}
 	return trimWebhookErrorText(statusError.ErrStatus.Message), true
+}
+
+const (
+	// reasonManagedByController is the reason of the 409 answering a change
+	// to a Secret that a controller owns.
+	reasonManagedByController = "ManagedByController"
+	// reasonManagedOutside is the reason of the 409 answering a change to a
+	// Secret that was not created through the API.
+	reasonManagedOutside = "ManagedOutside"
+)
+
+// secretManagedElsewhere reports whether err refuses a write to a Secret
+// that something other than the API manages, and returns the body answering
+// it. Like a stale resourceVersion, it is a conflict with the Secret's
+// current state, so it is a 409; the reason tells them apart.
+func secretManagedElsewhere(err error) (apiErrorBody, bool) {
+	var byController *secretdefinition.ManagedByControllerError
+	switch {
+	case errors.As(err, &byController):
+		return apiErrorBody{Message: err.Error(), Reason: reasonManagedByController}, true
+	case errors.Is(err, secretdefinition.ErrManagedOutside):
+		return apiErrorBody{Message: err.Error(), Reason: reasonManagedOutside}, true
+	default:
+		return apiErrorBody{}, false
+	}
 }
 
 // createSessionManagerClient creates a k8s client for a session manager.

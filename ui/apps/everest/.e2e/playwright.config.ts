@@ -89,17 +89,6 @@ export default defineConfig({
       testMatch: /backup-storage\.teardown\.ts/,
     },
     {
-      name: 'global:monitoring-config:setup',
-      testDir: './setup',
-      testMatch: /monitoring-config.setup\.ts/,
-      teardown: 'global:monitoring-config:teardown',
-    },
-    {
-      name: 'global:monitoring-config:teardown',
-      testDir: './teardown',
-      testMatch: /monitoring-config\.teardown\.ts/,
-    },
-    {
       name: 'pr',
       testMatch: /.^/,
       dependencies: [

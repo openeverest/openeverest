@@ -58,7 +58,6 @@ export const DatabaseImportPage = () => {
     isClassesLoading,
     selectedClass,
     classProviders,
-    selectStorage,
   } = useImportSource(
     methods,
     previousNavigation?.importSource.dataSource.storageName
@@ -134,7 +133,6 @@ export const DatabaseImportPage = () => {
               importClasses={importClasses}
               selectedClass={selectedClass}
               classProviders={classProviders}
-              onStorageAdded={selectStorage}
             />
             {hasScanTarget && (
               <ImportBackups

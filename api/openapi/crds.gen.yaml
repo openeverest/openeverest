@@ -301,6 +301,13 @@ components:
               - name
               type: object
               x-kubernetes-map-type: atomic
+            path:
+              description: |-
+                Path is the directory in the BackupStorage's bucket the source
+                Instance writes its backups to, recorded when the backup starts so
+                restores resolve after the Instance is gone. Empty for external
+                backups, whose path is spec.origin.external.path.
+              type: string
             size:
               description: |-
                 Size is the size of the backup data as reported by the engine.
@@ -378,6 +385,83 @@ components:
         spec:
           description: BackupClassSpec defines the desired state of BackupClass.
           properties:
+            backupStorageClasses:
+              description: |-
+                BackupStorageClasses lists the BackupStorageClasses the class's executor
+                can write to, each with the authentication modes it supports. A
+                BackupStorage is usable with the class only when both its class and
+                its authentication mode are listed.
+              items:
+                description: |-
+                  BackupStorageClassSupport is a BackupStorageClass a BackupClass can write
+                  to.
+                properties:
+                  authModes:
+                    description: |-
+                      AuthModes are the authentication modes of that class the executor
+                      supports.
+                    items:
+                      pattern: ^[A-Z][A-Za-z0-9]{0,62}$
+                      type: string
+                    maxItems: 16
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: set
+                  name:
+                    description: Name of the BackupStorageClass.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  parametersSchema:
+                    description: |-
+                      ParametersSchema narrows the BackupStorageClass's parametersSchema to
+                      what the executor supports, typically the parameters of the contract
+                      version it was built with: a storage whose parameters it rejects
+                      cannot be used with the class. Absent adds no restriction.
+                    properties:
+                      openAPIV3Schema:
+                        description: |-
+                          OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                          parameters payload.
+                        x-kubernetes-preserve-unknown-fields: true
+                    type: object
+                  tls:
+                    description: |-
+                      TLS declares which settings of BackupStorage.spec.tls the executor
+                      honours. Absent means None for each: a storage that uses a setting the
+                      executor does not support cannot be used with the class, and a
+                      storage without spec.tls always can.
+                    properties:
+                      customCA:
+                        default: None
+                        description: |-
+                          CustomCA is whether the executor verifies the store against the CA
+                          bundle in spec.tls.ca.
+                        enum:
+                        - Supported
+                        - None
+                        type: string
+                      insecureSkipVerify:
+                        default: None
+                        description: |-
+                          InsecureSkipVerify is whether the executor can turn certificate
+                          verification off, as spec.tls.insecureSkipVerify asks.
+                        enum:
+                        - Supported
+                        - None
+                        type: string
+                    type: object
+                required:
+                - authModes
+                - name
+                type: object
+              maxItems: 16
+              minItems: 1
+              type: array
+              x-kubernetes-list-map-keys:
+              - name
+              x-kubernetes-list-type: map
             description:
               description: Description is the description of the backup class.
               type: string
@@ -387,8 +471,10 @@ components:
             executionMode:
               description: |-
                 ExecutionMode selects who executes the class's backup and restore
-                operations. ProviderManaged is the only mode: the provider named in
-                SupportedProviders executes them.
+                operations, and discriminates the execution union: the member named
+                after the mode is required, any other is forbidden. ProviderManaged is
+                the only mode: the provider in providerManaged.providerRef executes
+                them.
               enum:
               - ProviderManaged
               type: string
@@ -420,11 +506,9 @@ components:
               type: object
             providerManaged:
               description: |-
-                ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
-                schema is intentionally open: providers may surface capability
-                information (e.g., whether PITR is supported, schedule expression
-                dialect) without forcing a CRD change. Must be unset for any other
-                execution mode.
+                ProviderManaged is the member of the execution union for
+                ExecutionMode=ProviderManaged: the provider that executes the class and
+                what it supports. Required for that mode, forbidden for any other.
               properties:
                 limits:
                   description: |-
@@ -473,11 +557,32 @@ components:
                         parameters payload.
                       x-kubernetes-preserve-unknown-fields: true
                   type: object
+                providerRef:
+                  description: |-
+                    ProviderRef names the Provider that claims and executes the class. It
+                    is immutable: moving a class to another provider is delete and
+                    recreate.
+                  properties:
+                    name:
+                      description: Name of the referenced object.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-map-type: atomic
+                  x-kubernetes-validations:
+                  - message: providerRef is immutable
+                    rule: self == oldSelf
                 supportsPITR:
                   description: |-
                     SupportsPITR indicates whether this class supports point-in-time recovery.
                     Used by Restore validation when Restore.spec.dataSource.pitr is set.
                   type: boolean
+              required:
+              - providerRef
               type: object
             restoreParametersSchema:
               description: |-
@@ -491,14 +596,6 @@ components:
                     parameters payload.
                   x-kubernetes-preserve-unknown-fields: true
               type: object
-            supportedProviders:
-              description: |-
-                SupportedProviders is the list of provider names that this backup class
-                supports. The Instance.spec.provider must appear in this list for the
-                class to be usable on that Instance.
-              items:
-                type: string
-              type: array
             supportsImport:
               description: |-
                 SupportsImport indicates whether the owner of this class can discover and
@@ -514,18 +611,32 @@ components:
               type: object
               x-kubernetes-preserve-unknown-fields: true
           required:
+          - backupStorageClasses
           - executionMode
           type: object
           x-kubernetes-validations:
+          - message: spec.providerManaged is required when executionMode is ProviderManaged
+            rule: self.executionMode != 'ProviderManaged' || has(self.providerManaged)
           - message: spec.providerManaged is only allowed when executionMode is ProviderManaged
             rule: '!has(self.providerManaged) || self.executionMode == ''ProviderManaged'''
-          - message: a ProviderManaged BackupClass must support exactly one provider
-            rule: self.executionMode != 'ProviderManaged' || (has(self.supportedProviders)
-              && size(self.supportedProviders) == 1)
         status:
-          description: BackupClassStatus defines the observed state of BackupClass.
+          default:
+            conditions:
+            - lastTransitionTime: "1970-01-01T00:00:00Z"
+              message: Waiting for the executor to claim the class
+              reason: Pending
+              status: Unknown
+              type: Accepted
+          description: |-
+            BackupClassStatus defines the observed state of BackupClass. It has two
+            writers, each applying only its own fields with server-side apply: the
+            executor that claims the class owns the Accepted condition and core owns
+            providers.
           properties:
             conditions:
+              description: |-
+                Conditions: Accepted, set by the class's executor when it claims the
+                class, with the observedGeneration it judged.
               items:
                 description: Condition contains details for one aspect of the current
                   state of this API Resource.
@@ -583,6 +694,53 @@ components:
               type: array
               x-kubernetes-list-map-keys:
               - type
+              x-kubernetes-list-type: map
+            providers:
+              description: |-
+                Providers is the compatibility of the class with each Provider that
+                can execute it: for a ProviderManaged class, the Provider in
+                providerManaged.providerRef. A Provider that is not listed is
+                incompatible. Written by core.
+              items:
+                description: |-
+                  BackupClassProviderCompatibility is the compatibility of a BackupClass
+                  with a Provider.
+                properties:
+                  classGeneration:
+                    description: |-
+                      ClassGeneration is the generation of the class the entry was computed
+                      for. An entry for another generation counts as Pending.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  compatibility:
+                    description: Compatibility is whether Instances of the Provider
+                      can use the class.
+                    enum:
+                    - Compatible
+                    - Pending
+                    - Incompatible
+                    type: string
+                  message:
+                    description: Message is the human-readable detail of Reason.
+                    maxLength: 32768
+                    type: string
+                  name:
+                    description: Name is the Provider name.
+                    maxLength: 253
+                    type: string
+                  reason:
+                    description: Reason is why the class is not Compatible.
+                    maxLength: 1024
+                    type: string
+                required:
+                - compatibility
+                - name
+                type: object
+              maxItems: 64
+              type: array
+              x-kubernetes-list-map-keys:
+              - name
               x-kubernetes-list-type: map
           type: object
       required:
@@ -864,38 +1022,21 @@ components:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
           description: |-
-            BackupStorageSpec defines the desired state of a BackupStorage.
-
-            A BackupStorage is a reusable, namespaced reference to an object store
-            (today only S3-compatible) plus the credentials needed to talk to it.
-            It is referenced by name from:
-
-              - Instance.spec.backup.storages[].storageRef
-              - Backup.spec.storageRef
-
-            Decoupling storage from individual Backup CRs makes provider-managed
-            backups (e.g. PBM, pgBackRest) practical: the provider can register a
-            fixed set of storages on the engine without recomputing them from a
-            dynamic list of Backup CRs.
+            BackupStorageSpec defines the desired state of a BackupStorage: an object
+            store, of the technology a BackupStorageClass describes, that backups are
+            written to. It is referenced by name from Instance.spec.backup.storages,
+            Backup.spec.storageRef, Restore point-in-time sources and BackupImports.
           properties:
-            s3:
+            authentication:
               description: |-
-                S3 contains S3-compatible storage configuration.
-                Required when Type is "s3".
+                Authentication names one of the class's authModes and, for every mode
+                but WorkloadIdentity, the Secret in the same namespace holding that
+                mode's credentials keys.
               properties:
-                accessKeyId:
-                  description: |-
-                    AccessKeyID is a write-only convenience input. When set, a webhook
-                    stores it in the Secret named by CredentialsSecretRef and clears
-                    this field. It is never persisted on the BackupStorage object.
-                  type: string
-                bucket:
-                  description: Bucket is the name of the S3 bucket.
-                  type: string
                 credentialsSecretRef:
                   description: |-
-                    CredentialsSecretRef references the Secret in the same namespace
-                    that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
+                    CredentialsSecretRef references the Secret in the same namespace that
+                    holds the credentials keys of the mode.
                   properties:
                     name:
                       description: Name of the referenced Secret.
@@ -907,48 +1048,260 @@ components:
                   - name
                   type: object
                   x-kubernetes-map-type: atomic
-                endpointURL:
-                  description: EndpointURL is the endpoint URL of the S3-compatible
-                    service.
+                mode:
+                  description: Mode names one of the class's authModes.
+                  pattern: ^[A-Z][A-Za-z0-9]{0,62}$
                   type: string
-                  x-kubernetes-validations:
-                  - message: endpointURL must be a valid URL
-                    rule: isURL(self)
-                forcePathStyle:
-                  default: false
-                  description: |-
-                    ForcePathStyle forces path-style URLs (bucket name in the path
-                    instead of the host). Defaults to false.
-                  type: boolean
-                region:
-                  description: Region is the region of the S3 bucket.
-                  type: string
-                secretAccessKey:
-                  description: SecretAccessKey is a write-only convenience input.
-                    See AccessKeyID.
-                  type: string
-                verifyTLS:
-                  default: true
-                  description: |-
-                    VerifyTLS enables TLS certificate verification.
-                    Defaults to true.
-                  type: boolean
               required:
-              - bucket
-              - credentialsSecretRef
-              - endpointURL
-              - region
+              - mode
               type: object
-            type:
-              description: Type is the object storage type. Today only "s3" is supported.
-              enum:
-              - s3
-              type: string
+              x-kubernetes-validations:
+              - message: a BackupStorage cannot use the Anonymous authentication mode
+                rule: self.mode != 'Anonymous'
+              - message: credentialsSecretRef is required for every mode except WorkloadIdentity
+                  and Anonymous, which take none
+                rule: (self.mode in ['WorkloadIdentity', 'Anonymous']) != has(self.credentialsSecretRef)
+            backupStorageClassRef:
+              description: |-
+                BackupStorageClassRef names the BackupStorageClass, the object storage
+                technology.
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
+              x-kubernetes-validations:
+              - message: backupStorageClassRef is immutable
+                rule: self == oldSelf
+            location:
+              description: |-
+                Location is where backups are kept. Engines treat it as their catalog,
+                so it cannot change: create a new BackupStorage instead.
+              properties:
+                objectStore:
+                  description: ObjectStore is a bucket, and a prefix within it, in
+                    an object store.
+                  properties:
+                    bucket:
+                      description: |-
+                        Bucket is the bucket, or the container for technologies that call it
+                        so.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^/]+$
+                      type: string
+                    prefix:
+                      description: |-
+                        Prefix is the path within the bucket under which backups are written,
+                        without leading or trailing slash.
+                      maxLength: 512
+                      pattern: ^([^/]+(/[^/]+)*)?$
+                      type: string
+                      x-kubernetes-validations:
+                      - message: prefix must not contain '.' or '..' segments
+                        rule: '!self.split(''/'').exists(s, s == ''.'' || s == ''..'')'
+                  required:
+                  - bucket
+                  type: object
+              required:
+              - objectStore
+              type: object
+              x-kubernetes-validations:
+              - message: location is immutable
+                rule: self == oldSelf
+            parameters:
+              description: |-
+                Parameters are the connection parameters of the technology, validated
+                against the class's parametersSchema.
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+            tls:
+              description: |-
+                TLS is how executors verify the server certificate of the store.
+                Absent means the system trust store.
+              properties:
+                ca:
+                  description: |-
+                    CA is the PEM bundle the server certificate is verified against,
+                    instead of the system trust store.
+                  minProperties: 1
+                  properties:
+                    secretKeyRef:
+                      description: SecretKeyRef selects the Secret key holding the
+                        PEM bundle.
+                      properties:
+                        key:
+                          description: Key within the Secret.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[-._a-zA-Z0-9]+$
+                          type: string
+                        name:
+                          description: Name of the referenced Secret.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                  type: object
+                insecureSkipVerify:
+                  description: InsecureSkipVerify disables verification of the server
+                    certificate.
+                  type: boolean
+              type: object
+              x-kubernetes-validations:
+              - message: ca and insecureSkipVerify are mutually exclusive
+                rule: '!(has(self.ca) && has(self.insecureSkipVerify) && self.insecureSkipVerify)'
           required:
-          - type
+          - authentication
+          - backupStorageClassRef
+          - location
           type: object
         status:
-          description: BackupStorageStatus defines the observed state of a BackupStorage.
+          description: |-
+            BackupStorageStatus defines the observed state of a BackupStorage. Core
+            writes all of it.
+          properties:
+            backupClasses:
+              description: |-
+                BackupClasses is whether each Accepted BackupClass can write to the
+                storage. Read an entry through CurrentVerdict, which treats an entry
+                computed from other objects than the current ones as Pending.
+              items:
+                description: BackupClassVerdict is whether a BackupClass can write
+                  to a BackupStorage.
+                properties:
+                  compatibility:
+                    description: Compatibility is whether the class can write to the
+                      storage.
+                    enum:
+                    - Compatible
+                    - Pending
+                    - Incompatible
+                    type: string
+                  message:
+                    description: Message is the human-readable detail of Reason.
+                    maxLength: 32768
+                    type: string
+                  name:
+                    description: Name is the BackupClass name.
+                    maxLength: 253
+                    type: string
+                  observed:
+                    description: Observed identifies the objects the verdict was computed
+                      from.
+                    properties:
+                      classGeneration:
+                        description: ClassGeneration is the generation of the BackupClass.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      classUID:
+                        description: ClassUID is the UID of the BackupClass.
+                        type: string
+                      storageClassGeneration:
+                        description: |-
+                          StorageClassGeneration is the generation of the storage's
+                          BackupStorageClass.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      storageClassUID:
+                        description: StorageClassUID is the UID of the storage's BackupStorageClass.
+                        type: string
+                      storageGeneration:
+                        description: StorageGeneration is the generation of the BackupStorage.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                    type: object
+                  reason:
+                    description: Reason is why the class cannot write to the storage,
+                      or not yet.
+                    maxLength: 1024
+                    type: string
+                required:
+                - compatibility
+                - name
+                - observed
+                type: object
+              maxItems: 64
+              type: array
+              x-kubernetes-list-map-keys:
+              - name
+              x-kubernetes-list-type: map
+            conditions:
+              description: |-
+                Conditions: Accepted, and Deleting while a deleted storage waits for
+                its referrers.
+              items:
+                description: Condition contains details for one aspect of the current
+                  state of this API Resource.
+                properties:
+                  lastTransitionTime:
+                    description: |-
+                      lastTransitionTime is the last time the condition transitioned from one status to another.
+                      This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                    format: date-time
+                    type: string
+                  message:
+                    description: |-
+                      message is a human readable message indicating details about the transition.
+                      This may be an empty string.
+                    maxLength: 32768
+                    type: string
+                  observedGeneration:
+                    description: |-
+                      observedGeneration represents the .metadata.generation that the condition was set based upon.
+                      For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                      with respect to the current state of the instance.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  reason:
+                    description: |-
+                      reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                      Producers of specific condition types may define expected values and meanings for this field,
+                      and whether the values are considered a guaranteed API.
+                      The value should be a CamelCase string.
+                      This field may not be empty.
+                    maxLength: 1024
+                    minLength: 1
+                    pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                    type: string
+                  status:
+                    description: status of the condition, one of True, False, Unknown.
+                    enum:
+                    - "True"
+                    - "False"
+                    - Unknown
+                    type: string
+                  type:
+                    description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                    maxLength: 316
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                    type: string
+                required:
+                - lastTransitionTime
+                - message
+                - reason
+                - status
+                - type
+                type: object
+              type: array
+              x-kubernetes-list-map-keys:
+              - type
+              x-kubernetes-list-type: map
           type: object
       required:
       - spec
@@ -1066,6 +1419,53 @@ components:
                 authentication mode.
               type: object
               x-kubernetes-preserve-unknown-fields: true
+            validations:
+              description: |-
+                Validations are CEL rules every BackupStorage of the class must
+                satisfy, for constraints parametersSchema cannot express, such as a
+                naming rule on location.objectStore.bucket or a rule across parameters
+                and tls. self is the BackupStorage's spec. A violation sets the
+                storage's Accepted condition to False with the rule's reason,
+                InvalidLocation or InvalidParameters, and its message.
+              items:
+                description: |-
+                  ClassValidation is a CEL rule a class applies to the objects that reference
+                  it, for constraints its parameters schema cannot express: rules on typed
+                  fields of the object, or across them and its parameters. It is evaluated
+                  with the CEL library and cost limits of CRD validation rules.
+                properties:
+                  expression:
+                    description: |-
+                      Expression is a CEL expression that is true for a valid object. self is
+                      the referencing object's spec, with its parameters typed by the class's
+                      parameters schema. oldSelf is not available.
+                    maxLength: 4096
+                    minLength: 1
+                    type: string
+                  message:
+                    description: Message explains a violation to the user.
+                    maxLength: 1024
+                    minLength: 1
+                    type: string
+                  reason:
+                    description: |-
+                      Reason is the reason of the condition a violation sets on the
+                      referencing object. Each class kind lists the reasons it accepts.
+                    maxLength: 64
+                    minLength: 1
+                    pattern: ^[A-Z][A-Za-z0-9]*$
+                    type: string
+                required:
+                - expression
+                - message
+                - reason
+                type: object
+              maxItems: 16
+              type: array
+              x-kubernetes-list-type: atomic
+              x-kubernetes-validations:
+              - message: the reason of a validation must be InvalidLocation or InvalidParameters
+                rule: self.all(v, v.reason in ['InvalidLocation', 'InvalidParameters'])
           required:
           - authModes
           type: object
@@ -1179,8 +1579,8 @@ components:
                   description: |-
                     ClassRef references the cluster-scoped BackupClass that the provider
                     should use to configure the engine. The class must have
-                    ExecutionMode=ProviderManaged and list the Instance's provider in its
-                    SupportedProviders.
+                    ExecutionMode=ProviderManaged and name the Instance's provider in
+                    providerManaged.providerRef.
                   properties:
                     name:
                       description: Name of the referenced object.
@@ -2685,7 +3085,7 @@ components:
 
                 Only ProviderManaged BackupClasses are supported. The referenced Backup
                 must be in the same namespace, in Succeeded state, and its BackupClass
-                must list the Instance's provider in SupportedProviders. Instance must
+                must be executed by the Instance's provider. Instance must
                 also have backup enabled and include a storage entry that matches the
                 storage used by the source Backup so the provider can access the data.
               properties:
@@ -2914,6 +3314,29 @@ components:
                   - message: each MonitoringDestination may be listed at most once
                     rule: self.all(a, self.exists_one(b, b.destinationRef.name ==
                       a.destinationRef.name))
+                sources:
+                  description: |-
+                    Sources configures the monitoring sources the Instance runs whether or
+                    not a destination needs them.
+                  properties:
+                    metrics:
+                      description: Metrics configures the Instance's OpenMetrics endpoints.
+                      properties:
+                        policy:
+                          default: OnDemand
+                          description: |-
+                            Policy says when the provider runs the exporters and turns on the
+                            optional metrics endpoints of the Instance's components. OnDemand runs
+                            them while a destination's class needs metrics. Always runs them
+                            without a destination, for scrapers that OpenEverest does not
+                            configure. The serving endpoints are listed in
+                            status.monitoring.sources.metrics.
+                          enum:
+                          - OnDemand
+                          - Always
+                          type: string
+                      type: object
+                  type: object
               type: object
             parameters:
               description: |-
@@ -2926,7 +3349,9 @@ components:
             providerRef:
               description: |-
                 ProviderRef references the cluster-scoped Provider that manages this
-                Instance (e.g., "percona-server-mongodb", "postgresql").
+                Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                providerRef cannot be changed: the provider that picked it up owns its
+                finalizer and engine resources, and only that provider cleans them up.
               properties:
                 name:
                   description: Name of the referenced object.
@@ -3100,7 +3525,7 @@ components:
     InstalledExtension:
       description: |-
         InstalledExtension is the cluster-scoped record of an installed extension
-        (a generic plugin or a spec 001 provider). It is created by
+        (a generic plugin or a provider). It is created by
         `everestctl extension install` and owned by cluster-admin.
       properties:
         apiVersion:
@@ -3370,8 +3795,8 @@ components:
                   description: |-
                     ClassRef references the cluster-scoped BackupClass that the provider
                     should use to configure the engine. The class must have
-                    ExecutionMode=ProviderManaged and list the Instance's provider in its
-                    SupportedProviders.
+                    ExecutionMode=ProviderManaged and name the Instance's provider in
+                    providerManaged.providerRef.
                   properties:
                     name:
                       description: Name of the referenced object.
@@ -4876,7 +5301,7 @@ components:
 
                 Only ProviderManaged BackupClasses are supported. The referenced Backup
                 must be in the same namespace, in Succeeded state, and its BackupClass
-                must list the Instance's provider in SupportedProviders. Instance must
+                must be executed by the Instance's provider. Instance must
                 also have backup enabled and include a storage entry that matches the
                 storage used by the source Backup so the provider can access the data.
               properties:
@@ -5105,6 +5530,29 @@ components:
                   - message: each MonitoringDestination may be listed at most once
                     rule: self.all(a, self.exists_one(b, b.destinationRef.name ==
                       a.destinationRef.name))
+                sources:
+                  description: |-
+                    Sources configures the monitoring sources the Instance runs whether or
+                    not a destination needs them.
+                  properties:
+                    metrics:
+                      description: Metrics configures the Instance's OpenMetrics endpoints.
+                      properties:
+                        policy:
+                          default: OnDemand
+                          description: |-
+                            Policy says when the provider runs the exporters and turns on the
+                            optional metrics endpoints of the Instance's components. OnDemand runs
+                            them while a destination's class needs metrics. Always runs them
+                            without a destination, for scrapers that OpenEverest does not
+                            configure. The serving endpoints are listed in
+                            status.monitoring.sources.metrics.
+                          enum:
+                          - OnDemand
+                          - Always
+                          type: string
+                      type: object
+                  type: object
               type: object
             parameters:
               description: |-
@@ -5117,7 +5565,9 @@ components:
             providerRef:
               description: |-
                 ProviderRef references the cluster-scoped Provider that manages this
-                Instance (e.g., "percona-server-mongodb", "postgresql").
+                Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                providerRef cannot be changed: the provider that picked it up owns its
+                finalizer and engine resources, and only that provider cleans them up.
               properties:
                 name:
                   description: Name of the referenced object.
@@ -5179,6 +5629,9 @@ components:
           - providerRef
           type: object
           x-kubernetes-validations:
+          - message: 'spec.providerRef is immutable: delete the Instance and create
+              it again with the provider you want'
+            rule: self.providerRef == oldSelf.providerRef
           - message: spec.dataSource requires spec.backup.enabled=true with at least
               one storage so the provider can read the source backup
             rule: '!has(self.dataSource) || (has(self.backup) && self.backup.enabled)'
@@ -5194,6 +5647,7 @@ components:
             rule: '!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef
               == oldSelf.userSecretRef)'
         status:
+          default: {}
           description: InstanceStatus defines the observed state of Instance.
           properties:
             backup:
@@ -5210,6 +5664,14 @@ components:
                       InstanceBackupStorageStatus reports the observed backup state of a single
                       entry in spec.backup.storages.
                     properties:
+                      location:
+                        description: |-
+                          Location is the path in the storage's bucket under which the engine
+                          writes this Instance's backups.
+                        type: string
+                      message:
+                        description: Message explains Reason.
+                        type: string
                       name:
                         description: |-
                           Name is the BackupStorage name (matches
@@ -5249,6 +5711,12 @@ components:
                             - Unavailable
                             type: string
                         type: object
+                      reason:
+                        description: |-
+                          Reason is why the entry is not configured on the engine as specified,
+                          empty when it is. An entry the engine already had keeps its last
+                          configuration meanwhile.
+                        type: string
                     required:
                     - name
                     type: object
@@ -5263,6 +5731,23 @@ components:
               items:
                 description: ComponentStatus counts the pods of one component.
                 properties:
+                  desiredReplicas:
+                    description: |-
+                      DesiredReplicas is how many pods the component will have once the
+                      current generation has converged, as the provider reports it. It
+                      describes status.observedGeneration: it is absent until the provider
+                      reports for that generation, during deletion, and for providers that
+                      don't report it; clients then show readyReplicas over replicas. Zero is
+                      a real target, for example a model scaled to zero. A cluster paused
+                      outside OpenEverest keeps its target, so it reads 0 of N; one stopped
+                      through its spec has a target of zero.
+
+                      It is meant for display. When a component sums several groups, such as
+                      the replica sets of every shard, it cannot tell whether each group has
+                      a majority.
+                    format: int32
+                    minimum: 0
+                    type: integer
                   name:
                     description: Name is a key of spec.components.
                     type: string
@@ -5372,10 +5857,6 @@ components:
               - name
               type: object
               x-kubernetes-map-type: atomic
-            message:
-              description: Message is a custom user-facing message describing the
-                current state of the instance.
-              type: string
             monitoring:
               description: |-
                 Monitoring is what the Instance exposes to monitoring (sources) and
@@ -5390,14 +5871,69 @@ components:
                       InstanceMonitoringDestinationStatus is the read-only summary of one entry,
                       mirrored from its MonitoringBinding.
                     properties:
-                      configured:
-                        description: |-
-                          Configured mirrors the binding's Configured condition; False when the
-                          binding is not Accepted, Unknown while it is missing or pending.
-                        type: string
-                      message:
-                        description: Message is the human-readable detail for Configured.
-                        type: string
+                      conditions:
+                        description: Conditions are the entry's Configured and Ready
+                          conditions.
+                        items:
+                          description: Condition contains details for one aspect of
+                            the current state of this API Resource.
+                          properties:
+                            lastTransitionTime:
+                              description: |-
+                                lastTransitionTime is the last time the condition transitioned from one status to another.
+                                This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                              format: date-time
+                              type: string
+                            message:
+                              description: |-
+                                message is a human readable message indicating details about the transition.
+                                This may be an empty string.
+                              maxLength: 32768
+                              type: string
+                            observedGeneration:
+                              description: |-
+                                observedGeneration represents the .metadata.generation that the condition was set based upon.
+                                For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                                with respect to the current state of the instance.
+                              format: int64
+                              minimum: 0
+                              type: integer
+                            reason:
+                              description: |-
+                                reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                                Producers of specific condition types may define expected values and meanings for this field,
+                                and whether the values are considered a guaranteed API.
+                                The value should be a CamelCase string.
+                                This field may not be empty.
+                              maxLength: 1024
+                              minLength: 1
+                              pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                              type: string
+                            status:
+                              description: status of the condition, one of True, False,
+                                Unknown.
+                              enum:
+                              - "True"
+                              - "False"
+                              - Unknown
+                              type: string
+                            type:
+                              description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                              maxLength: 316
+                              pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                              type: string
+                          required:
+                          - lastTransitionTime
+                          - message
+                          - reason
+                          - status
+                          - type
+                          type: object
+                        maxItems: 8
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - type
+                        x-kubernetes-list-type: map
                       mode:
                         description: Mode is the resolved execution mode.
                         enum:
@@ -5406,9 +5942,6 @@ components:
                         type: string
                       name:
                         description: Name matches spec.monitoring.destinations[].name.
-                        type: string
-                      reason:
-                        description: Reason is the machine-readable reason for Configured.
                         type: string
                     required:
                     - name
@@ -5422,6 +5955,121 @@ components:
                     Sources is the per-Instance publication of the provider's monitoring
                     contract, consumed by ExtensionManaged class controllers.
                   properties:
+                    connections:
+                      description: |-
+                        Connections lists the endpoints monitoring agents connect to over the
+                        engine's native protocol (e.g. agents discovering databases through
+                        pod annotations), one per serving component.
+                      items:
+                        description: |-
+                          ConnectionEndpoint is one component's native-protocol endpoint, reached on
+                          each selected pod directly (not through a proxy or a Service), so agents
+                          collect per-instance statistics.
+                        properties:
+                          auth:
+                            description: |-
+                              Auth names the credential profile agents log in with, normally
+                              CredentialProfileMonitor.
+                            properties:
+                              credentialProfile:
+                                description: CredentialProfile matches MonitoringSources.credentials[].profile.
+                                type: string
+                            required:
+                            - credentialProfile
+                            type: object
+                          component:
+                            description: Component is the Instance component name
+                              (e.g. "engine").
+                            type: string
+                          container:
+                            description: |-
+                              Container is the name of the container serving the endpoint, for
+                              agents that address containers (e.g. Datadog Autodiscovery).
+                            type: string
+                          kind:
+                            description: |-
+                              Kind is the kind of the component's type
+                              (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                              A provider may leave it empty; an endpoint it computes with another
+                              kind is not published.
+                            pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                            type: string
+                          podSelector:
+                            additionalProperties:
+                              type: string
+                            description: PodSelector selects the pods serving the
+                              endpoint.
+                            minProperties: 1
+                            type: object
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: Port is the container port, by name or number.
+                            x-kubernetes-int-or-string: true
+                          tls:
+                            description: |-
+                              TLS is set when the endpoint accepts TLS connections; absent means
+                              plaintext only.
+                            properties:
+                              ca:
+                                description: |-
+                                  CA is the PEM bundle that verifies the server certificate. Server
+                                  certificates name Services, not pod IPs, so agents verify the chain
+                                  only.
+                                minProperties: 1
+                                properties:
+                                  secretKeyRef:
+                                    description: SecretKeyRef selects the Secret key
+                                      holding the PEM bundle.
+                                    properties:
+                                      key:
+                                        description: Key within the Secret.
+                                        maxLength: 253
+                                        minLength: 1
+                                        pattern: ^[-._a-zA-Z0-9]+$
+                                        type: string
+                                      name:
+                                        description: Name of the referenced Secret.
+                                        maxLength: 253
+                                        minLength: 1
+                                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                        type: string
+                                    required:
+                                    - key
+                                    - name
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                type: object
+                              clientCertificateSecretRef:
+                                description: |-
+                                  ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                  (keys tls.crt and tls.key) agents present as a client certificate.
+                                properties:
+                                  name:
+                                    description: Name of the referenced Secret.
+                                    maxLength: 253
+                                    minLength: 1
+                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              required:
+                                description: Required means the endpoint rejects connections
+                                  without TLS.
+                                type: boolean
+                            type: object
+                        required:
+                        - component
+                        - kind
+                        - podSelector
+                        - port
+                        type: object
+                      maxItems: 32
+                      type: array
+                      x-kubernetes-list-type: atomic
                     credentials:
                       description: |-
                         Credentials lists the Instance-owned monitoring credential Secrets by
@@ -5500,7 +6148,11 @@ components:
                               (e.g. "engine", "proxy").
                             type: string
                           kind:
-                            description: Kind is the component's engine kind.
+                            description: |-
+                              Kind is the kind of the component's type
+                              (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                              A provider may leave it empty; an endpoint it computes with another
+                              kind is not published.
                             pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
                             type: string
                           params:
@@ -5607,10 +6259,12 @@ components:
                   type: object
               type: object
             observedGeneration:
+              default: -1
               description: |-
                 ObservedGeneration is the metadata.generation the provider-runtime last
                 reconciled. Status describes an older spec while it is lower than
-                metadata.generation.
+                metadata.generation. It defaults to -1, so an Instance no provider has
+                reconciled reads as in progress, never as current.
               format: int64
               type: integer
             pendingMaintenance:
@@ -5650,19 +6304,16 @@ components:
                 type: object
               type: array
             phase:
-              description: Phase of the database cluster.
+              default: Pending
+              description: |-
+                Phase is where the Instance is in its life: Pending until the database
+                is first available, Provisioned afterwards, Terminating once deletion
+                is requested. The CRD sets Pending at creation; only provider-runtime
+                changes it. Read the conditions for everything else.
               enum:
               - Pending
-              - Provisioning
-              - Initializing
-              - Ready
-              - Updating
+              - Provisioned
               - Terminating
-              - Failed
-              - Restoring
-              - Suspending
-              - Suspended
-              - Resuming
               type: string
             version:
               description: |-
@@ -5795,8 +6446,8 @@ components:
                   description: |-
                     ClassRef references the cluster-scoped BackupClass that the provider
                     should use to configure the engine. The class must have
-                    ExecutionMode=ProviderManaged and list the Instance's provider in its
-                    SupportedProviders.
+                    ExecutionMode=ProviderManaged and name the Instance's provider in
+                    providerManaged.providerRef.
                   properties:
                     name:
                       description: Name of the referenced object.
@@ -7301,7 +7952,7 @@ components:
 
                 Only ProviderManaged BackupClasses are supported. The referenced Backup
                 must be in the same namespace, in Succeeded state, and its BackupClass
-                must list the Instance's provider in SupportedProviders. Instance must
+                must be executed by the Instance's provider. Instance must
                 also have backup enabled and include a storage entry that matches the
                 storage used by the source Backup so the provider can access the data.
               properties:
@@ -7530,6 +8181,29 @@ components:
                   - message: each MonitoringDestination may be listed at most once
                     rule: self.all(a, self.exists_one(b, b.destinationRef.name ==
                       a.destinationRef.name))
+                sources:
+                  description: |-
+                    Sources configures the monitoring sources the Instance runs whether or
+                    not a destination needs them.
+                  properties:
+                    metrics:
+                      description: Metrics configures the Instance's OpenMetrics endpoints.
+                      properties:
+                        policy:
+                          default: OnDemand
+                          description: |-
+                            Policy says when the provider runs the exporters and turns on the
+                            optional metrics endpoints of the Instance's components. OnDemand runs
+                            them while a destination's class needs metrics. Always runs them
+                            without a destination, for scrapers that OpenEverest does not
+                            configure. The serving endpoints are listed in
+                            status.monitoring.sources.metrics.
+                          enum:
+                          - OnDemand
+                          - Always
+                          type: string
+                      type: object
+                  type: object
               type: object
             parameters:
               description: |-
@@ -7542,7 +8216,9 @@ components:
             providerRef:
               description: |-
                 ProviderRef references the cluster-scoped Provider that manages this
-                Instance (e.g., "percona-server-mongodb", "postgresql").
+                Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                providerRef cannot be changed: the provider that picked it up owns its
+                finalizer and engine resources, and only that provider cleans them up.
               properties:
                 name:
                   description: Name of the referenced object.
@@ -7899,6 +8575,34 @@ components:
               x-kubernetes-list-map-keys:
               - type
               x-kubernetes-list-type: map
+            podMetadata:
+              description: |-
+                PodMetadata is the pod metadata the class controller of an
+                ExtensionManaged binding requests per component, written together
+                with Configured. provider-runtime hands the annotations allowed by
+                the class's spec.extensionManaged.podMetadata to the provider, which
+                renders them on the component's pods.
+              items:
+                description: ComponentPodMetadata is the metadata requested for one
+                  component's pods.
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations to set on the component's pods.
+                    maxProperties: 32
+                    type: object
+                  component:
+                    description: Component is the Instance component name.
+                    type: string
+                required:
+                - component
+                type: object
+              maxItems: 16
+              type: array
+              x-kubernetes-list-map-keys:
+              - component
+              x-kubernetes-list-type: map
           type: object
       required:
       - spec
@@ -8018,6 +8722,18 @@ components:
               x-kubernetes-list-map-keys:
               - name
               x-kubernetes-list-type: map
+            controllerName:
+              description: |-
+                ControllerName is the controller that claims the class and sets its
+                Accepted condition, as GatewayClass.spec.controllerName: a
+                domain-qualified path (e.g. "openeverest.io/monitoring-pmm"). One
+                controller may claim several classes. Immutable.
+              maxLength: 253
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)+/[a-z0-9]([-a-z0-9._]*[a-z0-9])?$
+              type: string
+              x-kubernetes-validations:
+              - message: spec.controllerName is immutable
+                rule: self == oldSelf
             description:
               description: Description describes the monitoring technology.
               type: string
@@ -8040,11 +8756,58 @@ components:
                 from the provider's monitoring contract alone
                 (Instance.status.monitoring.sources).
               properties:
+                podMetadata:
+                  description: |-
+                    PodMetadata lets the class controller request annotations on the
+                    pods of bound Instances (status.podMetadata of its bindings), for
+                    backends whose agents discover databases through pod annotations. The
+                    provider renders them into the pod templates, which rolls the pods.
+                    When set, only component types declaring podMetadata: Supported are
+                    eligible.
+                  properties:
+                    annotationPrefixes:
+                      description: |-
+                        AnnotationPrefixes are the annotation key prefixes the class
+                        controller may request, each a DNS subdomain followed by "/"
+                        (e.g. "coroot.com/"). Kubernetes and OpenEverest prefixes are
+                        reserved.
+                      items:
+                        maxLength: 254
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)+/$
+                        type: string
+                      maxItems: 8
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
+                      x-kubernetes-validations:
+                      - message: kubernetes.io, k8s.io and openeverest.io prefixes
+                          are reserved
+                        rule: self.all(p, !(p.endsWith('kubernetes.io/') || p.endsWith('k8s.io/')
+                          || p.endsWith('openeverest.io/')))
+                  required:
+                  - annotationPrefixes
+                  type: object
                 requires:
                   description: |-
                     Requires lists the source capabilities a component must satisfy to
                     be eligible for this class.
                   properties:
+                    connection:
+                      description: |-
+                        Connection requires the component to accept native-protocol
+                        connections from monitoring agents (connection: Supported).
+                      type: boolean
+                    kinds:
+                      description: |-
+                        Kinds, when set, makes only the components whose type's kind
+                        (Provider.spec.componentTypes.<type>.kind) is listed eligible. Empty
+                        means any kind.
+                      items:
+                        pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                        type: string
+                      maxItems: 32
+                      type: array
+                      x-kubernetes-list-type: set
                     metrics:
                       description: |-
                         Metrics requires the component to expose OpenMetrics
@@ -8107,6 +8870,7 @@ components:
               x-kubernetes-preserve-unknown-fields: true
           required:
           - authModes
+          - controllerName
           type: object
           x-kubernetes-validations:
           - message: a MonitoringClass must declare at least one fulfilment block
@@ -8195,8 +8959,15 @@ components:
               items:
                 description: |-
                   ProviderCompatibility is the class's compatibility with one Provider,
-                  computed by core from Provider.spec.monitoring.
+                  computed by core from Provider.spec.monitoring and the kinds of
+                  Provider.spec.componentTypes.
                 properties:
+                  classGeneration:
+                    description: |-
+                      ClassGeneration is the class's metadata.generation the entry was
+                      computed for. An entry computed for another generation is stale.
+                    format: int64
+                    type: integer
                   disruption:
                     description: |-
                       Disruption is the worst that enabling the class does to the pods of
@@ -8262,136 +9033,6 @@ components:
                 request the generation of an appropriate name automatically. Name
                 is primarily intended for creation idempotence and configuration definition.
                 More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names'
-              type: string
-          type: object
-      type: object
-    MonitoringConfig:
-      description: MonitoringConfig is the Schema for the monitoringconfigs API.
-      properties:
-        apiVersion:
-          description: |-
-            APIVersion defines the versioned schema of this representation of an object.
-            Servers should convert recognized schemas to the latest internal value, and
-            may reject unrecognized values.
-            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-          type: string
-        kind:
-          description: |-
-            Kind is a string value representing the REST resource this object represents.
-            Servers may infer this from the endpoint the client submits requests to.
-            Cannot be updated.
-            In CamelCase.
-            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-          type: string
-        metadata:
-          $ref: '#/components/schemas/ObjectMeta'
-        spec:
-          description: spec defines the desired state of MonitoringConfig
-          properties:
-            pmm:
-              description: |-
-                PMM contains PMM-specific monitoring configuration.
-                Required when type is "pmm".
-              properties:
-                credentialsSecretRef:
-                  description: |-
-                    CredentialsSecretRef references the Secret in the same namespace
-                    containing the API key. It contains an `apiKey` key with the API key
-                    value.
-                  properties:
-                    name:
-                      description: Name of the referenced Secret.
-                      maxLength: 253
-                      minLength: 1
-                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                      type: string
-                  required:
-                  - name
-                  type: object
-                  x-kubernetes-map-type: atomic
-                url:
-                  description: URL is the URL of the PMM server.
-                  type: string
-                verifyTLS:
-                  default: true
-                  description: |-
-                    VerifyTLS is set to ensure TLS/SSL verification.
-                    If unspecified, the default value is true.
-                  type: boolean
-              required:
-              - credentialsSecretRef
-              - url
-              type: object
-            type:
-              description: Type is the name of monitoring tool (e.g., "pmm").
-              enum:
-              - pmm
-              type: string
-          required:
-          - type
-          type: object
-          x-kubernetes-validations:
-          - message: pmm config is required when type is pmm
-            rule: self.type != 'pmm' || has(self.pmm)
-          - message: pmm config is only allowed when type is pmm
-            rule: '!has(self.pmm) || self.type == ''pmm'''
-        status:
-          default:
-            inUse: false
-          description: status defines the observed state of MonitoringConfig
-          properties:
-            inUse:
-              default: false
-              description: InUse is a flag that indicates if any Instance uses the
-                monitoring config.
-              type: boolean
-            lastObservedGeneration:
-              description: LastObservedGeneration is the most recent generation observed
-                for this MonitoringConfig.
-              format: int64
-              type: integer
-            pmm:
-              description: PMM contains PMM-specific status information.
-              properties:
-                serverVersion:
-                  description: ServerVersion shows the PMM server version.
-                  type: string
-              type: object
-          type: object
-      required:
-      - spec
-      type: object
-    MonitoringConfigList:
-      description: MonitoringConfigList is an object that contains the list of the
-        existing monitoringconfigs.
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        items:
-          items:
-            $ref: '#/components/schemas/MonitoringConfig'
-          type: array
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          properties:
-            name:
-              description: 'Name must be unique within a namespace. Is required when
-                creating resources, although some resources may allow a client to
-                request the generation of an appropriate name automatically. Name
-                is primarily intended for creation idempotence and configuration definition.
-                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names'
-              type: string
-            namespace:
-              description: 'Namespace defines the space within which each name must
-                be unique. An empty namespace is equivalent to the "default" namespace,
-                but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces'
               type: string
           type: object
       type: object
@@ -8538,8 +9179,12 @@ components:
               description: |-
                 AttachedInstances is the number of Instances in this namespace whose
                 spec.monitoring.destinations lists this destination, whatever the
-                state of their binding, including Instances being deleted. Written by
-                core; deleting the destination is refused while it is above zero.
+                state of their binding. While the destination is not being deleted,
+                Instances being deleted are left out, so an Instance and then its
+                destination can be deleted right away; once the destination is being
+                deleted, they count too, and the number is what its deletion waits
+                for. Written by core; deleting the destination is refused while it is
+                above zero.
               format: int32
               minimum: 0
               type: integer
@@ -8675,6 +9320,11 @@ components:
           description: GenerateName is an optional prefix, used by the server, to
             generate a unique name ONLY IF the Name field has not been provided.
           type: string
+        generation:
+          description: A sequence number representing a specific generation of the
+            desired state. Populated by the system. Read-only.
+          format: int64
+          type: integer
         labels:
           additionalProperties:
             type: string
@@ -9044,6 +9694,15 @@ components:
                       DefaultVersion names the entry in Versions used when neither the
                       Instance nor a version bundle selects one.
                     type: string
+                  kind:
+                    description: |-
+                      Kind is the shared classification of the software the component type
+                      runs (e.g. "mongodb", "mysql", "haproxy"), matched by monitoring class
+                      filters and set on the component's published monitoring endpoints.
+                      Databases use OpenTelemetry db.system.name values; unknown kinds are
+                      allowed. A type without a kind matches no kind filter.
+                    pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                    type: string
                   versions:
                     items:
                       properties:
@@ -9120,14 +9779,18 @@ components:
               properties:
                 componentTypes:
                   additionalProperties:
-                    description: MonitoringComponentType declares what one component
-                      type exposes.
+                    description: |-
+                      MonitoringComponentType declares what one component type exposes. The
+                      component type's kind is declared on Provider.spec.componentTypes.
                     properties:
-                      kind:
+                      connection:
+                        default: None
                         description: |-
-                          Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
-                          follow OpenTelemetry db.system.name; unknown kinds are allowed.
-                        pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                          Connection states whether monitoring agents can connect to the
+                          component over its native protocol, with the monitor credential.
+                        enum:
+                        - Supported
+                        - None
                         type: string
                       metrics:
                         default: None
@@ -9137,8 +9800,16 @@ components:
                         - Exporter
                         - None
                         type: string
-                    required:
-                    - kind
+                      podMetadata:
+                        default: None
+                        description: |-
+                          PodMetadata states whether the provider renders the pod annotations
+                          monitoring classes request (Context.MonitoringPodAnnotations) into the
+                          pods of the component type.
+                        enum:
+                        - Supported
+                        - None
+                        type: string
                     type: object
                   description: |-
                     ComponentTypes declares what each component type exposes, keyed by
@@ -9165,6 +9836,33 @@ components:
                         maxItems: 16
                         type: array
                         x-kubernetes-list-type: set
+                      destinationParametersSchema:
+                        description: |-
+                          DestinationParametersSchema is the schema of MonitoringDestination
+                          parameters in the integration contract version the provider was built
+                          with, generated by provider-sdk. Core will check destination parameters
+                          against it as well as against the class.
+                        properties:
+                          openAPIV3Schema:
+                            description: |-
+                              OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                              parameters payload.
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                      instanceParametersSchema:
+                        description: |-
+                          InstanceParametersSchema is the schema of
+                          Instance.spec.monitoring.destinations[].parameters in the integration
+                          contract version the provider was built with, generated by
+                          provider-sdk. Core will check entry parameters against it as well as
+                          against the class.
+                        properties:
+                          openAPIV3Schema:
+                            description: |-
+                              OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                              parameters payload.
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
                     type: object
                   description: |-
                     Integrations lists the operator-native monitoring integrations the
@@ -9539,8 +10237,8 @@ components:
             instanceRef:
               description: |-
                 InstanceRef references the Instance to restore into. The Instance
-                must already exist in the same namespace and use a provider listed in
-                the BackupClass's SupportedProviders.
+                must already exist in the same namespace and use the provider that
+                executes the BackupClass.
               properties:
                 name:
                   description: Name of the referenced object.

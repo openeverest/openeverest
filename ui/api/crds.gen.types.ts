@@ -220,6 +220,13 @@ export interface components {
                     name: string;
                 };
                 /**
+                 * @description Path is the directory in the BackupStorage's bucket the source
+                 *     Instance writes its backups to, recorded when the backup starts so
+                 *     restores resolve after the Instance is gone. Empty for external
+                 *     backups, whose path is spec.origin.external.path.
+                 */
+                path?: string;
+                /**
                  * @description Size is the size of the backup data as reported by the engine.
                  *     Empty for external backups.
                  */
@@ -285,14 +292,66 @@ export interface components {
             metadata?: components["schemas"]["ObjectMeta"];
             /** @description BackupClassSpec defines the desired state of BackupClass. */
             spec: {
+                /**
+                 * @description BackupStorageClasses lists the BackupStorageClasses the class's executor
+                 *     can write to, each with the authentication modes it supports. A
+                 *     BackupStorage is usable with the class only when both its class and
+                 *     its authentication mode are listed.
+                 */
+                backupStorageClasses: {
+                    /**
+                     * @description AuthModes are the authentication modes of that class the executor
+                     *     supports.
+                     */
+                    authModes: string[];
+                    /** @description Name of the BackupStorageClass. */
+                    name: string;
+                    /**
+                     * @description ParametersSchema narrows the BackupStorageClass's parametersSchema to
+                     *     what the executor supports, typically the parameters of the contract
+                     *     version it was built with: a storage whose parameters it rejects
+                     *     cannot be used with the class. Absent adds no restriction.
+                     */
+                    parametersSchema?: {
+                        /**
+                         * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                         *     parameters payload.
+                         */
+                        openAPIV3Schema?: unknown;
+                    };
+                    /**
+                     * @description TLS declares which settings of BackupStorage.spec.tls the executor
+                     *     honours. Absent means None for each: a storage that uses a setting the
+                     *     executor does not support cannot be used with the class, and a
+                     *     storage without spec.tls always can.
+                     */
+                    tls?: {
+                        /**
+                         * @description CustomCA is whether the executor verifies the store against the CA
+                         *     bundle in spec.tls.ca.
+                         * @default None
+                         * @enum {string}
+                         */
+                        customCA?: "Supported" | "None";
+                        /**
+                         * @description InsecureSkipVerify is whether the executor can turn certificate
+                         *     verification off, as spec.tls.insecureSkipVerify asks.
+                         * @default None
+                         * @enum {string}
+                         */
+                        insecureSkipVerify?: "Supported" | "None";
+                    };
+                }[];
                 /** @description Description is the description of the backup class. */
                 description?: string;
                 /** @description DisplayName is a human-readable name for the backup class. */
                 displayName?: string;
                 /**
                  * @description ExecutionMode selects who executes the class's backup and restore
-                 *     operations. ProviderManaged is the only mode: the provider named in
-                 *     SupportedProviders executes them.
+                 *     operations, and discriminates the execution union: the member named
+                 *     after the mode is required, any other is forbidden. ProviderManaged is
+                 *     the only mode: the provider in providerManaged.providerRef executes
+                 *     them.
                  * @enum {string}
                  */
                 executionMode: "ProviderManaged";
@@ -321,11 +380,9 @@ export interface components {
                     openAPIV3Schema?: unknown;
                 };
                 /**
-                 * @description ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
-                 *     schema is intentionally open: providers may surface capability
-                 *     information (e.g., whether PITR is supported, schedule expression
-                 *     dialect) without forcing a CRD change. Must be unset for any other
-                 *     execution mode.
+                 * @description ProviderManaged is the member of the execution union for
+                 *     ExecutionMode=ProviderManaged: the provider that executes the class and
+                 *     what it supports. Required for that mode, forbidden for any other.
                  */
                 providerManaged?: {
                     /**
@@ -373,6 +430,15 @@ export interface components {
                         openAPIV3Schema?: unknown;
                     };
                     /**
+                     * @description ProviderRef names the Provider that claims and executes the class. It
+                     *     is immutable: moving a class to another provider is delete and
+                     *     recreate.
+                     */
+                    providerRef: {
+                        /** @description Name of the referenced object. */
+                        name: string;
+                    };
+                    /**
                      * @description SupportsPITR indicates whether this class supports point-in-time recovery.
                      *     Used by Restore validation when Restore.spec.dataSource.pitr is set.
                      */
@@ -391,12 +457,6 @@ export interface components {
                     openAPIV3Schema?: unknown;
                 };
                 /**
-                 * @description SupportedProviders is the list of provider names that this backup class
-                 *     supports. The Instance.spec.provider must appear in this list for the
-                 *     class to be usable on that Instance.
-                 */
-                supportedProviders?: string[];
-                /**
                  * @description SupportsImport indicates whether the owner of this class can discover and
                  *     import restorable backups already sitting in a BackupStorage.
                  */
@@ -410,8 +470,28 @@ export interface components {
                  */
                 uiSchema?: Record<string, never>;
             };
-            /** @description BackupClassStatus defines the observed state of BackupClass. */
+            /**
+             * @description BackupClassStatus defines the observed state of BackupClass. It has two
+             *     writers, each applying only its own fields with server-side apply: the
+             *     executor that claims the class owns the Accepted condition and core owns
+             *     providers.
+             * @default {
+             *       "conditions": [
+             *         {
+             *           "lastTransitionTime": "1970-01-01T00:00:00Z",
+             *           "message": "Waiting for the executor to claim the class",
+             *           "reason": "Pending",
+             *           "status": "Unknown",
+             *           "type": "Accepted"
+             *         }
+             *       ]
+             *     }
+             */
             status?: {
+                /**
+                 * @description Conditions: Accepted, set by the class's executor when it claims the
+                 *     class, with the observedGeneration it judged.
+                 */
                 conditions?: {
                     /**
                      * Format: date-time
@@ -446,6 +526,31 @@ export interface components {
                     status: "True" | "False" | "Unknown";
                     /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
                     type: string;
+                }[];
+                /**
+                 * @description Providers is the compatibility of the class with each Provider that
+                 *     can execute it: for a ProviderManaged class, the Provider in
+                 *     providerManaged.providerRef. A Provider that is not listed is
+                 *     incompatible. Written by core.
+                 */
+                providers?: {
+                    /**
+                     * Format: int64
+                     * @description ClassGeneration is the generation of the class the entry was computed
+                     *     for. An entry for another generation counts as Pending.
+                     */
+                    classGeneration?: number;
+                    /**
+                     * @description Compatibility is whether Instances of the Provider can use the class.
+                     * @enum {string}
+                     */
+                    compatibility: "Compatible" | "Pending" | "Incompatible";
+                    /** @description Message is the human-readable detail of Reason. */
+                    message?: string;
+                    /** @description Name is the Provider name. */
+                    name: string;
+                    /** @description Reason is why the class is not Compatible. */
+                    reason?: string;
                 }[];
             };
         };
@@ -611,69 +716,169 @@ export interface components {
             kind?: string;
             metadata?: components["schemas"]["ObjectMeta"];
             /**
-             * @description BackupStorageSpec defines the desired state of a BackupStorage.
-             *
-             *     A BackupStorage is a reusable, namespaced reference to an object store
-             *     (today only S3-compatible) plus the credentials needed to talk to it.
-             *     It is referenced by name from:
-             *
-             *       - Instance.spec.backup.storages[].storageRef
-             *       - Backup.spec.storageRef
-             *
-             *     Decoupling storage from individual Backup CRs makes provider-managed
-             *     backups (e.g. PBM, pgBackRest) practical: the provider can register a
-             *     fixed set of storages on the engine without recomputing them from a
-             *     dynamic list of Backup CRs.
+             * @description BackupStorageSpec defines the desired state of a BackupStorage: an object
+             *     store, of the technology a BackupStorageClass describes, that backups are
+             *     written to. It is referenced by name from Instance.spec.backup.storages,
+             *     Backup.spec.storageRef, Restore point-in-time sources and BackupImports.
              */
             spec: {
                 /**
-                 * @description S3 contains S3-compatible storage configuration.
-                 *     Required when Type is "s3".
+                 * @description Authentication names one of the class's authModes and, for every mode
+                 *     but WorkloadIdentity, the Secret in the same namespace holding that
+                 *     mode's credentials keys.
                  */
-                s3?: {
+                authentication: {
                     /**
-                     * @description AccessKeyID is a write-only convenience input. When set, a webhook
-                     *     stores it in the Secret named by CredentialsSecretRef and clears
-                     *     this field. It is never persisted on the BackupStorage object.
+                     * @description CredentialsSecretRef references the Secret in the same namespace that
+                     *     holds the credentials keys of the mode.
                      */
-                    accessKeyId?: string;
-                    /** @description Bucket is the name of the S3 bucket. */
-                    bucket: string;
-                    /**
-                     * @description CredentialsSecretRef references the Secret in the same namespace
-                     *     that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
-                     */
-                    credentialsSecretRef: {
+                    credentialsSecretRef?: {
                         /** @description Name of the referenced Secret. */
                         name: string;
                     };
-                    /** @description EndpointURL is the endpoint URL of the S3-compatible service. */
-                    endpointURL: string;
-                    /**
-                     * @description ForcePathStyle forces path-style URLs (bucket name in the path
-                     *     instead of the host). Defaults to false.
-                     * @default false
-                     */
-                    forcePathStyle?: boolean;
-                    /** @description Region is the region of the S3 bucket. */
-                    region: string;
-                    /** @description SecretAccessKey is a write-only convenience input. See AccessKeyID. */
-                    secretAccessKey?: string;
-                    /**
-                     * @description VerifyTLS enables TLS certificate verification.
-                     *     Defaults to true.
-                     * @default true
-                     */
-                    verifyTLS?: boolean;
+                    /** @description Mode names one of the class's authModes. */
+                    mode: string;
                 };
                 /**
-                 * @description Type is the object storage type. Today only "s3" is supported.
-                 * @enum {string}
+                 * @description BackupStorageClassRef names the BackupStorageClass, the object storage
+                 *     technology.
                  */
-                type: "s3";
+                backupStorageClassRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description Location is where backups are kept. Engines treat it as their catalog,
+                 *     so it cannot change: create a new BackupStorage instead.
+                 */
+                location: {
+                    /** @description ObjectStore is a bucket, and a prefix within it, in an object store. */
+                    objectStore: {
+                        /**
+                         * @description Bucket is the bucket, or the container for technologies that call it
+                         *     so.
+                         */
+                        bucket: string;
+                        /**
+                         * @description Prefix is the path within the bucket under which backups are written,
+                         *     without leading or trailing slash.
+                         */
+                        prefix?: string;
+                    };
+                };
+                /**
+                 * @description Parameters are the connection parameters of the technology, validated
+                 *     against the class's parametersSchema.
+                 */
+                parameters?: Record<string, never>;
+                /**
+                 * @description TLS is how executors verify the server certificate of the store.
+                 *     Absent means the system trust store.
+                 */
+                tls?: {
+                    /**
+                     * @description CA is the PEM bundle the server certificate is verified against,
+                     *     instead of the system trust store.
+                     */
+                    ca?: {
+                        /** @description SecretKeyRef selects the Secret key holding the PEM bundle. */
+                        secretKeyRef?: {
+                            /** @description Key within the Secret. */
+                            key: string;
+                            /** @description Name of the referenced Secret. */
+                            name: string;
+                        };
+                    };
+                    /** @description InsecureSkipVerify disables verification of the server certificate. */
+                    insecureSkipVerify?: boolean;
+                };
             };
-            /** @description BackupStorageStatus defines the observed state of a BackupStorage. */
-            status?: Record<string, never>;
+            /**
+             * @description BackupStorageStatus defines the observed state of a BackupStorage. Core
+             *     writes all of it.
+             */
+            status?: {
+                /**
+                 * @description BackupClasses is whether each Accepted BackupClass can write to the
+                 *     storage. Read an entry through CurrentVerdict, which treats an entry
+                 *     computed from other objects than the current ones as Pending.
+                 */
+                backupClasses?: {
+                    /**
+                     * @description Compatibility is whether the class can write to the storage.
+                     * @enum {string}
+                     */
+                    compatibility: "Compatible" | "Pending" | "Incompatible";
+                    /** @description Message is the human-readable detail of Reason. */
+                    message?: string;
+                    /** @description Name is the BackupClass name. */
+                    name: string;
+                    /** @description Observed identifies the objects the verdict was computed from. */
+                    observed: {
+                        /**
+                         * Format: int64
+                         * @description ClassGeneration is the generation of the BackupClass.
+                         */
+                        classGeneration?: number;
+                        /** @description ClassUID is the UID of the BackupClass. */
+                        classUID?: string;
+                        /**
+                         * Format: int64
+                         * @description StorageClassGeneration is the generation of the storage's
+                         *     BackupStorageClass.
+                         */
+                        storageClassGeneration?: number;
+                        /** @description StorageClassUID is the UID of the storage's BackupStorageClass. */
+                        storageClassUID?: string;
+                        /**
+                         * Format: int64
+                         * @description StorageGeneration is the generation of the BackupStorage.
+                         */
+                        storageGeneration?: number;
+                    };
+                    /** @description Reason is why the class cannot write to the storage, or not yet. */
+                    reason?: string;
+                }[];
+                /**
+                 * @description Conditions: Accepted, and Deleting while a deleted storage waits for
+                 *     its referrers.
+                 */
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+            };
         };
         /**
          * @description BackupStorageClass describes an object storage technology that
@@ -743,6 +948,29 @@ export interface components {
                  *     authentication mode.
                  */
                 uiSchema?: Record<string, never>;
+                /**
+                 * @description Validations are CEL rules every BackupStorage of the class must
+                 *     satisfy, for constraints parametersSchema cannot express, such as a
+                 *     naming rule on location.objectStore.bucket or a rule across parameters
+                 *     and tls. self is the BackupStorage's spec. A violation sets the
+                 *     storage's Accepted condition to False with the rule's reason,
+                 *     InvalidLocation or InvalidParameters, and its message.
+                 */
+                validations?: {
+                    /**
+                     * @description Expression is a CEL expression that is true for a valid object. self is
+                     *     the referencing object's spec, with its parameters typed by the class's
+                     *     parameters schema. oldSelf is not available.
+                     */
+                    expression: string;
+                    /** @description Message explains a violation to the user. */
+                    message: string;
+                    /**
+                     * @description Reason is the reason of the condition a violation sets on the
+                     *     referencing object. Each class kind lists the reasons it accepts.
+                     */
+                    reason: string;
+                }[];
             };
         };
         /** @description BackupStorageClassList is an object that contains the list of the existing backupstorageclasss. */
@@ -809,8 +1037,8 @@ export interface components {
                     /**
                      * @description ClassRef references the cluster-scoped BackupClass that the provider
                      *     should use to configure the engine. The class must have
-                     *     ExecutionMode=ProviderManaged and list the Instance's provider in its
-                     *     SupportedProviders.
+                     *     ExecutionMode=ProviderManaged and name the Instance's provider in
+                     *     providerManaged.providerRef.
                      */
                     classRef: {
                         /** @description Name of the referenced object. */
@@ -1835,7 +2063,7 @@ export interface components {
                  *
                  *     Only ProviderManaged BackupClasses are supported. The referenced Backup
                  *     must be in the same namespace, in Succeeded state, and its BackupClass
-                 *     must list the Instance's provider in SupportedProviders. Instance must
+                 *     must be executed by the Instance's provider. Instance must
                  *     also have backup enabled and include a storage entry that matches the
                  *     storage used by the source Backup so the provider can access the data.
                  */
@@ -1984,6 +2212,26 @@ export interface components {
                         /** @description Parameters are validated against the class's instanceParametersSchema. */
                         parameters?: Record<string, never>;
                     }[];
+                    /**
+                     * @description Sources configures the monitoring sources the Instance runs whether or
+                     *     not a destination needs them.
+                     */
+                    sources?: {
+                        /** @description Metrics configures the Instance's OpenMetrics endpoints. */
+                        metrics?: {
+                            /**
+                             * @description Policy says when the provider runs the exporters and turns on the
+                             *     optional metrics endpoints of the Instance's components. OnDemand runs
+                             *     them while a destination's class needs metrics. Always runs them
+                             *     without a destination, for scrapers that OpenEverest does not
+                             *     configure. The serving endpoints are listed in
+                             *     status.monitoring.sources.metrics.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy?: "OnDemand" | "Always";
+                        };
+                    };
                 };
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
@@ -1994,7 +2242,9 @@ export interface components {
                 parameters?: Record<string, never>;
                 /**
                  * @description ProviderRef references the cluster-scoped Provider that manages this
-                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                 *     providerRef cannot be changed: the provider that picked it up owns its
+                 *     finalizer and engine resources, and only that provider cleans them up.
                  */
                 providerRef: {
                     /** @description Name of the referenced object. */
@@ -2091,7 +2341,7 @@ export interface components {
         };
         /**
          * @description InstalledExtension is the cluster-scoped record of an installed extension
-         *     (a generic plugin or a spec 001 provider). It is created by
+         *     (a generic plugin or a provider). It is created by
          *     `everestctl extension install` and owned by cluster-admin.
          */
         InstalledExtension: {
@@ -2272,8 +2522,8 @@ export interface components {
                     /**
                      * @description ClassRef references the cluster-scoped BackupClass that the provider
                      *     should use to configure the engine. The class must have
-                     *     ExecutionMode=ProviderManaged and list the Instance's provider in its
-                     *     SupportedProviders.
+                     *     ExecutionMode=ProviderManaged and name the Instance's provider in
+                     *     providerManaged.providerRef.
                      */
                     classRef: {
                         /** @description Name of the referenced object. */
@@ -3298,7 +3548,7 @@ export interface components {
                  *
                  *     Only ProviderManaged BackupClasses are supported. The referenced Backup
                  *     must be in the same namespace, in Succeeded state, and its BackupClass
-                 *     must list the Instance's provider in SupportedProviders. Instance must
+                 *     must be executed by the Instance's provider. Instance must
                  *     also have backup enabled and include a storage entry that matches the
                  *     storage used by the source Backup so the provider can access the data.
                  */
@@ -3447,6 +3697,26 @@ export interface components {
                         /** @description Parameters are validated against the class's instanceParametersSchema. */
                         parameters?: Record<string, never>;
                     }[];
+                    /**
+                     * @description Sources configures the monitoring sources the Instance runs whether or
+                     *     not a destination needs them.
+                     */
+                    sources?: {
+                        /** @description Metrics configures the Instance's OpenMetrics endpoints. */
+                        metrics?: {
+                            /**
+                             * @description Policy says when the provider runs the exporters and turns on the
+                             *     optional metrics endpoints of the Instance's components. OnDemand runs
+                             *     them while a destination's class needs metrics. Always runs them
+                             *     without a destination, for scrapers that OpenEverest does not
+                             *     configure. The serving endpoints are listed in
+                             *     status.monitoring.sources.metrics.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy?: "OnDemand" | "Always";
+                        };
+                    };
                 };
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
@@ -3457,7 +3727,9 @@ export interface components {
                 parameters?: Record<string, never>;
                 /**
                  * @description ProviderRef references the cluster-scoped Provider that manages this
-                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                 *     providerRef cannot be changed: the provider that picked it up owns its
+                 *     finalizer and engine resources, and only that provider cleans them up.
                  */
                 providerRef: {
                     /** @description Name of the referenced object. */
@@ -3501,7 +3773,10 @@ export interface components {
                  */
                 version?: string;
             };
-            /** @description InstanceStatus defines the observed state of Instance. */
+            /**
+             * @description InstanceStatus defines the observed state of Instance.
+             * @default {}
+             */
             status?: {
                 /**
                  * @description Backup surfaces backup-related observability data reported by the
@@ -3513,6 +3788,13 @@ export interface components {
                      *     name declared in spec.backup.storages.
                      */
                     storages?: {
+                        /**
+                         * @description Location is the path in the storage's bucket under which the engine
+                         *     writes this Instance's backups.
+                         */
+                        location?: string;
+                        /** @description Message explains Reason. */
+                        message?: string;
                         /**
                          * @description Name is the BackupStorage name (matches
                          *     spec.backup.storages[].storageRef.name).
@@ -3546,10 +3828,32 @@ export interface components {
                              */
                             state?: "Available" | "Unavailable";
                         };
+                        /**
+                         * @description Reason is why the entry is not configured on the engine as specified,
+                         *     empty when it is. An entry the engine already had keeps its last
+                         *     configuration meanwhile.
+                         */
+                        reason?: string;
                     }[];
                 };
                 /** @description Components reports how many pods each component has and how many are Ready. */
                 components?: {
+                    /**
+                     * Format: int32
+                     * @description DesiredReplicas is how many pods the component will have once the
+                     *     current generation has converged, as the provider reports it. It
+                     *     describes status.observedGeneration: it is absent until the provider
+                     *     reports for that generation, during deletion, and for providers that
+                     *     don't report it; clients then show readyReplicas over replicas. Zero is
+                     *     a real target, for example a model scaled to zero. A cluster paused
+                     *     outside OpenEverest keeps its target, so it reads 0 of N; one stopped
+                     *     through its spec has a target of zero.
+                     *
+                     *     It is meant for display. When a component sums several groups, such as
+                     *     the replica sets of every shard, it cannot tell whether each group has
+                     *     a majority.
+                     */
+                    desiredReplicas?: number;
                     /** @description Name is a key of spec.components. */
                     name: string;
                     /**
@@ -3621,8 +3925,6 @@ export interface components {
                     /** @description Name of the referenced Secret. */
                     name: string;
                 };
-                /** @description Message is a custom user-facing message describing the current state of the instance. */
-                message?: string;
                 /**
                  * @description Monitoring is what the Instance exposes to monitoring (sources) and
                  *     one read-only summary per spec.monitoring.destinations[] entry.
@@ -3631,13 +3933,42 @@ export interface components {
                 monitoring?: {
                     /** @description Destinations has one entry per spec.monitoring.destinations[] entry. */
                     destinations?: {
-                        /**
-                         * @description Configured mirrors the binding's Configured condition; False when the
-                         *     binding is not Accepted, Unknown while it is missing or pending.
-                         */
-                        configured?: string;
-                        /** @description Message is the human-readable detail for Configured. */
-                        message?: string;
+                        /** @description Conditions are the entry's Configured and Ready conditions. */
+                        conditions?: {
+                            /**
+                             * Format: date-time
+                             * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                             *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                             */
+                            lastTransitionTime: string;
+                            /**
+                             * @description message is a human readable message indicating details about the transition.
+                             *     This may be an empty string.
+                             */
+                            message: string;
+                            /**
+                             * Format: int64
+                             * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                             *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                             *     with respect to the current state of the instance.
+                             */
+                            observedGeneration?: number;
+                            /**
+                             * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                             *     Producers of specific condition types may define expected values and meanings for this field,
+                             *     and whether the values are considered a guaranteed API.
+                             *     The value should be a CamelCase string.
+                             *     This field may not be empty.
+                             */
+                            reason: string;
+                            /**
+                             * @description status of the condition, one of True, False, Unknown.
+                             * @enum {string}
+                             */
+                            status: "True" | "False" | "Unknown";
+                            /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                            type: string;
+                        }[];
                         /**
                          * @description Mode is the resolved execution mode.
                          * @enum {string}
@@ -3645,14 +3976,77 @@ export interface components {
                         mode?: "ProviderManaged" | "ExtensionManaged";
                         /** @description Name matches spec.monitoring.destinations[].name. */
                         name: string;
-                        /** @description Reason is the machine-readable reason for Configured. */
-                        reason?: string;
                     }[];
                     /**
                      * @description Sources is the per-Instance publication of the provider's monitoring
                      *     contract, consumed by ExtensionManaged class controllers.
                      */
                     sources?: {
+                        /**
+                         * @description Connections lists the endpoints monitoring agents connect to over the
+                         *     engine's native protocol (e.g. agents discovering databases through
+                         *     pod annotations), one per serving component.
+                         */
+                        connections?: {
+                            /**
+                             * @description Auth names the credential profile agents log in with, normally
+                             *     CredentialProfileMonitor.
+                             */
+                            auth?: {
+                                /** @description CredentialProfile matches MonitoringSources.credentials[].profile. */
+                                credentialProfile: string;
+                            };
+                            /** @description Component is the Instance component name (e.g. "engine"). */
+                            component: string;
+                            /**
+                             * @description Container is the name of the container serving the endpoint, for
+                             *     agents that address containers (e.g. Datadog Autodiscovery).
+                             */
+                            container?: string;
+                            /**
+                             * @description Kind is the kind of the component's type
+                             *     (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                             *     A provider may leave it empty; an endpoint it computes with another
+                             *     kind is not published.
+                             */
+                            kind: string;
+                            /** @description PodSelector selects the pods serving the endpoint. */
+                            podSelector: {
+                                [key: string]: string;
+                            };
+                            /** @description Port is the container port, by name or number. */
+                            port: number | string;
+                            /**
+                             * @description TLS is set when the endpoint accepts TLS connections; absent means
+                             *     plaintext only.
+                             */
+                            tls?: {
+                                /**
+                                 * @description CA is the PEM bundle that verifies the server certificate. Server
+                                 *     certificates name Services, not pod IPs, so agents verify the chain
+                                 *     only.
+                                 */
+                                ca?: {
+                                    /** @description SecretKeyRef selects the Secret key holding the PEM bundle. */
+                                    secretKeyRef?: {
+                                        /** @description Key within the Secret. */
+                                        key: string;
+                                        /** @description Name of the referenced Secret. */
+                                        name: string;
+                                    };
+                                };
+                                /**
+                                 * @description ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                 *     (keys tls.crt and tls.key) agents present as a client certificate.
+                                 */
+                                clientCertificateSecretRef?: {
+                                    /** @description Name of the referenced Secret. */
+                                    name: string;
+                                };
+                                /** @description Required means the endpoint rejects connections without TLS. */
+                                required?: boolean;
+                            };
+                        }[];
                         /**
                          * @description Credentials lists the Instance-owned monitoring credential Secrets by
                          *     profile.
@@ -3694,7 +4088,12 @@ export interface components {
                             };
                             /** @description Component is the Instance component name (e.g. "engine", "proxy"). */
                             component: string;
-                            /** @description Kind is the component's engine kind. */
+                            /**
+                             * @description Kind is the kind of the component's type
+                             *     (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                             *     A provider may leave it empty; an endpoint it computes with another
+                             *     kind is not published.
+                             */
                             kind: string;
                             /** @description Params are extra scrape query parameters (e.g. target for /probe). */
                             params?: {
@@ -3753,7 +4152,9 @@ export interface components {
                  * Format: int64
                  * @description ObservedGeneration is the metadata.generation the provider-runtime last
                  *     reconciled. Status describes an older spec while it is lower than
-                 *     metadata.generation.
+                 *     metadata.generation. It defaults to -1, so an Instance no provider has
+                 *     reconciled reads as in progress, never as current.
+                 * @default -1
                  */
                 observedGeneration?: number;
                 /**
@@ -3781,10 +4182,14 @@ export interface components {
                     severity: "NonDisruptive" | "RollingRestart" | "Downtime";
                 }[];
                 /**
-                 * @description Phase of the database cluster.
+                 * @description Phase is where the Instance is in its life: Pending until the database
+                 *     is first available, Provisioned afterwards, Terminating once deletion
+                 *     is requested. The CRD sets Pending at creation; only provider-runtime
+                 *     changes it. Read the conditions for everything else.
+                 * @default Pending
                  * @enum {string}
                  */
-                phase?: "Pending" | "Provisioning" | "Initializing" | "Ready" | "Updating" | "Terminating" | "Failed" | "Restoring" | "Suspending" | "Suspended" | "Resuming";
+                phase?: "Pending" | "Provisioned" | "Terminating";
                 /**
                  * @description Version is the effective version bundle that is currently applied to this
                  *     Instance. On the first reconciliation the provider-runtime writes the
@@ -3876,8 +4281,8 @@ export interface components {
                     /**
                      * @description ClassRef references the cluster-scoped BackupClass that the provider
                      *     should use to configure the engine. The class must have
-                     *     ExecutionMode=ProviderManaged and list the Instance's provider in its
-                     *     SupportedProviders.
+                     *     ExecutionMode=ProviderManaged and name the Instance's provider in
+                     *     providerManaged.providerRef.
                      */
                     classRef: {
                         /** @description Name of the referenced object. */
@@ -4902,7 +5307,7 @@ export interface components {
                  *
                  *     Only ProviderManaged BackupClasses are supported. The referenced Backup
                  *     must be in the same namespace, in Succeeded state, and its BackupClass
-                 *     must list the Instance's provider in SupportedProviders. Instance must
+                 *     must be executed by the Instance's provider. Instance must
                  *     also have backup enabled and include a storage entry that matches the
                  *     storage used by the source Backup so the provider can access the data.
                  */
@@ -5051,6 +5456,26 @@ export interface components {
                         /** @description Parameters are validated against the class's instanceParametersSchema. */
                         parameters?: Record<string, never>;
                     }[];
+                    /**
+                     * @description Sources configures the monitoring sources the Instance runs whether or
+                     *     not a destination needs them.
+                     */
+                    sources?: {
+                        /** @description Metrics configures the Instance's OpenMetrics endpoints. */
+                        metrics?: {
+                            /**
+                             * @description Policy says when the provider runs the exporters and turns on the
+                             *     optional metrics endpoints of the Instance's components. OnDemand runs
+                             *     them while a destination's class needs metrics. Always runs them
+                             *     without a destination, for scrapers that OpenEverest does not
+                             *     configure. The serving endpoints are listed in
+                             *     status.monitoring.sources.metrics.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy?: "OnDemand" | "Always";
+                        };
+                    };
                 };
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
@@ -5061,7 +5486,9 @@ export interface components {
                 parameters?: Record<string, never>;
                 /**
                  * @description ProviderRef references the cluster-scoped Provider that manages this
-                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                 *     providerRef cannot be changed: the provider that picked it up owns its
+                 *     finalizer and engine resources, and only that provider cleans them up.
                  */
                 providerRef: {
                     /** @description Name of the referenced object. */
@@ -5275,6 +5702,21 @@ export interface components {
                     /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
                     type: string;
                 }[];
+                /**
+                 * @description PodMetadata is the pod metadata the class controller of an
+                 *     ExtensionManaged binding requests per component, written together
+                 *     with Configured. provider-runtime hands the annotations allowed by
+                 *     the class's spec.extensionManaged.podMetadata to the provider, which
+                 *     renders them on the component's pods.
+                 */
+                podMetadata?: {
+                    /** @description Annotations to set on the component's pods. */
+                    annotations?: {
+                        [key: string]: string;
+                    };
+                    /** @description Component is the Instance component name. */
+                    component: string;
+                }[];
             };
         };
         /** @description MonitoringBindingList is an object that contains the list of the existing monitoringbindings. */
@@ -5331,6 +5773,13 @@ export interface components {
                     /** @description Name identifies the mode, in PascalCase (e.g. AccessKey, BasicAuth). */
                     name: string;
                 }[];
+                /**
+                 * @description ControllerName is the controller that claims the class and sets its
+                 *     Accepted condition, as GatewayClass.spec.controllerName: a
+                 *     domain-qualified path (e.g. "openeverest.io/monitoring-pmm"). One
+                 *     controller may claim several classes. Immutable.
+                 */
+                controllerName: string;
                 /** @description Description describes the monitoring technology. */
                 description?: string;
                 /** @description DestinationParametersSchema validates MonitoringDestination.spec.parameters. */
@@ -5350,10 +5799,38 @@ export interface components {
                  */
                 extensionManaged?: {
                     /**
+                     * @description PodMetadata lets the class controller request annotations on the
+                     *     pods of bound Instances (status.podMetadata of its bindings), for
+                     *     backends whose agents discover databases through pod annotations. The
+                     *     provider renders them into the pod templates, which rolls the pods.
+                     *     When set, only component types declaring podMetadata: Supported are
+                     *     eligible.
+                     */
+                    podMetadata?: {
+                        /**
+                         * @description AnnotationPrefixes are the annotation key prefixes the class
+                         *     controller may request, each a DNS subdomain followed by "/"
+                         *     (e.g. "coroot.com/"). Kubernetes and OpenEverest prefixes are
+                         *     reserved.
+                         */
+                        annotationPrefixes: string[];
+                    };
+                    /**
                      * @description Requires lists the source capabilities a component must satisfy to
                      *     be eligible for this class.
                      */
                     requires?: {
+                        /**
+                         * @description Connection requires the component to accept native-protocol
+                         *     connections from monitoring agents (connection: Supported).
+                         */
+                        connection?: boolean;
+                        /**
+                         * @description Kinds, when set, makes only the components whose type's kind
+                         *     (Provider.spec.componentTypes.<type>.kind) is listed eligible. Empty
+                         *     means any kind.
+                         */
+                        kinds?: string[];
                         /**
                          * @description Metrics requires the component to expose OpenMetrics
                          *     (metrics: Native or Exporter).
@@ -5460,6 +5937,12 @@ export interface components {
                  */
                 providers?: {
                     /**
+                     * Format: int64
+                     * @description ClassGeneration is the class's metadata.generation the entry was
+                     *     computed for. An entry computed for another generation is stale.
+                     */
+                    classGeneration?: number;
+                    /**
                      * @description Disruption is the worst that enabling the class does to the pods of
                      *     one of the Provider's Instances. Set when Mode is set.
                      * @enum {string}
@@ -5490,93 +5973,6 @@ export interface components {
             metadata?: {
                 /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
                 name?: string;
-            };
-        };
-        /** @description MonitoringConfig is the Schema for the monitoringconfigs API. */
-        MonitoringConfig: {
-            /**
-             * @description APIVersion defines the versioned schema of this representation of an object.
-             *     Servers should convert recognized schemas to the latest internal value, and
-             *     may reject unrecognized values.
-             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-             */
-            apiVersion?: string;
-            /**
-             * @description Kind is a string value representing the REST resource this object represents.
-             *     Servers may infer this from the endpoint the client submits requests to.
-             *     Cannot be updated.
-             *     In CamelCase.
-             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-             */
-            kind?: string;
-            metadata?: components["schemas"]["ObjectMeta"];
-            /** @description spec defines the desired state of MonitoringConfig */
-            spec: {
-                /**
-                 * @description PMM contains PMM-specific monitoring configuration.
-                 *     Required when type is "pmm".
-                 */
-                pmm?: {
-                    /**
-                     * @description CredentialsSecretRef references the Secret in the same namespace
-                     *     containing the API key. It contains an `apiKey` key with the API key
-                     *     value.
-                     */
-                    credentialsSecretRef: {
-                        /** @description Name of the referenced Secret. */
-                        name: string;
-                    };
-                    /** @description URL is the URL of the PMM server. */
-                    url: string;
-                    /**
-                     * @description VerifyTLS is set to ensure TLS/SSL verification.
-                     *     If unspecified, the default value is true.
-                     * @default true
-                     */
-                    verifyTLS?: boolean;
-                };
-                /**
-                 * @description Type is the name of monitoring tool (e.g., "pmm").
-                 * @enum {string}
-                 */
-                type: "pmm";
-            };
-            /**
-             * @description status defines the observed state of MonitoringConfig
-             * @default {
-             *       "inUse": false
-             *     }
-             */
-            status?: {
-                /**
-                 * @description InUse is a flag that indicates if any Instance uses the monitoring config.
-                 * @default false
-                 */
-                inUse?: boolean;
-                /**
-                 * Format: int64
-                 * @description LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
-                 */
-                lastObservedGeneration?: number;
-                /** @description PMM contains PMM-specific status information. */
-                pmm?: {
-                    /** @description ServerVersion shows the PMM server version. */
-                    serverVersion?: string;
-                };
-            };
-        };
-        /** @description MonitoringConfigList is an object that contains the list of the existing monitoringconfigs. */
-        MonitoringConfigList: {
-            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
-            apiVersion?: string;
-            items?: components["schemas"]["MonitoringConfig"][];
-            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
-            kind?: string;
-            metadata?: {
-                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
-                name?: string;
-                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
-                namespace?: string;
             };
         };
         /**
@@ -5676,8 +6072,12 @@ export interface components {
                  * Format: int32
                  * @description AttachedInstances is the number of Instances in this namespace whose
                  *     spec.monitoring.destinations lists this destination, whatever the
-                 *     state of their binding, including Instances being deleted. Written by
-                 *     core; deleting the destination is refused while it is above zero.
+                 *     state of their binding. While the destination is not being deleted,
+                 *     Instances being deleted are left out, so an Instance and then its
+                 *     destination can be deleted right away; once the destination is being
+                 *     deleted, they count too, and the number is what its deletion waits
+                 *     for. Written by core; deleting the destination is refused while it is
+                 *     above zero.
                  */
                 attachedInstances?: number;
                 conditions?: {
@@ -5754,6 +6154,11 @@ export interface components {
             deletionTimestamp?: string;
             /** @description GenerateName is an optional prefix, used by the server, to generate a unique name ONLY IF the Name field has not been provided. */
             generateName?: string;
+            /**
+             * Format: int64
+             * @description A sequence number representing a specific generation of the desired state. Populated by the system. Read-only.
+             */
+            generation?: number;
             /** @description Map of string keys and values that can be used to organize and categorize (scope and select) objects. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels */
             labels?: {
                 [key: string]: string;
@@ -5998,6 +6403,14 @@ export interface components {
                          *     Instance nor a version bundle selects one.
                          */
                         defaultVersion?: string;
+                        /**
+                         * @description Kind is the shared classification of the software the component type
+                         *     runs (e.g. "mongodb", "mysql", "haproxy"), matched by monitoring class
+                         *     filters and set on the component's published monitoring endpoints.
+                         *     Databases use OpenTelemetry db.system.name values; unknown kinds are
+                         *     allowed. A type without a kind matches no kind filter.
+                         */
+                        kind?: string;
                         versions?: {
                             /**
                              * @description Deprecated marks a version as still supported but scheduled for
@@ -6064,16 +6477,26 @@ export interface components {
                     componentTypes?: {
                         [key: string]: {
                             /**
-                             * @description Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
-                             *     follow OpenTelemetry db.system.name; unknown kinds are allowed.
+                             * @description Connection states whether monitoring agents can connect to the
+                             *     component over its native protocol, with the monitor credential.
+                             * @default None
+                             * @enum {string}
                              */
-                            kind: string;
+                            connection?: "Supported" | "None";
                             /**
                              * @description Metrics states how the component exposes OpenMetrics.
                              * @default None
                              * @enum {string}
                              */
                             metrics?: "Native" | "Exporter" | "None";
+                            /**
+                             * @description PodMetadata states whether the provider renders the pod annotations
+                             *     monitoring classes request (Context.MonitoringPodAnnotations) into the
+                             *     pods of the component type.
+                             * @default None
+                             * @enum {string}
+                             */
+                            podMetadata?: "Supported" | "None";
                         };
                     };
                     /**
@@ -6093,6 +6516,33 @@ export interface components {
                              *     not listed is not bound.
                              */
                             authModes?: string[];
+                            /**
+                             * @description DestinationParametersSchema is the schema of MonitoringDestination
+                             *     parameters in the integration contract version the provider was built
+                             *     with, generated by provider-sdk. Core will check destination parameters
+                             *     against it as well as against the class.
+                             */
+                            destinationParametersSchema?: {
+                                /**
+                                 * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                                 *     parameters payload.
+                                 */
+                                openAPIV3Schema?: unknown;
+                            };
+                            /**
+                             * @description InstanceParametersSchema is the schema of
+                             *     Instance.spec.monitoring.destinations[].parameters in the integration
+                             *     contract version the provider was built with, generated by
+                             *     provider-sdk. Core will check entry parameters against it as well as
+                             *     against the class.
+                             */
+                            instanceParametersSchema?: {
+                                /**
+                                 * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                                 *     parameters payload.
+                                 */
+                                openAPIV3Schema?: unknown;
+                            };
                         };
                     };
                 };
@@ -6349,8 +6799,8 @@ export interface components {
                 };
                 /**
                  * @description InstanceRef references the Instance to restore into. The Instance
-                 *     must already exist in the same namespace and use a provider listed in
-                 *     the BackupClass's SupportedProviders.
+                 *     must already exist in the same namespace and use the provider that
+                 *     executes the BackupClass.
                  */
                 instanceRef: {
                     /** @description Name of the referenced object. */

@@ -84,7 +84,7 @@ func settingsRBACCanPreRunE(cmd *cobra.Command, args []string) error {
 	}
 
 	// Copy global flags to config
-	rbacCanPretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	rbacCanPretty = cli.IsPretty(cmd)
 	rbacCanKubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 	return nil
 }

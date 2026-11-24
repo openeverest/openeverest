@@ -57,7 +57,7 @@ func init() {
 
 func accountsListPreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	accountsListCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	accountsListCfg.Pretty = cli.IsPretty(cmd)
 	accountsListCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 }
 

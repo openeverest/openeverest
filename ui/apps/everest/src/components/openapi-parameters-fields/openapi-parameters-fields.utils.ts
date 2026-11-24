@@ -16,6 +16,10 @@ import { z } from 'zod';
 import { KeyValuePair } from '@percona/ui-lib';
 import { isPlainObject } from 'components/ui-generator/utils/object-path';
 import {
+  getOpenApiConstraintError,
+  getOpenApiConstraints,
+} from 'components/ui-generator/utils/openapi-constraints';
+import {
   OpenApiParameterField,
   OpenApiParameterFields,
   OpenApiParameterFormValues,
@@ -68,10 +72,20 @@ export const getOpenApiParameterFields = (
         isPlainObject(property) && typeof property.description === 'string'
           ? property.description
           : undefined;
+      const constraints =
+        kind === OpenApiParameterKind.Text
+          ? getOpenApiConstraints(openAPIV3Schema, [name])
+          : undefined;
       return {
         fields: [
           ...fields,
-          { name, kind, required: required.includes(name), description },
+          {
+            name,
+            kind,
+            required: required.includes(name),
+            description,
+            constraints,
+          },
         ],
         skipped,
       };
@@ -135,6 +149,26 @@ export const fromOpenApiParameterFormValues = (
   );
 };
 
+// What a save sends: the form's parameters, and those of the saved object
+// the form can't edit, as they were.
+export const toOpenApiParametersUpdate = (
+  values: unknown,
+  parameterFields: OpenApiParameterFields,
+  saved: unknown
+): Record<string, unknown> => {
+  const kept = isPlainObject(saved)
+    ? Object.fromEntries(
+        Object.entries(saved).filter(([key]) =>
+          parameterFields.skipped.includes(key)
+        )
+      )
+    : {};
+  return {
+    ...kept,
+    ...fromOpenApiParameterFormValues(values, parameterFields),
+  };
+};
+
 const noDuplicateKeys = (pairs: KeyValuePair[], ctx: z.RefinementCtx) =>
   pairs.forEach(({ key }, index) => {
     if (key && pairs.findIndex((pair) => pair.key === key) !== index) {
@@ -162,9 +196,22 @@ const toFieldSchema = (field: OpenApiParameterField): z.ZodTypeAny => {
   if (field.kind === OpenApiParameterKind.StringMap) {
     return pairsSchema(field.required, field.name);
   }
-  return field.required
+  const text = field.required
     ? z.string().min(1, Messages.required(field.name))
     : z.string();
+  const { constraints } = field;
+  return constraints
+    ? text.superRefine((value, ctx) => {
+        // An empty value is left out of the request, or reported as required.
+        const error =
+          value === ''
+            ? undefined
+            : getOpenApiConstraintError(value, constraints);
+        if (error) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: error });
+        }
+      })
+    : text;
 };
 
 export const buildOpenApiParametersSchema = ({

@@ -13,16 +13,19 @@
 // limitations under the License.
 
 import { AxiosError, AxiosHeaders } from 'axios';
+import {
+  CredentialsSecretWrite,
+  SecretAlreadyExistsError,
+  SecretChangedMeanwhileError,
+} from 'hooks/api/secrets';
 import { Secret } from 'shared-types/api.types';
 import {
   MonitoringDestination,
   MonitoringDestinationPayload,
 } from 'shared-types/monitoring-destinations.types';
 import {
-  deleteMonitoringDestination,
   MonitoringDestinationRequests,
   saveMonitoringDestination,
-  SecretAlreadyExistsError,
 } from './monitoring-destination-requests';
 
 const httpError = (status: number) =>
@@ -51,69 +54,58 @@ const saved: MonitoringDestination = {
   spec: { classRef: { name: 'pmm' } },
 };
 
-const stored = (name: string, secretName?: string): MonitoringDestination => ({
-  metadata: { name },
-  spec: {
-    classRef: { name: 'pmm' },
-    authentication: {
-      mode: secretName ? 'ServiceAccountToken' : 'Anonymous',
-      ...(secretName && { credentialsSecretRef: { name: secretName } }),
-    },
-  },
-});
-
-// namespaceDestinations: what the namespace lists after the save;
-// existingSecret: what getSecret finds under a taken name.
+// existingSecret: what getSecret finds under the name.
 const setup = (
-  namespaceDestinations: MonitoringDestination[] = [],
-  existingSecret: Secret = { metadata: { name: 'taken' } }
+  existingSecret: Secret = { metadata: { name: 'taken', resourceVersion: '7' } }
 ) => {
   const calls: string[] = [];
+  const describeCall = (name: string, args: unknown[]) =>
+    [
+      name,
+      ...args
+        .filter((arg) => arg !== undefined)
+        .map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg))),
+    ].join(' ');
   const track =
     <T>(name: string, result: T) =>
-    (arg: unknown) => {
-      calls.push(
-        `${name} ${typeof arg === 'string' ? arg : JSON.stringify(arg)}`
-      );
+    (...args: unknown[]) => {
+      calls.push(describeCall(name, args));
       return Promise.resolve(result);
     };
   const requests: MonitoringDestinationRequests = {
     createSecret: vi.fn(track('createSecret', {})),
     getSecret: vi.fn(track('getSecret', existingSecret)),
+    patchSecret: vi.fn(track('patchSecret', {})),
     deleteSecret: vi.fn(track('deleteSecret', {})),
     createDestination: vi.fn(track('createDestination', saved)),
     updateDestination: vi.fn(track('updateDestination', saved)),
-    deleteDestination: vi.fn(track('deleteDestination', {})),
-    listDestinations: vi.fn(() => {
-      calls.push('listDestinations');
-      return Promise.resolve(namespaceDestinations);
-    }),
   };
   // The request is still recorded, then fails.
-  const fail = (
-    name: Exclude<keyof MonitoringDestinationRequests, 'listDestinations'>,
-    error: Error
-  ) =>
-    vi.mocked(requests[name]).mockImplementation((arg: unknown) => {
-      calls.push(
-        `${name} ${typeof arg === 'string' ? arg : JSON.stringify(arg)}`
-      );
+  const fail = (name: keyof MonitoringDestinationRequests, error: Error) =>
+    vi.mocked(requests[name]).mockImplementation((...args: unknown[]) => {
+      calls.push(describeCall(name, args));
       return Promise.reject(error);
     });
   return { calls, requests, fail };
 };
 
 const token = { token: 's3cr3t' };
+// Those of the destination's class and mode.
+const labels = {
+  'openeverest.io/monitoring-class': 'pmm',
+  'openeverest.io/definition': 'ServiceAccountToken',
+};
 
-// The Secret the save creates: labelled for the destination's class and mode.
+const create = (name: string): CredentialsSecretWrite => ({
+  action: 'create',
+  name,
+  labels,
+  stringData: token,
+});
+
+// The Secret the save creates.
 const credentialsSecret = (name: string) => ({
-  metadata: {
-    name,
-    labels: {
-      'openeverest.io/monitoring-class': 'pmm',
-      'openeverest.io/definition': 'ServiceAccountToken',
-    },
-  },
+  metadata: { name, labels },
   stringData: token,
 });
 
@@ -126,11 +118,7 @@ describe('saveMonitoringDestination', () => {
         namespace: 'team-a',
         isEdit: false,
         destination,
-        credentialsSecret: {
-          action: 'create',
-          name: 'monitoring-destination-pmm-credentials',
-          stringData: token,
-        },
+        credentialsSecret: create('monitoring-destination-pmm-credentials'),
       },
       requests
     );
@@ -151,11 +139,7 @@ describe('saveMonitoringDestination', () => {
           namespace: 'team-a',
           isEdit: false,
           destination,
-          credentialsSecret: {
-            action: 'create',
-            name: 'monitoring-destination-pmm-credentials',
-            stringData: token,
-          },
+          credentialsSecret: create('monitoring-destination-pmm-credentials'),
         },
         requests
       )
@@ -170,11 +154,7 @@ describe('saveMonitoringDestination', () => {
     namespace: 'team-a',
     isEdit: false,
     destination,
-    credentialsSecret: {
-      action: 'create' as const,
-      name: 'monitoring-destination-pmm-credentials',
-      stringData: token,
-    },
+    credentialsSecret: create('monitoring-destination-pmm-credentials'),
   };
 
   it('reports a taken Secret name without creating the destination', async () => {
@@ -190,7 +170,8 @@ describe('saveMonitoringDestination', () => {
       )
     );
     expect(requests.getSecret).toHaveBeenCalledWith(
-      'monitoring-destination-pmm-credentials'
+      'monitoring-destination-pmm-credentials',
+      true
     );
     expect(requests.createDestination).not.toHaveBeenCalled();
     expect(requests.deleteSecret).not.toHaveBeenCalled();
@@ -198,7 +179,6 @@ describe('saveMonitoringDestination', () => {
 
   it('offers a taken name for reuse when its Secret holds the class and mode credentials', async () => {
     const { requests, fail } = setup(
-      [],
       credentialsSecret('monitoring-destination-pmm-credentials')
     );
     fail('createSecret', httpError(409));
@@ -209,6 +189,25 @@ describe('saveMonitoringDestination', () => {
       new SecretAlreadyExistsError(
         'monitoring-destination-pmm-credentials',
         true
+      )
+    );
+  });
+
+  it("does not offer a taken name for reuse when its Secret holds another mode's credentials", async () => {
+    const { requests, fail } = setup({
+      metadata: {
+        name: 'monitoring-destination-pmm-credentials',
+        labels: { ...labels, 'openeverest.io/definition': 'BasicAuth' },
+      },
+    });
+    fail('createSecret', httpError(409));
+
+    await expect(
+      saveMonitoringDestination(takenName, requests)
+    ).rejects.toEqual(
+      new SecretAlreadyExistsError(
+        'monitoring-destination-pmm-credentials',
+        false
       )
     );
   });
@@ -228,21 +227,13 @@ describe('saveMonitoringDestination', () => {
     );
   });
 
-  it('reuses an existing Secret and never deletes it on failure', async () => {
+  it('writes no Secret for one the destination keeps or picks, and never deletes it', async () => {
     const { calls, requests, fail } = setup();
     fail('createDestination', httpError(500));
 
     await expect(
       saveMonitoringDestination(
-        {
-          namespace: 'team-a',
-          isEdit: false,
-          destination,
-          credentialsSecret: {
-            action: 'reuse',
-            name: 'monitoring-destination-pmm-credentials',
-          },
-        },
+        { namespace: 'team-a', isEdit: false, destination },
         requests
       )
     ).rejects.toThrow();
@@ -250,144 +241,90 @@ describe('saveMonitoringDestination', () => {
     expect(calls).toEqual([`createDestination ${JSON.stringify(destination)}`]);
   });
 
-  const rotation = {
-    action: 'replace' as const,
-    name: 'monitoring-destination-pmm-credentials-k2x9a',
-    stringData: token,
-    previousName: 'monitoring-destination-pmm-credentials',
+  const update = {
+    namespace: 'team-a',
+    isEdit: true,
+    destination,
+    credentialsSecret: {
+      action: 'update' as const,
+      name: 'monitoring-destination-pmm-credentials',
+      labels,
+      stringData: token,
+    },
   };
 
-  it('moves the destination to a new Secret before deleting the old one', async () => {
-    const { calls, requests } = setup([
-      stored('pmm', 'monitoring-destination-pmm-credentials-k2x9a'),
-    ]);
+  it('updates the Secret in place at the version it read, before the destination', async () => {
+    const { calls, requests } = setup();
 
-    await saveMonitoringDestination(
-      {
-        namespace: 'team-a',
-        isEdit: true,
-        destination,
-        credentialsSecret: rotation,
-      },
-      requests
-    );
+    await saveMonitoringDestination(update, requests);
 
     expect(calls).toEqual([
-      `createSecret ${JSON.stringify(credentialsSecret('monitoring-destination-pmm-credentials-k2x9a'))}`,
+      'getSecret monitoring-destination-pmm-credentials if-missing',
+      `patchSecret monitoring-destination-pmm-credentials ${JSON.stringify({
+        metadata: { resourceVersion: '7' },
+        stringData: token,
+      })}`,
       `updateDestination ${JSON.stringify(destination)}`,
-      'listDestinations',
-      'deleteSecret monitoring-destination-pmm-credentials',
     ]);
   });
 
-  it('keeps the old Secret when another destination uses it or the form did not create it', async () => {
-    const shared = setup([
-      stored('pmm', 'monitoring-destination-pmm-credentials-k2x9a'),
-      stored('pmm-eu', 'monitoring-destination-pmm-credentials'),
-    ]);
-    await saveMonitoringDestination(
-      {
-        namespace: 'team-a',
-        isEdit: true,
-        destination,
-        credentialsSecret: rotation,
-      },
-      shared.requests
-    );
+  it('reports a Secret that changed meanwhile without saving the destination', async () => {
+    const { requests, fail } = setup();
+    fail('patchSecret', httpError(409));
 
-    const brought = setup([
-      stored('pmm', 'monitoring-destination-pmm-credentials-k2x9a'),
-    ]);
-    await saveMonitoringDestination(
-      {
-        namespace: 'team-a',
-        isEdit: true,
-        destination,
-        credentialsSecret: { ...rotation, previousName: 'team-pmm-token' },
-      },
-      brought.requests
+    await expect(saveMonitoringDestination(update, requests)).rejects.toEqual(
+      new SecretChangedMeanwhileError('monitoring-destination-pmm-credentials')
     );
-
-    expect(shared.requests.deleteSecret).not.toHaveBeenCalled();
-    expect(brought.requests.deleteSecret).not.toHaveBeenCalled();
+    expect(requests.updateDestination).not.toHaveBeenCalled();
   });
 
-  it('deletes the new Secret and keeps the old one when the update fails', async () => {
+  it('creates the Secret to update anew, for its class and mode, when it is gone', async () => {
     const { calls, requests, fail } = setup();
+    fail('getSecret', httpError(404));
+
+    await saveMonitoringDestination(update, requests);
+
+    expect(calls).toEqual([
+      'getSecret monitoring-destination-pmm-credentials if-missing',
+      `createSecret ${JSON.stringify(
+        credentialsSecret('monitoring-destination-pmm-credentials')
+      )}`,
+      `updateDestination ${JSON.stringify(destination)}`,
+    ]);
+  });
+
+  it('deletes the Secret it created anew when the destination is refused', async () => {
+    const { requests, fail } = setup();
+    fail('getSecret', httpError(404));
     fail('updateDestination', httpError(409));
 
-    await expect(
-      saveMonitoringDestination(
-        {
-          namespace: 'team-a',
-          isEdit: true,
-          destination,
-          credentialsSecret: rotation,
-        },
-        requests
-      )
-    ).rejects.toEqual(httpError(409));
-
-    expect(calls.map((call) => call.split(' ')[0])).toEqual([
-      'createSecret',
-      'updateDestination',
-      'deleteSecret',
-    ]);
+    await expect(saveMonitoringDestination(update, requests)).rejects.toEqual(
+      httpError(409)
+    );
     expect(requests.deleteSecret).toHaveBeenCalledWith(
-      'monitoring-destination-pmm-credentials-k2x9a'
+      'monitoring-destination-pmm-credentials'
     );
   });
-});
 
-describe('deleteMonitoringDestination', () => {
-  it('deletes the destination and the Secret created with it', async () => {
-    const { calls, requests } = setup();
-    const pmm = stored('pmm', 'monitoring-destination-pmm-credentials');
+  it("writes nothing when the Secret to update can't be read", async () => {
+    const { requests, fail } = setup();
+    fail('getSecret', httpError(403));
 
-    await deleteMonitoringDestination(
-      { destination: pmm, namespaceDestinations: [pmm] },
-      requests
+    await expect(saveMonitoringDestination(update, requests)).rejects.toEqual(
+      httpError(403)
     );
-
-    expect(calls).toEqual([
-      'deleteDestination pmm',
-      'deleteSecret monitoring-destination-pmm-credentials',
-    ]);
+    expect(requests.createSecret).not.toHaveBeenCalled();
+    expect(requests.patchSecret).not.toHaveBeenCalled();
+    expect(requests.updateDestination).not.toHaveBeenCalled();
   });
 
-  it('recognises a rotated credentials Secret as created by the form', async () => {
-    const { calls, requests } = setup();
-    const pmm = stored('pmm', 'monitoring-destination-pmm-credentials-k2x9a');
+  it('keeps the updated Secret when the destination is refused', async () => {
+    const { requests, fail } = setup();
+    fail('updateDestination', httpError(409));
 
-    await deleteMonitoringDestination(
-      { destination: pmm, namespaceDestinations: [pmm] },
-      requests
+    await expect(saveMonitoringDestination(update, requests)).rejects.toEqual(
+      httpError(409)
     );
-
-    expect(calls).toEqual([
-      'deleteDestination pmm',
-      'deleteSecret monitoring-destination-pmm-credentials-k2x9a',
-    ]);
-  });
-
-  it('keeps a Secret another destination uses or the form did not name', async () => {
-    const { calls, requests } = setup();
-    const pmm = stored('pmm', 'monitoring-destination-pmm-credentials');
-    const sharing = stored('pmm-eu', 'monitoring-destination-pmm-credentials');
-    const custom = stored('pmm-us', 'shared-token');
-
-    await deleteMonitoringDestination(
-      { destination: pmm, namespaceDestinations: [pmm, sharing] },
-      requests
-    );
-    await deleteMonitoringDestination(
-      { destination: custom, namespaceDestinations: [custom] },
-      requests
-    );
-
-    expect(calls).toEqual([
-      'deleteDestination pmm',
-      'deleteDestination pmm-us',
-    ]);
+    expect(requests.deleteSecret).not.toHaveBeenCalled();
   });
 });
