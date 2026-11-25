@@ -7,7 +7,7 @@ on:
         description: "The version to release, e.g. X.Y.Z for a release or X.Y.Z-<suffix> (e.g. X.Y.Z-rc1, X.Y.Z-dev) for a dev build"
         required: true
       release_type:
-        description: "fresh-install: users must install this release fresh. upgradable: it can be upgraded to in place from the releases in upgradable_from. See contract/README.md"
+        description: "fresh-install: users must install this release fresh. upgradable: it can be upgraded to in place from the releases in upgradable_from. See contract/MAINTAINING.md"
         type: choice
         options:
           - fresh-install
@@ -149,17 +149,22 @@ jobs:
       # The record holds the fingerprints of the release's contract and the
       # window and upgrade path chosen above; make gen-contract then publishes
       # them in contract/VERSION and on the CRDs the tag ships. A re-run of a
-      # release keeps the record its first run wrote. See contract/README.md.
+      # release keeps the record its first run wrote. Every v2 release gets a
+      # record, so a release branch without the contract fails: one cut
+      # before it, such as release-2.0, gets it when main is merged into it
+      # to prepare its next pre-release. See contract/MAINTAINING.md.
       - name: Record the release in the contract
         id: record
         if: steps.validate.outputs.record == 'true'
         run: |
           set -euo pipefail
 
-          if [[ ! -d contract/releases ]]; then
-            echo "::notice::$BRANCH_NAME predates contract records, so $VERSION gets none."
-            exit 0
-          fi
+          for path in contract/VERSION contract/releases; do
+            if [[ ! -e $path ]]; then
+              echo "::error::$BRANCH_NAME has no $path, so $VERSION cannot be recorded, though every v2 release is. Merge main into $BRANCH_NAME, as RELEASE.md says to when preparing a pre-release of a new major line, then run the release again."
+              exit 1
+            fi
+          done
           if [[ -f contract/releases/$VERSION.yaml ]]; then
             echo "::notice::contract/releases/$VERSION.yaml exists already: this run repeats release $VERSION and keeps its record."
             echo "rerun=true" >> "$GITHUB_OUTPUT"
@@ -287,20 +292,23 @@ jobs:
           tag=v$VERSION
           git fetch --no-tags --depth=1 origin "refs/tags/$tag:refs/tags/$tag"
           if ! git cat-file -e "$tag:$record" 2>/dev/null; then
-            echo "::notice::$tag carries no contract record, so main has nothing to learn."
-            exit 0
+            branch="release-$(echo "$VERSION" | cut -d. -f1-2)"
+            echo "::error::$tag carries no contract record, $record, though every v2 release has one, so main cannot learn it. Merge main into $branch, as RELEASE.md says to when preparing a pre-release of a new major line, and release a new version."
+            exit 1
           fi
 
           git checkout -B "$PR_BRANCH"
           git show "$tag:$record" > "$record"
-          tag_schemes=$(sed -n 's/^  \(c[1-9][0-9]*\):.*$/\1/p' "$record" | paste -sd, -)
+          # The schemes of the record as the tag carries it, read from the
+          # tag's objects.
+          tag_schemes=$(go run ./hack/gen-contract show record-schemes -version "$VERSION" -ref "$tag")
           # The record holds the fingerprints the release branch computed. When
           # main computes them under another scheme, it could not compare with
           # the record, so rebaseline adds main's, computed from the tag, which
           # is here. It changes nothing when the record holds them already.
           go run ./hack/gen-contract rebaseline -version "$VERSION"
           make gen-contract
-          main_scheme=$(sed -n 's/^\tFingerprintScheme = "\(.*\)"$/\1/p' contract/zz_generated.version.go)
+          main_scheme=$(go run ./hack/gen-contract show scheme)
           if [[ -z $(git status --porcelain) ]]; then
             echo "::notice::main has the record of release $VERSION already."
             exit 0
@@ -327,7 +335,7 @@ jobs:
 
           $schemes
 
-          main works out its contract version from the latest release it has a record of: while its contract is the one $VERSION was cut with, main has the contract version of $VERSION, and once it differs, the development value after $VERSION. Until this is merged, main keeps counting from the release before. See \`contract/README.md\`.
+          main works out its contract version from the latest release it has a record of: while its contract is the one $VERSION was cut with, main has the contract version of $VERSION, and once it differs, the development value after $VERSION. Until this is merged, main keeps counting from the release before. See \`contract/MAINTAINING.md\`.
 
           Opened by the [Release workflow]($RUN_URL), with auto-merge on: required reviews and checks still apply. Merge it as it is: the record must stay the one the tag carries, which CI checks. If another record pull request merges first, re-run the workflow's "Record the release on main" job, which starts again from main.
           EOF
@@ -341,13 +349,14 @@ jobs:
           # The record moves main's contract version by itself, so the
           # contract decision is not a reviewer's to make: the label says what
           # contract/VERSION says: a development value, R.next after a
-          # pre-release R or X.Y.0-alpha.0 after a release, as
-          # contract.IsDevelopment decides, means the contract changed. A
-          # re-run may flip it, so the other label goes.
-          version=$(cat contract/VERSION)
+          # pre-release R or X.Y.0-alpha.0 after a release, as gen-contract
+          # show development decides by the rule of contract.IsDevelopment,
+          # means the contract changed. A re-run may flip it, so the other
+          # label goes.
+          development=$(go run ./hack/gen-contract show development)
           label=no-contract-change
           opposite=contract-change
-          if [[ $version == *-* && ( .${version#*-} == *.next || ${version#*-} == alpha.0 ) ]]; then
+          if [[ $development == true ]]; then
             label=contract-change
             opposite=no-contract-change
           fi
