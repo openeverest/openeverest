@@ -191,13 +191,15 @@ func runCommand(root, name string, args []string, stdout, notices io.Writer) (st
 	}
 }
 
-// run writes the window of the core at root to the contract package.
+// run writes the window of the core at root to the contract package, and
+// stamps it on the manifests core ships.
 func run(root string) error {
 	return generate(root, io.Discard)
 }
 
 // generate writes the window of the core at root to the contract package,
-// and says on notices why the contract version is a development value.
+// stamps it on the manifests core ships, and says on notices why the
+// contract version is a development value.
 func generate(root string, notices io.Writer) error {
 	w, c, err := compute(root)
 	if err != nil {
@@ -222,7 +224,9 @@ func generate(root string, notices io.Writer) error {
 			return err
 		}
 	}
-	return nil
+	// The fingerprints ignore the metadata of manifests, so stamping them
+	// does not change the window they were worked out from.
+	return stampFiles(root, w)
 }
 
 // load returns the release records and the contract fingerprints of the

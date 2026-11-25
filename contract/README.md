@@ -13,6 +13,7 @@ Between releases, `Version` is a development value that sorts after the last rel
 ## Stamping and checking
 
 - **Stamp.** Extension tooling stamps every build with the `Version` of the core it was built against, as `VersionAnnotation` on the objects core interprets and in the extension's `Chart.yaml`. Extensions never pick a number, and there are no version ranges.
-- **Check.** Every enforcement point checks `MinVersion ≤ stamp ≤ Version` by SemVer 2.0.0 precedence, with `Check`, or with `Window.Check` on a window `WindowFromAnnotations` reads. A reader that sees several windows takes their `Intersect`.
+- **Read the window.** Core publishes its window as `VersionAnnotation`, `MinVersionAnnotation` and `UpgradableFromAnnotation` on every CRD it serves. The CRDs are what a cluster actually runs, so read it there ([why](MAINTAINING.md#where-core-publishes-its-window)).
+- **Check.** Every enforcement point checks `MinVersion ≤ stamp ≤ Version` by SemVer 2.0.0 precedence, with `Check`, or with `Window.Check` on a window `WindowFromAnnotations` reads. A reader that sees several CRDs takes the `Intersect` of their windows.
 
 How core works out the version, what the other files here are, what the release records hold and when a pull request needs a decision label: [MAINTAINING.md](MAINTAINING.md).

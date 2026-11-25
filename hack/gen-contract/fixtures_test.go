@@ -249,6 +249,7 @@ func testRepo() map[string]string {
 		"api/openapi/crds.gen.yaml":                         testCRDsOpenAPI,
 		"config/backupstorageclasses/s3.yaml":               testBackupStorageClass,
 		"config/backupstorageclasses/kustomization.yaml":    "resources:\n- s3.yaml\n",
+		"backupstorageclasses/s3/class.yaml":                testBackupStorageClass,
 		"contract/keys.go":                                  testContractGo,
 		"contract/check_test.go":                            "package contract\n\nfunc TestX() {}\n",
 		vectorsFile:                                         testVectors,

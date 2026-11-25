@@ -58,9 +58,35 @@ func TestRun(t *testing.T) {
 	assert.NotContains(t, src, "Fingerprints")
 	assert.NotContains(t, src, "UpgradableFrom")
 
-	// The generated file is not an input, so running again changes nothing.
+	const (
+		wantCRDMetadata = "  annotations:\n" +
+			"    controller-gen.kubebuilder.io/version: v0.18.0\n" +
+			"    openeverest.io/contract-version: 2.0.0-alpha.1.next\n" +
+			"    openeverest.io/min-contract-version: 2.0.0-alpha.1\n" +
+			"    openeverest.io/upgradable-from: \"\"\n" +
+			"  name: widgets.test.openeverest.io\n"
+		wantClassMetadata = "metadata:\n" +
+			"  annotations:\n" +
+			"    openeverest.io/contract-version: 2.0.0-alpha.1.next\n" +
+			"  name: s3\n"
+	)
+	assert.Contains(t, readFile(t, root, crdPath), wantCRDMetadata)
+	for _, class := range []string{classPath, "backupstorageclasses/s3/class.yaml"} {
+		assert.Contains(t, readFile(t, root, class), wantClassMetadata, class)
+	}
+	assert.Equal(t, "resources:\n- s3.yaml\n", readFile(t, root, "config/backupstorageclasses/kustomization.yaml"))
+
+	// Neither the generated file nor the stamps are inputs, so running again
+	// changes nothing.
+	files := testRepo()
+	for name := range files {
+		files[name] = readFile(t, root, name)
+	}
 	require.NoError(t, run(root))
 	assert.Equal(t, src, readFile(t, root, outputPath))
+	for name, content := range files {
+		assert.Equal(t, content, readFile(t, root, name), name)
+	}
 }
 
 // TestRunRelease checks the window of a core whose contract is the one its
@@ -76,6 +102,10 @@ func TestRunRelease(t *testing.T) {
 	assert.Empty(t, notices.String())
 	assert.Equal(t, "2.0.0-alpha.2\n", readFile(t, root, versionFile))
 	assert.Equal(t, "2.0.0-alpha.1\n", readFile(t, root, minVersionFile))
+	const wantReleaseStamp = "    openeverest.io/contract-version: 2.0.0-alpha.2\n" +
+		"    openeverest.io/min-contract-version: 2.0.0-alpha.1\n" +
+		"    openeverest.io/upgradable-from: 2.0.0-alpha.1,2.0.0-alpha.1.1\n"
+	assert.Contains(t, readFile(t, root, crdPath), wantReleaseStamp)
 
 	// A pre-release may change the contract, so a release branch after one
 	// passes either way.
@@ -89,6 +119,10 @@ func TestRunRelease(t *testing.T) {
 	notices.Reset()
 	require.NoError(t, generate(root, &notices))
 	assert.Equal(t, "2.0.0-alpha.2.next\n", readFile(t, root, versionFile))
+	const wantDevelopmentStamp = "    openeverest.io/contract-version: 2.0.0-alpha.2.next\n" +
+		"    openeverest.io/min-contract-version: 2.0.0-alpha.1\n" +
+		"    openeverest.io/upgradable-from: \"\"\n"
+	assert.Contains(t, readFile(t, root, crdPath), wantDevelopmentStamp)
 	assert.Equal(t, "gen-contract: contract version 2.0.0-alpha.2.next: the contract changed since release 2.0.0-alpha.2: "+
 		"changes differs from its record (fingerprint scheme "+scheme+"); make contract-diff shows how\n", notices.String(),
 	)
@@ -149,6 +183,10 @@ func TestRunErrors(t *testing.T) {
 	files = testRepo()
 	delete(files, headerFile)
 	require.ErrorIs(t, run(writeRepo(t, files)), os.ErrNotExist)
+
+	files = testRepo()
+	delete(files, "backupstorageclasses/s3/class.yaml")
+	require.ErrorContains(t, run(writeRepo(t, files)), "backupstorageclasses/*/class.yaml: no manifest to stamp")
 
 	// The latest record has no fingerprints under the current scheme:
 	// nothing is written, and the error says how to add them.
@@ -214,8 +252,8 @@ func TestImportsNothingFromThisModule(t *testing.T) {
 	}
 }
 
-// TestGeneratedFilesAreUpToDate fails when the contract changed without
-// make gen-contract.
+// TestGeneratedFilesAreUpToDate fails when the contract changed, or a
+// stamped manifest was generated again, without make gen-contract.
 func TestGeneratedFilesAreUpToDate(t *testing.T) {
 	t.Parallel()
 
@@ -227,6 +265,20 @@ func TestGeneratedFilesAreUpToDate(t *testing.T) {
 	assert.Equal(t, string(src), readFile(t, root, outputPath), "run make gen-contract")
 	assert.Equal(t, w.version+"\n", readFile(t, root, versionFile), "run make gen-contract")
 	assert.Equal(t, w.minVersion+"\n", readFile(t, root, minVersionFile), "run make gen-contract")
+	for _, s := range stamps {
+		files, err := glob(root, s.pattern)
+		require.NoError(t, err)
+		require.NotEmpty(t, files, s.pattern)
+		for _, file := range files {
+			if filepath.Base(file) == "kustomization.yaml" {
+				continue
+			}
+			data := readFile(t, root, file)
+			stamped, err := stampManifest([]byte(data), s.annotations(w))
+			require.NoError(t, err, file)
+			assert.Equal(t, string(stamped), data, "%s: run make gen-contract", file)
+		}
+	}
 }
 
 // TestAnnotator checks that under GitHub Actions a notice becomes a
