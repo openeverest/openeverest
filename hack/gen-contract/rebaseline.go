@@ -32,7 +32,8 @@ import (
 // the tag of a release, to the record of the release. It never changes
 // anything else: a record holds what the release was cut with, so a new
 // scheme only adds the digests it computes from the same tree, as go.sum
-// adds a hash. It refuses to change digests the record holds already.
+// adds a hash. It refuses to change digests the record holds already, and
+// to leave out an input the record holds under another scheme.
 func runRebaseline(root string, args []string) (string, error) {
 	flags := flag.NewFlagSet("rebaseline", flag.ContinueOnError)
 	version := flags.String("version", "", "the release whose record to rebaseline, such as 2.1.0")
@@ -71,6 +72,15 @@ func runRebaseline(root string, args []string) (string, error) {
 			recordPath(*version), scheme, *tag, strings.Join(differentInputs(recorded, fps), ", "),
 		)
 	}
+	if dropped := droppedInputs(r, fps); len(dropped) > 0 {
+		return "", fmt.Errorf("%s holds %s, which scheme %s does not compute from %s: "+
+			"comparisons under %s would skip %s, so a change to %s would go unnoticed. "+
+			"A new scheme must still find every input at the tags of earlier releases: "+
+			"when a file moves, name its new path next to the old one. See contract/MAINTAINING.md",
+			recordPath(*version), strings.Join(dropped, ", "), scheme, *tag, scheme,
+			plural(len(dropped), "it", "them"), plural(len(dropped), "it", "them"),
+		)
+	}
 	updated, err := addScheme(data, r, scheme, fps)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", recordPath(*version), err)
@@ -85,6 +95,21 @@ func runRebaseline(root string, args []string) (string, error) {
 	return fmt.Sprintf("added the fingerprints of %s under scheme %s to %s: %s",
 		*tag, scheme, recordPath(*version), strings.Join(sortedInputs(fps), ", "),
 	), nil
+}
+
+// droppedInputs returns the inputs the record r holds under some scheme,
+// as fingerprints.<scheme>.<input>, that fps, computed under the current
+// scheme from the tag of r, lacks.
+func droppedInputs(r release, fps map[string]string) []string {
+	var dropped []string
+	for _, s := range slices.Sorted(maps.Keys(r.Fingerprints)) {
+		for _, name := range sortedInputs(r.Fingerprints[s]) {
+			if _, ok := fps[name]; !ok {
+				dropped = append(dropped, "fingerprints."+s+"."+name)
+			}
+		}
+	}
+	return dropped
 }
 
 // readRecordOf returns the content of the record file of the release v,

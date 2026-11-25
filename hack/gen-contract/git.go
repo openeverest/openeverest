@@ -75,11 +75,11 @@ func showFile(root, ref, file string) ([]byte, bool, error) {
 }
 
 // extractInputs writes the files that hold the artifacts of every input in
-// the tree of ref to a new temporary directory, and returns it with a
-// function that removes it. The fingerprints of that directory are those
-// of ref.
+// the tree of ref to a new temporary directory, with the go.mod that names
+// the import paths of its Go packages, and returns it with a function that
+// removes it. The fingerprints of that directory are those of ref.
 func extractInputs(root, ref string) (string, func(), error) {
-	prefixes := inputPrefixes()
+	prefixes := append(inputPrefixes(), goModFile)
 	listing, err := git(root, append([]string{"ls-tree", "-r", "-z", "--full-tree", ref, "--"}, prefixes...)...)
 	if err != nil {
 		return "", nil, err

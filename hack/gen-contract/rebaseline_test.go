@@ -182,7 +182,10 @@ func TestRebaselineAbsentInputs(t *testing.T) {
 	for _, f := range []string{contractPath, "contract/check_test.go", "contract/testdata/order.json", changesFile} {
 		delete(files, f)
 	}
-	files[recordPath("2.1.0")] = olderRecord()
+	// The older scheme found no Go API at the tag either.
+	files[recordPath("2.1.0")] = recordWith("2.1.0", "2.1.0", "2.0.0", "upgradable", "[2.0.0]",
+		map[string]map[string]string{otherScheme: with(digests(fpA), "go-api", "")},
+	)
 	root := gitRepo(t, files, "v2.1.0")
 	_, err := execute([]string{"-root", root, "rebaseline", "-version", "2.1.0"}, io.Discard, io.Discard)
 	require.NoError(t, err)
@@ -206,6 +209,23 @@ func TestRebaselineAbsentInputs(t *testing.T) {
 	writeFile(t, root, changesFile, testChanges+"- #7: a change.\n")
 	require.NoError(t, generate(root, io.Discard))
 	assert.Equal(t, "2.2.0-alpha.0\n", readFile(t, root, versionFile))
+}
+
+// TestRebaselineKeepsEveryInput checks that rebaseline refuses a scheme
+// that does not find, at the tag of a release, an input its record holds
+// under another scheme: comparisons under it would skip that input.
+func TestRebaselineKeepsEveryInput(t *testing.T) {
+	t.Parallel()
+
+	files := testRepo()
+	delete(files, contractPath)
+	files[recordPath("2.1.0")] = olderRecord()
+	root := gitRepo(t, files, "v2.1.0")
+	_, err := execute([]string{"-root", root, "rebaseline", "-version", "2.1.0"}, io.Discard, io.Discard)
+	require.ErrorContains(t, err, "contract/releases/2.1.0.yaml holds fingerprints."+otherScheme+".go-api, which scheme "+scheme+
+		" does not compute from v2.1.0: comparisons under "+scheme+" would skip it",
+	)
+	assert.Equal(t, olderRecord(), readFile(t, root, recordPath("2.1.0")), "the record is left as it is")
 }
 
 func TestRebaselineErrors(t *testing.T) {

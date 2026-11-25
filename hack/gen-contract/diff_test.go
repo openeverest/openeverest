@@ -158,7 +158,7 @@ func TestDiffRaw(t *testing.T) {
 	require.NoError(t, err)
 	fps := testFingerprints(t, files)
 	assert.True(t, strings.HasPrefix(out.String(), "### crds: "+fps["crds"]+", "))
-	assert.True(t, strings.HasSuffix(out.String(), "### changes: "+fps["changes"]+", 20 bytes\ncontract/CHANGES 0\n\n"))
+	assert.True(t, strings.HasSuffix(out.String(), "### changes: "+fps["changes"]+", 11 bytes\nchanges 0\n\n"))
 
 	delete(files, httpAPIPath)
 	delete(files, crdsGenPath)

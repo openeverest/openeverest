@@ -237,6 +237,14 @@ func TestFingerprintNormalisation(t *testing.T) {
 			t.Helper()
 			replace(t, f, contractPath, "func helper() {}", "func Helper() {}")
 		}},
+		{name: "Go module path", input: "go-api", mutate: func(t *testing.T, f map[string]string) {
+			t.Helper()
+			replace(t, f, goModFile, "openeverest/v2", "openeverest/v3")
+		}},
+		{name: "Go module requirements", mutate: func(t *testing.T, f map[string]string) {
+			t.Helper()
+			f[goModFile] += "\nrequire github.com/blang/semver/v4 v4.0.0\n"
+		}},
 		{name: "Go subpackage", input: "go-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			f["contract/references/errors.go"] = "package references\n\nimport \"errors\"\n\nvar ErrNotFound = errors.New(\"not found\")\n"
@@ -309,6 +317,12 @@ func TestFingerprintErrors(t *testing.T) {
 		{name: "CHANGES entry without its bullet", wantErr: `changes: contract/CHANGES: line 4 is neither a comment`, mutate: func(f map[string]string) {
 			f[changesFile] += "#1234: a change.\n"
 		}},
+		{name: "Go packages without a module", wantErr: "go-api: contract/...: the import path of contract: open ", mutate: func(f map[string]string) {
+			delete(f, goModFile)
+		}},
+		{name: "go.mod without a module", wantErr: "the import path of contract: go.mod declares no module", mutate: func(f map[string]string) {
+			f[goModFile] = "go 1.27\n"
+		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -319,6 +333,58 @@ func TestFingerprintErrors(t *testing.T) {
 			_, err := fingerprints(writeRepo(t, files))
 			require.ErrorContains(t, err, tt.wantErr)
 		})
+	}
+}
+
+// TestEntryKeys checks that every entry is keyed by what it is, not by the
+// path of its file, so moving a file changes no digest once its part names
+// the new path; only a Go package is keyed by where it is, its import
+// path, which is part of its API.
+func TestEntryKeys(t *testing.T) {
+	t.Parallel()
+
+	root := writeRepo(t, testRepo())
+	want := map[string][]string{
+		"crds":     {"widgets.test.openeverest.io"},
+		"http-api": {"crd-schemas", "http-api"},
+		"go-api":   {"github.com/openeverest/openeverest/v2/contract"},
+		"changes":  {changesKey},
+	}
+	for _, in := range inputs {
+		entries, err := in.entries(root)
+		require.NoError(t, err)
+		var keys []string
+		for _, e := range entries {
+			keys = append(keys, e.key)
+		}
+		assert.Equal(t, want[in.name], keys, in.name)
+	}
+
+	// The same artifacts at other paths.
+	moved := map[string]string{goModFile: testGoMod}
+	for from, to := range map[string]string{
+		crdPath:     "config/crd/test.yaml",
+		httpAPIPath: "api/http-api.yaml",
+		crdsGenPath: "api/crds.gen.yaml",
+		changesFile: "CHANGES",
+	} {
+		moved[to] = testRepo()[from]
+	}
+	movedRoot := writeRepo(t, moved)
+	for _, tt := range []struct {
+		entries  func(root, pattern string) ([]entry, error)
+		from, to string
+	}{
+		{entries: yamlEntries(canonicalCRD), from: crdPath, to: "config/crd/*.yaml"},
+		{entries: yamlEntries(canonicalOpenAPI("http-api")), from: httpAPIPath, to: "api/http-api.yaml"},
+		{entries: yamlEntries(canonicalOpenAPI("crd-schemas")), from: crdsGenPath, to: "api/crds.gen.yaml"},
+		{entries: changesEntries, from: changesFile, to: "CHANGES"},
+	} {
+		before, err := tt.entries(root, tt.from)
+		require.NoError(t, err)
+		after, err := tt.entries(movedRoot, tt.to)
+		require.NoError(t, err)
+		assert.Equal(t, stream(before), stream(after), "%s moved to %s", tt.from, tt.to)
 	}
 }
 

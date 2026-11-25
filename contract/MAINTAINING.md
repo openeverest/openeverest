@@ -31,7 +31,7 @@ Nobody bumps the version by hand. `make gen-contract`, part of `make gen`, works
 
 It does so in two steps.
 
-**1. Fingerprint the contract.** [`hack/gen-contract`](../hack/gen-contract) hashes the contract artifacts, which its `inputs` declare once, grouped into logical inputs. An input is named after what it is, not where it lives, so moving a file does not rename it:
+**1. Fingerprint the contract.** [`hack/gen-contract`](../hack/gen-contract) hashes the contract artifacts, which its `inputs` declare once, grouped into logical inputs. An input is named after what it is, not where it lives:
 
 | Input | Covers |
 |---|---|
@@ -52,7 +52,7 @@ It first strips what does not change the contract, so a digest changes when its 
 - in Go: comments, layout, parameter names, function bodies, unexported identifiers and test files;
 - in `CHANGES`: comments and blank lines.
 
-Each artifact then has a canonical form, compact JSON with sorted keys and exact numbers, or one line of tokens per Go declaration, or one line per change. The **canonical stream** of an input is its artifacts in order of name, each as its name, a space, the length of its canonical form, a newline, the form and a newline. The **digest** of the input is `sha256:` and the SHA-256 of that stream, the same on every machine. An input none of whose artifacts exist, as at a tag that predates it, has no digest, except `changes`: a tree without `CHANGES` has the empty log.
+Each artifact then has a canonical form, compact JSON with sorted keys and exact numbers, or one line of tokens per Go declaration, or one line per change, and a key that names it by what it is rather than by the path of its file: a CRD by its name (`instances.core.openeverest.io`), the HTTP API and the CRD schemas it refers to as `http-api` and `crd-schemas`, the log as `changes`, and a Go package by its import path (`github.com/openeverest/openeverest/v2/contract`), the module path in `go.mod` and its directory, since the import path is part of its API. Moving a file therefore changes no digest, as long as the input still finds it: name the new path in `inputs` next to the old one, which the tags of earlier releases hold, so that `verify` and `rebaseline` still find it there. Two artifacts with the same key in one input fail. The **canonical stream** of an input is its artifacts in order of key, each as its key, a space, the length of its canonical form, a newline, the form and a newline. The **digest** of the input is `sha256:` and the SHA-256 of that stream, the same on every machine. An input none of whose artifacts exist, as at a tag that predates it, has no digest, except `changes`: a tree without `CHANGES` has the empty log.
 
 **2. Compare with the latest release.** Every core release has a [record](#release-records) in [`releases/`](releases), and the latest record is the one with the highest `version`. The generator compares the digests of the tree with those the latest record holds under the current [fingerprint scheme](#fingerprint-schemes):
 
@@ -125,7 +125,7 @@ A scheme, `c1` today, is the set of inputs, what each strips and the canonical s
 go run ./hack/gen-contract rebaseline -version 2.1.0   # -tag v2.1.0 by default
 ```
 
-`rebaseline` computes the digests from the tree of the release tag, reading only the objects of that tag, so a tag fetched alone at depth 1 is enough. It adds `fingerprints.<scheme>` to the record and changes nothing else; it refuses when the record holds the scheme already with other digests, and it refuses the seed. An input absent from the tag gets no digest, and a missing `CHANGES` the empty log.
+`rebaseline` computes the digests from the tree of the release tag, reading only the objects of that tag, so a tag fetched alone at depth 1 is enough. It adds `fingerprints.<scheme>` to the record and changes nothing else; it refuses when the record holds the scheme already with other digests, when the record holds an input, under any scheme, that the new scheme does not find at the tag, since comparisons under it would skip that input, and it refuses the seed. An input absent from the tag gets no digest, and a missing `CHANGES` the empty log.
 
 Only `main` allocates a scheme. A release branch pins the generator's dependencies, or cherry-picks `main`'s generator together with its scheme, so two branches never mean different things by the same name. A pull request that adds an input group also adds its paths to the contract-adjacent block of [`.github/CODEOWNERS`](../.github/CODEOWNERS); `TestInputsAreContractAdjacent` checks it.
 

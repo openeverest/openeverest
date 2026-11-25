@@ -205,6 +205,8 @@ type: fresh-install
 upgradableFrom: []
 `
 
+const testGoMod = "module github.com/openeverest/openeverest/v2\n\ngo 1.27\n"
+
 const testChanges = `# Changes no artifact shows.
 #
 # - #1: an example, in a comment.
@@ -216,6 +218,7 @@ const testChanges = `# Changes no artifact shows.
 func testRepo() map[string]string {
 	return map[string]string{
 		headerFile: testHeader,
+		goModFile:  testGoMod,
 		"config/crd/bases/test.openeverest.io_widgets.yaml": testCRD,
 		"config/crd/bases/crds.go":                          "package bases\n",
 		"api/openapi/http-api.yaml":                         testHTTPAPI,

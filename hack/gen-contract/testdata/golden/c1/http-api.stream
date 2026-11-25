@@ -1,4 +1,4 @@
-api/openapi/crds.gen.yaml 168
+crd-schemas 168
 {"components":{"schemas":{"Gadget":{"properties":{"size":{"type":"integer"}},"type":"object"}}},"info":{"title":"Test CRD Schemas","version":"1.0.0"},"openapi":"3.0.2"}
-api/openapi/http-api.yaml 439
+http-api 439
 {"components":{"schemas":{"Widget":{"properties":{"name":{"type":"string"},"summary":{"type":"string"}},"type":"object"}}},"info":{"title":"Test API","version":"1.0.0"},"openapi":"3.0.0","paths":{"/widgets":{"get":{"operationId":"listWidgets","parameters":[{"in":"query","name":"limit","required":false,"schema":{"type":"integer"}}],"responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/Widget"}}}}}}}}}

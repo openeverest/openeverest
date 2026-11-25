@@ -54,7 +54,11 @@ const digestPrefix = "sha256:"
 
 // An input is a logical part of the contract, which a release record
 // fingerprints under its name. The name says what it is, not where it
-// lives, so moving a file does not rename an input.
+// lives, and so does the key of each of its entries: a CRD is keyed by its
+// name, a document by what it holds, and a Go package by its import path,
+// which is part of its API. Moving a file therefore changes no digest, as
+// long as the input still finds it: its part then names the new path next
+// to the old one, which the tags of earlier releases hold.
 type input struct {
 	name  string
 	parts []part
@@ -87,8 +91,8 @@ var inputs = []input{
 	{name: "crds", parts: []part{{pattern: "config/crd/bases/*.yaml", entries: yamlEntries(canonicalCRD)}}},
 	// The HTTP API, and the CRD-derived schemas it refers to.
 	{name: "http-api", parts: []part{
-		{pattern: "api/openapi/http-api.yaml", entries: yamlEntries(canonicalOpenAPI)},
-		{pattern: "api/openapi/crds.gen.yaml", entries: yamlEntries(canonicalOpenAPI)},
+		{pattern: "api/openapi/http-api.yaml", entries: yamlEntries(canonicalOpenAPI("http-api"))},
+		{pattern: "api/openapi/crds.gen.yaml", entries: yamlEntries(canonicalOpenAPI("crd-schemas"))},
 	}},
 	// The Go identifiers and rules both sides link.
 	{name: "go-api", parts: []part{{pattern: "contract/...", entries: goAPIEntries}}},
@@ -159,7 +163,8 @@ func sortedInputs(digests map[string]string) []string {
 
 // An entry is the canonical form of one artifact.
 type entry struct {
-	// key names the artifact, uniquely within its input.
+	// key names the artifact, uniquely within its input, by what it is
+	// rather than by the path of its file.
 	key  string
 	data []byte
 	// json is whether data is JSON, which a diff indents.
@@ -438,14 +443,17 @@ var (
 	openAPIValues = map[string]bool{"default": true, "enum": true, "const": true}
 )
 
-// canonicalOpenAPI returns an OpenAPI document without documentation:
+// canonicalOpenAPI returns the canonical form of an OpenAPI document,
+// keyed by key: the document without documentation, which is
 // descriptions, summaries and examples, wherever they are keywords.
-func canonicalOpenAPI(file string, obj map[string]any) (string, any, error) {
-	if _, ok := obj["openapi"]; !ok {
-		return "", nil, errors.New("not an OpenAPI document")
+func canonicalOpenAPI(key string) canonicalObject {
+	return func(_ string, obj map[string]any) (string, any, error) {
+		if _, ok := obj["openapi"]; !ok {
+			return "", nil, errors.New("not an OpenAPI document")
+		}
+		stripOpenAPI(obj, false)
+		return key, obj, nil
 	}
-	stripOpenAPI(obj, false)
-	return file, obj, nil
 }
 
 func stripOpenAPI(node any, names bool) {
@@ -476,8 +484,12 @@ func stripOpenAPI(node any, names bool) {
 	}
 }
 
-// changesFile is the log of contract changes no artifact shows.
-const changesFile = "contract/CHANGES"
+// changesFile is the log of contract changes no artifact shows, and
+// changesKey the key of its entry.
+const (
+	changesFile = "contract/CHANGES"
+	changesKey  = "changes"
+)
 
 // changeEntry is an entry of the CHANGES log: "- #<pull request>: <what
 // changed>", on a line of its own.
@@ -495,7 +507,7 @@ func changesEntries(root, pattern string) ([]entry, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []entry{{key: pattern, data: []byte(strings.Join(changes, "\n"))}}, nil
+	return []entry{{key: changesKey, data: []byte(strings.Join(changes, "\n"))}}, nil
 }
 
 // parseChanges returns the entries of a CHANGES log, without the "- " and

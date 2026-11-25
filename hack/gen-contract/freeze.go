@@ -256,6 +256,11 @@ func checkRecord(root, file, v string) error {
 				file, s, tag, strings.Join(differentInputs(r.Fingerprints[s], fps), ", "),
 			))
 		}
+		if dropped := droppedInputs(r, fps); len(dropped) > 0 {
+			errs = append(errs, fmt.Errorf("%s: fingerprints.%s leaves out %s, which rebaseline refuses: comparisons under %s would skip %s",
+				file, s, strings.Join(dropped, ", "), s, plural(len(dropped), "it", "them"),
+			))
+		}
 	}
 	return errors.Join(errs...)
 }

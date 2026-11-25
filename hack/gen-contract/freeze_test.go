@@ -152,6 +152,25 @@ func TestCheckRecords(t *testing.T) {
 	}
 }
 
+// TestCheckRecordsKeepEveryInput checks that a new scheme added to a
+// record must hold every input the record holds under another scheme, as
+// rebaseline requires.
+func TestCheckRecordsKeepEveryInput(t *testing.T) {
+	t.Parallel()
+
+	files := testRepo()
+	delete(files, contractPath)
+	files[recordPath("2.1.0")] = olderRecord()
+	root := gitRepo(t, files, "v2.1.0")
+	fps := testFingerprints(t, files)
+	require.NotContains(t, fps, "go-api")
+	writeFile(t, root, recordPath("2.1.0"), recordWith("2.1.0", "2.1.0", "2.0.0", "upgradable", "[2.0.0]",
+		map[string]map[string]string{otherScheme: digests(fpA), scheme: fps},
+	))
+	_, _, err := checkRecords(t, root, "M\t"+recordPath("2.1.0"))
+	require.ErrorContains(t, err, "fingerprints."+scheme+" leaves out fingerprints."+otherScheme+".go-api, which rebaseline refuses")
+}
+
 func TestCheckRecordsTags(t *testing.T) {
 	t.Parallel()
 

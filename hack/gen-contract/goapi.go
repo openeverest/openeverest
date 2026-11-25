@@ -31,13 +31,18 @@ import (
 	"strings"
 )
 
+// goModFile declares the module of the packages go-api covers: its module
+// path and the directory of a package make the import path of the package.
+const goModFile = "go.mod"
+
 // goAPIEntries returns the exported API of every Go package in a directory
-// pattern such as contract/...: one entry per package, holding one line per
-// exported declaration. A declaration is reduced to what a caller depends
-// on, so documentation, layout, parameter names, function bodies and
-// unexported identifiers do not count. The constants this command
-// generates are left out, since they are derived from the fingerprints. A
-// directory that does not exist, as at a tag that predates it, has none.
+// pattern such as contract/...: one entry per package, keyed by its import
+// path and holding one line per exported declaration. A declaration is
+// reduced to what a caller depends on, so documentation, layout, parameter
+// names, function bodies and unexported identifiers do not count. The
+// constants this command generates are left out, since they are derived
+// from the fingerprints. A directory that does not exist, as at a tag that
+// predates it, has none.
 func goAPIEntries(root, pattern string) ([]entry, error) {
 	dir, ok := strings.CutSuffix(pattern, "/...")
 	if !ok {
@@ -48,6 +53,7 @@ func goAPIEntries(root, pattern string) ([]entry, error) {
 	if _, err := os.Stat(top); errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
+	module := ""
 	err := filepath.WalkDir(top, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -70,10 +76,34 @@ func goAPIEntries(root, pattern string) ([]entry, error) {
 		if err != nil {
 			return err
 		}
-		entries = append(entries, entry{key: filepath.ToSlash(rel), data: []byte(strings.Join(decls, "\n"))})
+		if module == "" {
+			if module, err = modulePath(root); err != nil {
+				return fmt.Errorf("the import path of %s: %w", filepath.ToSlash(rel), err)
+			}
+		}
+		entries = append(entries, entry{key: module + "/" + filepath.ToSlash(rel), data: []byte(strings.Join(decls, "\n"))})
 		return nil
 	})
 	return entries, err
+}
+
+// modulePath returns the module path the go.mod at root declares.
+func modulePath(root string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(root, goModFile)) //nolint:gosec // the go.mod of this repository
+	if err != nil {
+		return "", err
+	}
+	for line := range strings.Lines(string(data)) {
+		fields := strings.Fields(line)
+		if len(fields) < 2 || fields[0] != "module" {
+			continue
+		}
+		if p, err := strconv.Unquote(fields[1]); err == nil {
+			return p, nil
+		}
+		return fields[1], nil
+	}
+	return "", fmt.Errorf("%s declares no module", goModFile)
 }
 
 // packageAPI returns the exported declarations of the Go package in dir,
