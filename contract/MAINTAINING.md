@@ -7,7 +7,7 @@ This is for core contributors, reviewers and release managers: how the contract 
 | File | Kind | Holds |
 |---|---|---|
 | `*.go` | hand-edited | the library extensions import |
-| `zz_generated.version.go` | generated | `Version`, `MinVersion`, `FingerprintScheme`, `Fingerprints` and `UpgradableFrom` |
+| `zz_generated.version.go` | generated | `Version` and `MinVersion` |
 | `VERSION`, `MIN_VERSION` | generated | `Version` and `MinVersion`, for tools that read them from a git ref without building Go |
 | `vectors.json` | hand-edited | the cases of `OrderVectors`, which every other implementation of `Check`, `IsDevelopment` and `AcknowledgementHolds` runs, such as provider-sdk's Helm template, so that it decides as they do |
 | `CHANGES` | hand-edited | the contract changes no artifact shows |
@@ -40,7 +40,9 @@ Nobody bumps the version by hand. `make gen-contract`, part of `make gen`, works
 |---|---|
 | `VERSION` | `Version`, for tools that read it from a git ref without building Go |
 | `MIN_VERSION` | `MinVersion` |
-| `zz_generated.version.go` | `Version`, `MinVersion`, `FingerprintScheme`, `Fingerprints`, `UpgradableFrom` |
+| `zz_generated.version.go` | `Version`, `MinVersion` |
+
+The package exports the window and nothing else that is generated, because nothing that imports it needs more. The fingerprints of the tree and their scheme belong to the generator, which computes them on every run, and to the release records, which keep those of each release; generated into the package, they would also make any two pull requests that change the same input conflict. The releases a core can be upgraded from describe the release, not the running core, so they travel with the release's manifests, where the tool that upgrades to it reads them.
 
 A workflow that needs a fact whose reading takes a rule or parsing asks the generator rather than repeat them: `go run ./hack/gen-contract show version|min-version|scheme|development|record-schemes [-version V] [-ref R]` prints the version or the minimum of the working tree or of a ref, the fingerprint scheme the generator computes, whether a version is a development value, or the schemes a release record holds, read from the objects of a ref as `rebaseline` reads a tag. Only on a v1 ref (`v1.x`, `release-1.Y`, a `v1` tag) does a missing file print nothing; on any other it fails, saying how the branch gets the contract (see [Branches without the contract](#branches-without-the-contract)). Reading `VERSION` takes neither, so tests and workflows that only need it read it from a ref with `git show <ref>:contract/VERSION`, one reason the paths are permanent.
 

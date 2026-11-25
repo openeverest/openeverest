@@ -55,25 +55,7 @@ const (
 	// MinVersion is the oldest contract version this core serves.
 	// Extensions stamped with an older one are ExtensionTooOld.
 	MinVersion = {{printf "%q" .MinVersion}}
-
-	// FingerprintScheme names the way Fingerprints are computed.
-	FingerprintScheme = {{printf "%q" .Scheme}}
 )
-
-// Fingerprints are the SHA-256 digests of the contract artifacts this core
-// was built from, by input, normalised so that only changes to the
-// contract count. Version is the contract version of the latest release
-// while every digest its record holds under FingerprintScheme is equal.
-var Fingerprints = map[string]string{
-{{- range .Fingerprints}}
-	{{printf "%q" .Name}}: {{printf "%q" .Digest}},
-{{- end}}
-}
-
-// UpgradableFrom lists the core releases this core can be upgraded from in
-// place. It is empty for a release that can only be installed fresh, and
-// for a development build.
-var UpgradableFrom = []string{ {{- range .UpgradableFrom}}{{printf "%q" .}}, {{end -}} }
 `
 
 const usage = `usage: gen-contract [-root dir]
@@ -321,21 +303,11 @@ func render(root string, w window) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	type named struct{ Name, Digest string }
-	var fps []named
-	for _, name := range inputNames() {
-		if d, ok := w.fingerprints[name]; ok {
-			fps = append(fps, named{name, d})
-		}
-	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, map[string]any{
-		"Header":         strings.TrimSpace(string(header)),
-		"Version":        w.version,
-		"MinVersion":     w.minVersion,
-		"Scheme":         scheme,
-		"Fingerprints":   fps,
-		"UpgradableFrom": w.upgradableFrom,
+		"Header":     strings.TrimSpace(string(header)),
+		"Version":    w.version,
+		"MinVersion": w.minVersion,
 	}); err != nil {
 		return nil, err
 	}
