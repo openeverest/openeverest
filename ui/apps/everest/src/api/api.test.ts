@@ -96,6 +96,60 @@ describe('api interceptor', () => {
   });
 
   describe('retry for non-auth 401s', () => {
+    it('handles simultaneous session expiry only once while logout is pending', async () => {
+      let finishLogout = () => {};
+      const logout = new Promise<void>((resolve) => {
+        finishLogout = resolve;
+      });
+      const onSessionExpired = vi.fn(() => logout);
+      removeApiErrorInterceptor();
+      addApiErrorInterceptor(onSessionExpired);
+      vi.mocked(renewSession).mockResolvedValue(null);
+      adapterMock.mockImplementation((config: AdapterConfig) =>
+        Promise.reject(buildAxiosError(config, 401, 'invalid or expired jwt'))
+      );
+      const results = Promise.allSettled([
+        api.get('/version'),
+        api.get('/data'),
+      ]);
+      await vi.waitFor(() => expect(renewSession).toHaveBeenCalledTimes(2));
+      finishLogout();
+      expect((await results).map((result) => result.status)).toEqual([
+        'rejected',
+        'rejected',
+      ]);
+      expect(onSessionExpired).toHaveBeenCalledOnce();
+    });
+
+    it('hands failed refresh to the auth provider without discarding the current URL', async () => {
+      const onSessionExpired = vi.fn().mockResolvedValue(undefined);
+      removeApiErrorInterceptor();
+      addApiErrorInterceptor(onSessionExpired);
+      vi.mocked(renewSession).mockResolvedValueOnce(null);
+      adapterMock.mockImplementation((config: AdapterConfig) =>
+        Promise.reject(buildAxiosError(config, 401, 'invalid or expired jwt'))
+      );
+      const currentLocation: Location = {
+        ...window.location,
+        href: '/databases/default/example/overview?tab=metrics#cpu',
+      };
+      const locationSpy = vi
+        .spyOn(window, 'location', 'get')
+        .mockReturnValue(currentLocation);
+      try {
+        await expect(api.get('/version')).rejects.toMatchObject({
+          response: { status: 401 },
+        });
+        expect(renewSession).toHaveBeenCalledOnce();
+        expect(onSessionExpired).toHaveBeenCalledExactlyOnceWith();
+        expect(currentLocation.href).toBe(
+          '/databases/default/example/overview?tab=metrics#cpu'
+        );
+      } finally {
+        locationSpy.mockRestore();
+      }
+    });
+
     it('attempts refresh and retries original request on 401', async () => {
       vi.mocked(renewSession).mockResolvedValueOnce('new-token');
 
@@ -141,6 +195,7 @@ describe('api interceptor', () => {
         'Your session has expired. Please sign in again.',
         { variant: 'info' }
       );
+      expect(window.location.href).toBe('/logout');
 
       locationSpy.mockRestore();
     });

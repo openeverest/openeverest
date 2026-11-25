@@ -54,6 +54,7 @@ import {
   exchangeSsoToken,
   withSsoRenewLock,
   isReusableToken,
+  getSafeRedirectPath,
 } from './auth.utils';
 import type { HttpApi } from '@generated/api-types';
 
@@ -83,15 +84,17 @@ const Provider = ({
 const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   const [authStatus, setAuthStatus] = useState<UserAuthStatus>('unknown');
   const [redirect, setRedirect] = useState<string | null>(null);
+  const logoutIntentRef = useRef(false);
   const logoutSyncRef = useRef<BroadcastChannel | null>(null);
   const tabIdRef = useRef(`tab-${Math.random().toString(36).slice(2)}`);
 
-  const { signIn, userManager } = useOidcAuth();
+  const { signIn, userManager, isLoading } = useOidcAuth();
 
   const login = async (mode: AuthMode, manualAuthArgs?: ManualAuthArgs) => {
+    logoutIntentRef.current = false;
     setAuthStatus('loggingIn');
     if (mode === 'sso') {
-      await signIn();
+      await signIn({ state: redirect });
     } else {
       const { username, password } = manualAuthArgs!;
       try {
@@ -144,36 +147,15 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     localStorage.setItem(LOGOUT_SYNC_STORAGE_KEY, JSON.stringify(payload));
   }, []);
 
-  const logout = async () => {
-    try {
-      // Revokes the refresh token (carried by the HttpOnly cookie) and
-      // blocklists the current access JWT.
-      await api.post('/auth/revoke', {});
-    } catch {
-      // Best-effort: local session state is cleared regardless.
-    }
-
-    broadcastLogoutSync();
-    await setLogoutStatus();
-  };
-
-  const setRedirectRoute = (route: string) => {
-    setRedirect(route);
-  };
-
-  const setLoggedInStatus = (username: string) => {
-    setAuthStatus('loggedIn');
-    addApiErrorInterceptor();
-    addApiAuthInterceptor();
-    initializeAuthorizerFetchLoop(username);
-  };
+  const setRedirectRoute = useCallback((route: string | null) => {
+    setRedirect(getSafeRedirectPath(route));
+  }, []);
 
   const setLogoutStatus = useCallback(async () => {
     setAuthStatus('loggedOut');
     clearAccessToken();
     localStorage.removeItem('everestToken');
     sessionStorage.clear();
-    setRedirect(null);
     removeApiErrorInterceptor();
     removeApiAuthInterceptor();
     if (isSsoEnabled) {
@@ -182,6 +164,37 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     }
     stopAuthorizerFetchLoop();
   }, [isSsoEnabled, userManager]);
+
+  const logout = useCallback(
+    async (clearRedirect = true) => {
+      setAuthStatus('loggingOut');
+      if (clearRedirect) {
+        logoutIntentRef.current = true;
+        setRedirect(null);
+      }
+      try {
+        // Revokes the refresh token (carried by the HttpOnly cookie) and
+        // blocklists the current access JWT.
+        await api.post('/auth/revoke', {});
+      } catch {
+        // Best-effort: local session state is cleared regardless.
+      }
+
+      broadcastLogoutSync();
+      await setLogoutStatus();
+    },
+    [broadcastLogoutSync, setLogoutStatus]
+  );
+
+  const setLoggedInStatus = useCallback(
+    (username: string) => {
+      setAuthStatus('loggedIn');
+      addApiErrorInterceptor(() => logout(false));
+      addApiAuthInterceptor();
+      initializeAuthorizerFetchLoop(username);
+    },
+    [logout]
+  );
 
   // Renews the Everest JWT from a still-valid IdP session, returning the new token
   // or null if renewal is no longer possible. Also used by the 401 handler (see api.ts).
@@ -222,6 +235,8 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     }
 
     const handleSyncLogout = async () => {
+      logoutIntentRef.current = true;
+      setRedirect(null);
       await setLogoutStatus();
     };
 
@@ -308,16 +323,12 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   }, [isSsoEnabled, refreshEverestToken]);
 
   useEffect(() => {
-    if (isRunningInIframe()) {
-      // This is running in the iframe, so we are renewing the token silently
+    if (isRunningInIframe() || (isSsoEnabled && isLoading)) {
+      // OIDC owns callback processing; bootstrap must not clear its pending state.
       return;
     }
 
-    if (
-      authStatus === 'loggedIn' ||
-      authStatus === 'loggingIn' ||
-      authStatus === 'loggedOut'
-    ) {
+    if (authStatus !== 'unknown') {
       return;
     }
 
@@ -342,7 +353,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
           setLoggedInStatus(jwtDecode(token).sub || '');
         }
       } catch (error) {
-        logout();
+        logout(false);
       }
     };
 
@@ -376,7 +387,16 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     };
 
     bootstrapSession();
-  }, [authStatus, silentlyRenewToken, userManager]);
+  }, [
+    authStatus,
+    isLoading,
+    isSsoEnabled,
+    logout,
+    setLogoutStatus,
+    setLoggedInStatus,
+    silentlyRenewToken,
+    userManager,
+  ]);
 
   // Proactively rotates internal sessions shortly before the access token
   // expires, so requests rarely hit a 401.
@@ -418,6 +438,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
         redirectRoute: redirect,
         setRedirectRoute,
         isSsoEnabled,
+        isLogoutIntentional: logoutIntentRef.current,
       }}
     >
       {children}

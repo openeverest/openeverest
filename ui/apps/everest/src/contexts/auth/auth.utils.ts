@@ -38,6 +38,37 @@ export const logAuthError = (context: string, error: unknown) => {
 
 export const SSO_LOGIN_ERROR_KEY = 'ssoLoginError';
 
+export const getSafeRedirectPath = (value: unknown): string | null => {
+  if (
+    typeof value !== 'string' ||
+    !value.startsWith('/') ||
+    value.startsWith('//') ||
+    value.includes('\\') ||
+    [...value].some((character) => character < ' ' || character === '\u007f')
+  ) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value, window.location.origin);
+    // React Router decodes path segments before matching authentication routes.
+    const pathname = decodeURIComponent(url.pathname);
+    if (
+      url.origin !== window.location.origin ||
+      pathname.startsWith('//') ||
+      pathname.includes('\\') ||
+      ['login', 'logout', 'login-callback'].includes(
+        pathname.split('/')[1].toLowerCase()
+      )
+    ) {
+      return null;
+    }
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return null;
+  }
+};
+
 const SSO_EXCHANGE_MAX_RETRIES = 3;
 const SSO_RENEW_LOCK_NAME = 'everest-sso-renew';
 const MIN_REUSABLE_TOKEN_VALIDITY_MS = 60_000;
