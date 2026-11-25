@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { usePrefetchClusterInstancePresets } from 'hooks/api/cluster-instance-presets';
+import { usePrefetchPresets } from 'hooks/api/instance-presets';
 import type { ProviderTileProps } from './provider-tile.types';
 import { ProviderTileCard } from '../provider-tile-card';
 
@@ -23,7 +23,7 @@ export const ProviderTile = ({
   label,
   meta,
 }: ProviderTileProps) => {
-  const prefetchPresets = usePrefetchClusterInstancePresets();
+  const prefetchPresets = usePrefetchPresets();
 
   return (
     <ProviderTileCard

@@ -30,7 +30,8 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	contractmonitoring "github.com/openeverest/openeverest/v2/contract/monitoring"
+	"github.com/openeverest/openeverest/v2/internal/controller/ssa"
 )
 
 func TestBindingReconcilerMaterialisesOneBindingPerEntry(t *testing.T) {
@@ -61,7 +62,7 @@ func TestBindingReconcilerMaterialisesOneBindingPerEntry(t *testing.T) {
 	}
 	for _, tt := range tests {
 		b := getBinding(t, c, tt.entry)
-		assert.Equal(t, rtmonitoring.BindingLabels(testInstance, tt.entry, tt.destination, tt.class), b.Labels)
+		assert.Equal(t, contractmonitoring.BindingLabels(testInstance, tt.entry, tt.destination, tt.class), b.Labels)
 		assert.Equal(t, []metav1.OwnerReference{{
 			APIVersion: "core.openeverest.io/v1alpha1", Kind: "Instance", Name: testInstance, UID: testUID,
 			Controller: new(true), BlockOwnerDeletion: new(true),
@@ -440,7 +441,7 @@ func TestBindingReconcilerRecreatesBindingForChangedEntry(t *testing.T) {
 		b := getBinding(t, c, "metrics")
 		assert.Equal(t, common.MonitoringDestinationRef{Kind: "MonitoringDestination", Name: "vm"}, b.Spec.DestinationRef)
 		assert.Equal(t, &common.ObjectRef{Name: "victoriametrics"}, b.Spec.ClassRef)
-		assert.Equal(t, rtmonitoring.BindingLabels(testInstance, "metrics", "vm", "victoriametrics"), b.Labels)
+		assert.Equal(t, contractmonitoring.BindingLabels(testInstance, "metrics", "vm", "victoriametrics"), b.Labels)
 		assert.Equal(t, metav1.ConditionTrue, findAccepted(t, b.Status.Conditions).Status)
 	})
 }
@@ -506,7 +507,7 @@ func TestBindingReconcilerResolvesOnceDestinationAppears(t *testing.T) {
 	b := getBinding(t, c, "metrics")
 	assert.Equal(t, &common.ObjectRef{Name: "prometheus"}, b.Spec.ClassRef)
 	assert.Equal(t, corev1alpha1.MonitoringExecutionModeExtensionManaged, b.Spec.ExecutionMode)
-	assert.Equal(t, rtmonitoring.BindingLabels(testInstance, "metrics", "prom", "prometheus"), b.Labels)
+	assert.Equal(t, contractmonitoring.BindingLabels(testInstance, "metrics", "prom", "prometheus"), b.Labels)
 	accepted := findAccepted(t, b.Status.Conditions)
 	assert.Equal(t, metav1.ConditionTrue, accepted.Status)
 	assert.Equal(t, monitoringv1alpha1.ReasonAccepted, accepted.Reason)
@@ -592,10 +593,10 @@ func TestBindingReconcilerFollowsEntryParameters(t *testing.T) {
 	pmm.Parameters = raw(`{"resources":{"limits":{"memory":"512Mi"}}}`)
 	existing := &monitoringv1alpha1.MonitoringBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       rtmonitoring.BindingName(testInstance, "pmm"),
+			Name:       contractmonitoring.BindingName(testInstance, "pmm"),
 			Namespace:  testNamespace,
 			Generation: 3,
-			Labels:     rtmonitoring.BindingLabels(testInstance, "pmm", "pmm-prod", "pmm"),
+			Labels:     contractmonitoring.BindingLabels(testInstance, "pmm", "pmm-prod", "pmm"),
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion: "core.openeverest.io/v1alpha1", Kind: "Instance", Name: testInstance, UID: testUID, Controller: new(true),
 			}},
@@ -626,7 +627,7 @@ func TestBindingReconcilerDeletesStaleBindings(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "orders-handmade",
 			Namespace: testNamespace,
-			Labels:    rtmonitoring.BindingLabels(testInstance, "handmade", "prom", "prometheus"),
+			Labels:    contractmonitoring.BindingLabels(testInstance, "handmade", "prom", "prometheus"),
 		},
 	}
 	c := newFakeClient(t, pxcProvider(), pmmClass(), prometheusClass(), pmmDestination("pmm-prod"), newDestination("prom", "prometheus"),
@@ -645,7 +646,7 @@ func TestBindingReconcilerDeletesStaleBindings(t *testing.T) {
 	for _, b := range list.Items {
 		names = append(names, b.Name)
 	}
-	assert.ElementsMatch(t, []string{rtmonitoring.BindingName(testInstance, "pmm"), "orders-handmade"}, names)
+	assert.ElementsMatch(t, []string{contractmonitoring.BindingName(testInstance, "pmm"), "orders-handmade"}, names)
 }
 
 func TestBindingReconcilerWritesReady(t *testing.T) {
@@ -741,8 +742,8 @@ func TestBindingReconcilerFollowsDestinationReadiness(t *testing.T) {
 	// The token is revoked: the class controller's probe is rejected.
 	stored := &monitoringv1alpha1.MonitoringDestination{}
 	require.NoError(t, c.Get(t.Context(), types.NamespacedName{Namespace: testNamespace, Name: "pmm-prod"}, stored))
-	require.NoError(t, rtmonitoring.ApplyCondition(t.Context(), c, stored, stored.Status.Conditions, "openeverest.io/monitoring-pmm",
-		rtmonitoring.NewCondition(stored, monitoringv1alpha1.MonitoringDestinationConditionReady, metav1.ConditionFalse,
+	require.NoError(t, ssa.ApplyCondition(t.Context(), c, stored, stored.Status.Conditions, "openeverest.io/monitoring-pmm",
+		ssa.NewCondition(stored, monitoringv1alpha1.MonitoringDestinationConditionReady, metav1.ConditionFalse,
 			string(monitoringv1alpha1.ReasonUnauthorized), "401",
 		),
 	))
@@ -797,7 +798,81 @@ func TestBindingConfiguredChanged(t *testing.T) {
 func reportConfigured(t *testing.T, c client.Client, entryName string, reason monitoringv1alpha1.ConfiguredReason) {
 	t.Helper()
 	b := getBinding(t, c, entryName)
-	require.NoError(t, rtmonitoring.ApplyCondition(t.Context(), c, b, b.Status.Conditions, "provider-percona-xtradb-cluster",
-		rtmonitoring.NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionConfigured, reason.Status(), string(reason), ""),
+	require.NoError(t, ssa.ApplyCondition(t.Context(), c, b, b.Status.Conditions, "provider-percona-xtradb-cluster",
+		ssa.NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionConfigured, reason.Status(), string(reason), ""),
 	))
+}
+
+func TestDestinationReadinessChanged(t *testing.T) {
+	t.Parallel()
+	destination := func(attached int32, generation int64, ready ...metav1.Condition) *monitoringv1alpha1.MonitoringDestination {
+		return &monitoringv1alpha1.MonitoringDestination{
+			ObjectMeta: metav1.ObjectMeta{Name: "pmm-prod", Namespace: testNamespace, Generation: generation},
+			Status:     monitoringv1alpha1.MonitoringDestinationStatus{AttachedInstances: attached, Conditions: ready},
+		}
+	}
+	ready := func(status metav1.ConditionStatus, reason, message string, observedGeneration int64) metav1.Condition {
+		return metav1.Condition{
+			Type: monitoringv1alpha1.MonitoringDestinationConditionReady, Status: status, Reason: reason,
+			Message: message, ObservedGeneration: observedGeneration,
+		}
+	}
+	ok := ready(metav1.ConditionTrue, "Ready", "PMM 3.8.0", 2)
+
+	tests := []struct {
+		name     string
+		old, new *monitoringv1alpha1.MonitoringDestination
+		want     bool
+	}{
+		{name: "first probe", old: destination(0, 2), new: destination(0, 2, ok), want: true},
+		{name: "the token is revoked", old: destination(1, 2, ok), new: destination(1, 2, ready(metav1.ConditionFalse, "Unauthorized", "401", 2)), want: true},
+		{name: "a probe catches up with the generation", old: destination(1, 2, ready(metav1.ConditionTrue, "Ready", "", 1)), new: destination(1, 2, ok), want: true},
+		{name: "only the message changes", old: destination(1, 2, ok), new: destination(1, 2, ready(metav1.ConditionTrue, "Ready", "PMM 3.9.0", 2)), want: false},
+		{name: "only the attached count changes", old: destination(1, 2, ok), new: destination(2, 2, ok), want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, destinationReadinessChanged().Update(event.UpdateEvent{ObjectOld: tt.old, ObjectNew: tt.new}))
+		})
+	}
+}
+
+func TestListBindingsForInstance(t *testing.T) {
+	t.Parallel()
+	in := &corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: testInstance, Namespace: testNamespace, UID: "uid-current"}}
+	binding := func(name, namespace, instance string, owner *metav1.OwnerReference) *monitoringv1alpha1.MonitoringBinding {
+		b := &monitoringv1alpha1.MonitoringBinding{ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    map[string]string{monitoringv1alpha1.BindingInstanceLabel: instance},
+		}}
+		if owner != nil {
+			b.OwnerReferences = []metav1.OwnerReference{*owner}
+		}
+		return b
+	}
+	controlledBy := func(uid types.UID) *metav1.OwnerReference {
+		return &metav1.OwnerReference{
+			APIVersion: "core.openeverest.io/v1alpha1", Kind: "Instance", Name: testInstance, UID: uid, Controller: new(true),
+		}
+	}
+	c := newFakeClient(t,
+		binding("current", testNamespace, testInstance, controlledBy("uid-current")),
+		binding("previous-incarnation", testNamespace, testInstance, controlledBy("uid-previous")),
+		binding("not-controller", testNamespace, testInstance, &metav1.OwnerReference{
+			APIVersion: "core.openeverest.io/v1alpha1", Kind: "Instance", Name: testInstance, UID: "uid-current",
+		}),
+		binding("orphan", testNamespace, testInstance, nil),
+		binding("other-instance", testNamespace, "invoices", controlledBy("uid-current")),
+		binding("other-namespace", "team-b", testInstance, controlledBy("uid-current")),
+	)
+
+	got, err := listBindingsForInstance(t.Context(), c, in)
+	require.NoError(t, err)
+	names := make([]string, 0, len(got))
+	for i := range got {
+		names = append(names, got[i].Name)
+	}
+	assert.Equal(t, []string{"current"}, names)
 }

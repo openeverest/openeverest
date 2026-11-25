@@ -12,6 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Records which preset an Instance was created from (provenance).
-export const CLUSTER_INSTANCE_PRESET_ANNOTATION =
-  'openeverest.io/cluster-instance-preset';
+import { CardPickerBadge } from '@percona/ui-lib';
+import { PresetScope } from './preset-selection.types';
+
+// Records which preset an Instance was created from (provenance). The server
+// accepts only one of the two on an Instance and checks the spec against the
+// preset of that kind.
+export const PRESET_ANNOTATION_BY_SCOPE: Record<PresetScope, string> = {
+  [PresetScope.Cluster]: 'openeverest.io/cluster-instance-preset',
+  [PresetScope.Namespace]: 'openeverest.io/instance-preset',
+};
+
+export const PRESET_BADGE_COLOR_BY_SCOPE: Record<
+  PresetScope,
+  CardPickerBadge['color']
+> = {
+  [PresetScope.Cluster]: 'default',
+  [PresetScope.Namespace]: 'info',
+};

@@ -19,13 +19,13 @@ import {
   resolveProviderDisplay,
 } from 'components/provider-identity';
 import { useExtensionCatalog } from 'hooks/api/extension-catalog';
-import { usePrefetchClusterInstancePresets } from 'hooks/api/cluster-instance-presets';
+import { usePrefetchPresets } from 'hooks/api/instance-presets';
 import type { DrawerBodyProps } from './drawer-body.types';
 import { listSx, rowSx } from './drawer-body.constants';
 
 export const DrawerBody = ({ providers, onClose }: DrawerBodyProps) => {
   const { getProviderMeta } = useExtensionCatalog();
-  const prefetchPresets = usePrefetchClusterInstancePresets();
+  const prefetchPresets = usePrefetchPresets();
 
   return (
     <Box role="list" sx={listSx}>

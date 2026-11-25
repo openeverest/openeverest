@@ -17,6 +17,8 @@
 // Package common holds common constants used across Everest.
 package common
 
+import "github.com/openeverest/openeverest/v2/contract"
+
 const (
 	// Everest ...
 	Everest = "everest"
@@ -111,9 +113,8 @@ const (
 	// OpenEverestBackupStorageClassLabel identifies the BackupStorageClass that defines a Secret.
 	OpenEverestBackupStorageClassLabel = "openeverest.io/backup-storage-class"
 	// OpenEverestDefinitionLabel names the definition a Secret or ConfigMap follows within its
-	// source: a key of Provider.spec.secrets or Provider.spec.configMaps, or an authentication
-	// mode of a MonitoringClass or BackupStorageClass.
-	OpenEverestDefinitionLabel = "openeverest.io/definition"
+	// source. Providers read it too, so it is declared in the contract package.
+	OpenEverestDefinitionLabel = contract.DefinitionLabel
 	// OpenEverestCABundleDefinition is the definition of a CA bundle Secret, the one definition
 	// core owns: the Secret carries no source label, holds its certificates under
 	// OpenEverestCABundleKey, and every key holds PEM CA certificates.

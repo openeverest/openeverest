@@ -1,0 +1,142 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package ssa_test
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/managedfields"
+	"k8s.io/kube-openapi/pkg/validation/spec"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/yaml"
+
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	contractmonitoring "github.com/openeverest/openeverest/v2/contract/monitoring"
+	"github.com/openeverest/openeverest/v2/internal/controller/ssa"
+)
+
+func newBinding() *monitoringv1alpha1.MonitoringBinding {
+	return &monitoringv1alpha1.MonitoringBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "orders-pmm-1a2b3c4d", Namespace: "team-a", Generation: 2},
+		Spec: monitoringv1alpha1.MonitoringBindingSpec{
+			InstanceRef:    common.ObjectRef{Name: "orders"},
+			DestinationRef: common.MonitoringDestinationRef{Kind: "MonitoringDestination", Name: "pmm-prod"},
+		},
+	}
+}
+
+// newFakeClient returns a fake client whose server-side apply follows the
+// MonitoringBinding CRD schema (listType=map conditions) instead of treating
+// every list as atomic.
+func newFakeClient(t *testing.T, objs ...client.Object) client.Client { //nolint:ireturn // the fake is used through the client interface
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, monitoringv1alpha1.AddToScheme(scheme))
+
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "config", "crd", "bases", "monitoring.openeverest.io_monitoringbindings.yaml"))
+	require.NoError(t, err)
+	crd := &apiextensionsv1.CustomResourceDefinition{}
+	require.NoError(t, yaml.Unmarshal(raw, crd))
+	models := make(map[string]*spec.Schema)
+	for _, v := range crd.Spec.Versions {
+		js, err := json.Marshal(v.Schema.OpenAPIV3Schema)
+		require.NoError(t, err)
+		s := &spec.Schema{}
+		require.NoError(t, json.Unmarshal(js, s))
+		s.AddExtension("x-kubernetes-group-version-kind", []any{
+			map[string]any{"group": crd.Spec.Group, "version": v.Name, "kind": crd.Spec.Names.Kind},
+		})
+		models[crd.Spec.Group+"."+v.Name+"."+crd.Spec.Names.Kind] = s
+	}
+	tc, err := managedfields.NewTypeConverter(models, false)
+	require.NoError(t, err)
+
+	return fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithTypeConverters(tc, managedfields.NewDeducedTypeConverter()).
+		WithObjects(objs...).
+		WithStatusSubresource(&monitoringv1alpha1.MonitoringBinding{}).
+		Build()
+}
+
+func TestApplyConditionKeepsOtherWritersConditions(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	c := newFakeClient(t, newBinding())
+
+	b := &monitoringv1alpha1.MonitoringBinding{}
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(newBinding()), b))
+	accepted := ssa.NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionAccepted, metav1.ConditionTrue, monitoringv1alpha1.ReasonAccepted, "")
+	require.NoError(t, ssa.ApplyCondition(ctx, c, b, b.Status.Conditions, contractmonitoring.MaterializerFieldOwner, accepted))
+
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(b), b))
+	configured := ssa.NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionConfigured, metav1.ConditionFalse, string(monitoringv1alpha1.ReasonRenderFailed), "bad url")
+	require.NoError(t, ssa.ApplyCondition(ctx, c, b, b.Status.Conditions, "openeverest.io/monitoring-test", configured))
+
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(b), b))
+	gotAccepted := meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionAccepted)
+	require.NotNil(t, gotAccepted)
+	assert.Equal(t, metav1.ConditionTrue, gotAccepted.Status)
+	assert.Equal(t, int64(2), gotAccepted.ObservedGeneration)
+	gotConfigured := meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured)
+	require.NotNil(t, gotConfigured)
+	assert.Equal(t, metav1.ConditionFalse, gotConfigured.Status)
+	assert.Equal(t, "RenderFailed", gotConfigured.Reason)
+	assert.Equal(t, "bad url", gotConfigured.Message)
+}
+
+func TestApplyConditionLastTransitionTime(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	c := newFakeClient(t, newBinding())
+	since := metav1.NewTime(time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC))
+
+	b := &monitoringv1alpha1.MonitoringBinding{}
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(newBinding()), b))
+	first := ssa.NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionAccepted, metav1.ConditionFalse, monitoringv1alpha1.ReasonDestinationNotFound, "")
+	first.LastTransitionTime = since
+	require.NoError(t, ssa.ApplyCondition(ctx, c, b, b.Status.Conditions, contractmonitoring.MaterializerFieldOwner, first))
+
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(b), b))
+	sameStatus := ssa.NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionAccepted, metav1.ConditionFalse, monitoringv1alpha1.ReasonClassNotFound, "")
+	require.NoError(t, ssa.ApplyCondition(ctx, c, b, b.Status.Conditions, contractmonitoring.MaterializerFieldOwner, sameStatus))
+
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(b), b))
+	got := meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionAccepted)
+	require.NotNil(t, got)
+	assert.Equal(t, "ClassNotFound", got.Reason)
+	assert.True(t, since.Equal(&got.LastTransitionTime), "unchanged status keeps lastTransitionTime, got %s", got.LastTransitionTime)
+
+	flipped := ssa.NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionAccepted, metav1.ConditionTrue, monitoringv1alpha1.ReasonAccepted, "")
+	require.NoError(t, ssa.ApplyCondition(ctx, c, b, b.Status.Conditions, contractmonitoring.MaterializerFieldOwner, flipped))
+
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(b), b))
+	got = meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionAccepted)
+	require.NotNil(t, got)
+	assert.Equal(t, metav1.ConditionTrue, got.Status)
+	assert.True(t, got.LastTransitionTime.After(since.Time), "a status change moves lastTransitionTime, got %s", got.LastTransitionTime)
+}

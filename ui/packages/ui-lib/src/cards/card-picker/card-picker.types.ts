@@ -12,14 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { SxProps, Theme } from '@mui/material';
+import { ChipProps, SxProps, Theme } from '@mui/material';
+
+// A short category tag on a card, set apart from the descriptive texts so
+// cards of one category can be told from another at a glance.
+export interface CardPickerBadge {
+  label: string;
+  color?: ChipProps['color'];
+}
 
 export interface CardPickerItem {
   id: string;
   title: string;
+  badge?: CardPickerBadge;
   subtitle?: string;
   detail?: string;
-  // Optional precomputed lowercase haystack; defaults to title + subtitle + detail.
+  // Optional precomputed lowercase haystack; defaults to title + badge + subtitle + detail.
   searchText?: string;
 }
 
@@ -31,13 +39,6 @@ export interface CardPickerMessages {
   noMatches: (query: string) => string;
 }
 
-// A non-interactive card shown in the grid to communicate a state (e.g. a load
-// failure) beside the selectable cards.
-export interface CardPickerStatus {
-  title: string;
-  subtitle?: string;
-}
-
 export interface CardPickerProps {
   items: CardPickerItem[];
   selectedId: string;
@@ -46,8 +47,6 @@ export interface CardPickerProps {
   // when selectedId === leadCard.id.
   leadCard?: CardPickerItem;
   error?: string;
-  // Disabled card appended to the grid, e.g. to report a failed load in place.
-  statusCard?: CardPickerStatus;
   messages?: Partial<CardPickerMessages>;
   minCardPx?: number;
   sx?: SxProps<Theme>;
