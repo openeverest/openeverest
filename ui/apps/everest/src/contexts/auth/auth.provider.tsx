@@ -176,22 +176,25 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
 
   // clearRedirect defaults to false so session bootstrap / expiry / failed login
   // keep a deep-link saved by ProtectedRoute for post-login navigation.
-  const setLogoutStatus = useCallback(async (clearRedirect = false) => {
-    setAuthStatus('loggedOut');
-    clearAccessToken();
-    localStorage.removeItem('everestToken');
-    sessionStorage.clear();
-    if (clearRedirect) {
-      setRedirect(null);
-    }
-    removeApiErrorInterceptor();
-    removeApiAuthInterceptor();
-    if (isSsoEnabled) {
-      await userManager.clearStaleState();
-      await userManager.removeUser();
-    }
-    stopAuthorizerFetchLoop();
-  }, [isSsoEnabled, userManager]);
+  const setLogoutStatus = useCallback(
+    async (clearRedirect = false) => {
+      setAuthStatus('loggedOut');
+      clearAccessToken();
+      localStorage.removeItem('everestToken');
+      sessionStorage.clear();
+      if (clearRedirect) {
+        setRedirect(null);
+      }
+      removeApiErrorInterceptor();
+      removeApiAuthInterceptor();
+      if (isSsoEnabled) {
+        await userManager.clearStaleState();
+        await userManager.removeUser();
+      }
+      stopAuthorizerFetchLoop();
+    },
+    [isSsoEnabled, userManager]
+  );
 
   // Renews the Everest JWT from a still-valid IdP session, returning the new token
   // or null if renewal is no longer possible. Also used by the 401 handler (see api.ts).
