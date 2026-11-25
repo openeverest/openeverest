@@ -150,8 +150,10 @@ func VerifyChart(chartDir, version string) (ChartReport, error) {
 		if _, ok := o.annotations[contract.VersionAnnotation]; !ok || o.annotations[contract.AcknowledgedAnnotation] == acknowledgeProbe {
 			continue
 		}
-		res.Problems = append(res.Problems, fmt.Sprintf("%s has no %s annotation when %s is set, so a user cannot run it on an OpenEverest that does not support it; %s",
-			o, contract.AcknowledgedAnnotation, contract.AcknowledgeValuePath, includeHelper))
+		msg := fmt.Sprintf("%s has no %s annotation when %s is set, so a user cannot run it on an OpenEverest that does not support it; %s",
+			o, contract.AcknowledgedAnnotation, contract.AcknowledgeValuePath, includeHelper,
+		)
+		res.Problems = append(res.Problems, msg)
 	}
 	return res, nil
 }
@@ -207,7 +209,7 @@ func (o renderedObject) String() string {
 // OpenEverest interprets that its own templates render, in template order.
 func renderChart(dir string, values map[string]any) ([]renderedObject, error) {
 	if values == nil {
-		values = map[string]any{}
+		values = make(map[string]any)
 	}
 	chrt, err := loader.Load(dir)
 	if err != nil {
@@ -227,7 +229,8 @@ func renderChart(dir string, values map[string]any) ([]renderedObject, error) {
 		Namespace: "default",
 		Revision:  1,
 		IsInstall: true,
-	}, chartutil.DefaultCapabilities)
+	}, chartutil.DefaultCapabilities,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("computing the values of chart %s: %w", dir, err)
 	}

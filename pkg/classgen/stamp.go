@@ -311,14 +311,14 @@ func expectedChart(data []byte, key, value string) (map[string]any, error) {
 		return nil, fmt.Errorf("parsing: %w", err)
 	}
 	if chart == nil {
-		chart = map[string]any{}
+		chart = make(map[string]any)
 	}
 	annotations, ok := chart["annotations"].(map[string]any)
 	if !ok {
 		if chart["annotations"] != nil {
 			return nil, errors.New("annotations is not a mapping")
 		}
-		annotations = map[string]any{}
+		annotations = make(map[string]any)
 	}
 	annotations[key] = value
 	chart["annotations"] = annotations

@@ -373,7 +373,7 @@ func TestChartHelper(t *testing.T) {
 			})
 			chrt, err := loader.Load(dir)
 			require.NoError(t, err)
-			vals, err := chartutil.ToRenderValues(chrt, map[string]any{}, chartutil.ReleaseOptions{Name: "x", Namespace: "default", IsInstall: true}, chartutil.DefaultCapabilities)
+			vals, err := chartutil.ToRenderValues(chrt, make(map[string]any), chartutil.ReleaseOptions{Name: "x", Namespace: "default", IsInstall: true}, chartutil.DefaultCapabilities)
 			require.NoError(t, err)
 
 			files, err := engine.Render(chrt, vals)

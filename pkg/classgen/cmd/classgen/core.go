@@ -104,7 +104,8 @@ func requiredCore(ctx context.Context, dir string) (module, error) {
 	if err != nil {
 		return module{}, fmt.Errorf("finding the %s this module requires (go list -m): %w: %s; "+
 			"run classgen as `go tool classgen` from a module that requires it as a tool (go get -tool %s/pkg/classgen/cmd/classgen@<version>)",
-			coreModule, err, strings.TrimSpace(stderr.String()), coreModule)
+			coreModule, err, strings.TrimSpace(stderr.String()), coreModule,
+		)
 	}
 	var m module
 	if err := json.Unmarshal(out, &m); err != nil {
@@ -128,7 +129,8 @@ func checkCore(linked, required module) (string, error) {
 			dir = required.effective().Path
 		}
 		return fmt.Sprintf("%s comes from a local directory (%s), so the stamp is the contract version of that tree, %s",
-			coreModule, dir, contract.Version), nil
+			coreModule, dir, contract.Version,
+		), nil
 	case !linked.local() && !required.local():
 		l, r := linked.effective(), required.effective()
 		if l.Path == r.Path && l.Version == r.Version {
@@ -136,7 +138,8 @@ func checkCore(linked, required module) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("this classgen links %s, but this module requires %s, so it would write for another OpenEverest; "+
-		"run it as `go tool classgen` from the module, which builds it against the core the module requires", linked, required)
+		"run it as `go tool classgen` from the module, which builds it against the core the module requires", linked, required,
+	)
 }
 
 // checkLinkedCore returns the core the module in the working directory
@@ -167,8 +170,10 @@ func checkLinkedCore(ctx context.Context) (module, string, error) {
 func releaseProblems(required module, version string) []string {
 	var problems []string
 	if contract.IsDevelopment(version) {
-		problems = append(problems, fmt.Sprintf("built against an unreleased OpenEverest (%s): its contract has changed since the last release; "+
-			"require an OpenEverest whose contract is a released one", version))
+		msg := fmt.Sprintf("built against an unreleased OpenEverest (%s): its contract has changed since the last release; "+
+			"require an OpenEverest whose contract is a released one", version,
+		)
+		problems = append(problems, msg)
 	}
 	switch {
 	case required.Replace != nil:

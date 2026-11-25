@@ -198,7 +198,8 @@ func TestRunStamp(t *testing.T) {
 		"Stamped: "+dir+"/Chart.yaml (openeverest.io/contract-version="+contract.Version+")\n"+
 			"Generated: "+dir+"/templates/"+classgen.ChartHelperFile+"\n"+
 			floor(contract.Version)+"\n",
-		stderr.String())
+		stderr.String(),
+	)
 	chart, err := os.ReadFile(chartFile) //nolint:gosec // the test's own file
 	require.NoError(t, err)
 	assert.Equal(t, stamped, string(chart))
@@ -215,7 +216,8 @@ func TestRunStamp(t *testing.T) {
 	require.NoError(t, run([]string{"stamp", "--chart-dir", dir}, &bytes.Buffer{}, &stderr, sameCore))
 	assert.Equal(t,
 		"Stamped: "+dir+"/Chart.yaml (openeverest.io/contract-version="+contract.Version+", was 2.0.0-dev.4)\n"+floor(contract.Version)+"\n",
-		stderr.String())
+		stderr.String(),
+	)
 }
 
 func TestRunVerify(t *testing.T) {
@@ -233,7 +235,8 @@ func TestRunVerify(t *testing.T) {
 			"  Chart.yaml\n"+
 			"  MonitoringClass x (templates/monitoringclass.yaml)\n"+
 			floor(contract.Version)+"\n",
-		stderr.String())
+		stderr.String(),
+	)
 
 	err = run([]string{"verify", "--chart-dir", dir, "--release"}, &bytes.Buffer{}, &bytes.Buffer{}, sameCore)
 	if contract.IsDevelopment(contract.Version) {
