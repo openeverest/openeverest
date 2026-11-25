@@ -38,7 +38,9 @@ const (
 	leafNumber   leafKind = "number"
 	leafBool     leafKind = "boolean"
 	leafQuantity leafKind = "quantity"
-	leafUnknown  leafKind = ""
+	// leafStringMap is a map of strings, which a `map` UI field writes whole.
+	leafStringMap leafKind = "stringMap"
+	leafUnknown   leafKind = ""
 )
 
 // quantityTypeName is a struct in Go but a string on the wire.
@@ -89,7 +91,18 @@ func resolveLeaf(spec *corev1alpha1.ProviderSpec, topology, path string) (leafKi
 		walked = append(walked, segment)
 	}
 
-	return goLeaf(deref(current))
+	// goLeaf stays scalar-only: supportedFields expands a declaration with it
+	// and stops at a map, which has no fixed member to probe. A UI field bound
+	// to the map sets it as one value, so here the map itself is the leaf.
+	leaf := deref(current)
+	if isStringMap(leaf) {
+		return leafStringMap, nil
+	}
+	return goLeaf(leaf)
+}
+
+func isStringMap(t reflect.Type) bool {
+	return t.Kind() == reflect.Map && t.Key().Kind() == reflect.String && t.Elem().Kind() == reflect.String
 }
 
 func goLeaf(t reflect.Type) (leafKind, error) {
@@ -123,9 +136,19 @@ func schemaLeaf(schema *apiextensionsv1.JSONSchemaProps, segments []string) (lea
 	switch current.Type {
 	case "string", "integer", "number", "boolean":
 		return leafKind(current.Type), nil
-	default:
-		return leafUnknown, fmt.Errorf("cannot generate a value for schema type %q", current.Type)
+	case "object":
+		if isStringMapSchema(current) {
+			return leafStringMap, nil
+		}
 	}
+	return leafUnknown, fmt.Errorf("cannot generate a value for schema type %q", current.Type)
+}
+
+// isStringMapSchema reports an object of free keys and string values, with no
+// fixed property a probe would have to fill in as well.
+func isStringMapSchema(schema *apiextensionsv1.JSONSchemaProps) bool {
+	entries := schema.AdditionalProperties
+	return len(schema.Properties) == 0 && entries != nil && entries.Schema != nil && entries.Schema.Type == "string"
 }
 
 // parametersSchema returns the schema governing the payload at this position.
@@ -152,6 +175,9 @@ func parametersSchema(spec *corev1alpha1.ProviderSpec, topology string, walked [
 // alternative and looks for the component versions it pulls in.
 const versionPath = "spec.version"
 
+// stringToken is the text a string probe carries, alone or as a map's entry.
+const stringToken = "everest-conformance-7919"
+
 // sentinel returns a value recognisable wherever it surfaces, and the token to
 // search for. Integers get a distinctive prime so a bare number is unlikely to
 // collide with an unrelated default.
@@ -173,7 +199,11 @@ func sentinel(spec *corev1alpha1.ProviderSpec, path string, kind leafKind) (any,
 
 	switch kind {
 	case leafString:
-		return "everest-conformance-7919", "everest-conformance-7919", nil
+		return stringToken, stringToken, nil
+	case leafStringMap:
+		// One entry with the token as key and value: a provider may surface
+		// only one of the two, e.g. the keys of an environment.
+		return map[string]any{stringToken: stringToken}, stringToken, nil
 	case leafQuantity:
 		// Must parse as a quantity, so the magnitude carries the signal.
 		return "7919", "7919", nil
