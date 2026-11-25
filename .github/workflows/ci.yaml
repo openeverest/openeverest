@@ -297,7 +297,7 @@ jobs:
       # so once release-X.Y has a final release, a pull request into it keeps
       # the contract that release was cut with; before, after a pre-release,
       # the check passes with a notice. It prints the diff when the tag of the
-      # latest release is here. See contract/README.md.
+      # latest release is here. See contract/MAINTAINING.md.
       - name: Check that a patch release would keep the contract
         if: ${{ (github.event_name == 'pull_request' && startsWith(github.base_ref, 'release-')) || (github.event_name == 'merge_group' && startsWith(github.event.merge_group.base_ref, 'refs/heads/release-')) }}
         env:
