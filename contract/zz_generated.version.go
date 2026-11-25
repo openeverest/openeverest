@@ -16,12 +16,14 @@
 
 package contract
 
-// The window of contract versions this core serves, from the VERSION and
-// MIN_VERSION files of this package.
+// The contract version of this core and the window of contract versions it
+// serves, worked out by hack/gen-contract from the fingerprints of the
+// contract and the release records in releases/.
 const (
-	// Version is the contract version of this core: the core release that
-	// last changed the contract, or the development value that follows the
-	// last release when the contract has changed since.
+	// Version is the contract version of this core: the contract version
+	// of the latest release while the contract is the one it was cut with,
+	// or the development value that follows that release once the
+	// contract has changed since.
 	Version = "2.0.0-alpha.1.next"
 
 	// MinVersion is the oldest contract version this core serves.

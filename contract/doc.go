@@ -17,13 +17,12 @@
 //
 // The contract is everything core and extensions share: the CRDs, the HTTP
 // API, the webhook conventions, and the Go identifiers and rules both sides
-// use. It has a single version, Version: the SemVer of the last core release
-// that changed it. It is a core release number rather than a counter of its
+// use. It has a single version, Version: the core release whose contract
+// this core has. It is a core release number rather than a counter of its
 // own because that is the number users and extension authors already know.
 // An extension built against core 2.1.0 needs "OpenEverest 2.1.0 or later",
 // with no table to map one numbering onto the other, and a patch release,
-// which never changes the contract, keeps the version of the release that
-// last did.
+// which never changes the contract, keeps the version of its line.
 //
 // A core serves extensions built for any version in its window
 // [MinVersion, Version]. Extensions never choose a number: their tooling

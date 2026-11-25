@@ -38,3 +38,14 @@
 - name: chart/pending
   color: fbca04
   description: Pins an unmerged helm-charts commit; that PR must land before this one
+
+# Contract decision (.github/workflows/contract-decision.yaml, see
+# contract/MAINTAINING.md): required on a pull request touching a contract-adjacent
+# path while the contract is unchanged since the last release.
+- name: contract-change
+  color: d93f0b
+  description: Changes what extensions rely on; moves the contract version to the development value
+
+- name: no-contract-change
+  color: c2e0c6
+  description: Touches contract-adjacent code without changing what extensions rely on

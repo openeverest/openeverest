@@ -549,9 +549,22 @@ gen-backupstorageclasses: controller-gen ## Generate the built-in BackupStorageC
 	"$(CONTROLLER_GEN)" crd paths=./hack/gen-backupstorageclasses/_schema output:crd:dir="$$tmp" && \
 	go run ./hack/gen-backupstorageclasses -crd-dir "$$tmp" -out config/backupstorageclasses
 
+# gen lists it after every generator whose output the contract fingerprint covers.
 .PHONY: gen-contract
-gen-contract: ## Generate the contract version constants from contract/VERSION and contract/MIN_VERSION.
+gen-contract: ## Work out the contract version from the contract artifacts and contract/releases.
 	go run ./hack/gen-contract
+
+# The branch a release would be cut from: CI passes the base branch of the
+# pull request, so that a patch release of release-X.Y keeps the contract.
+CONTRACT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+.PHONY: check-contract-release
+check-contract-release: ## Check that a patch release cut from CONTRACT_BRANCH (default: the current branch) keeps the contract of the latest release.
+	go run ./hack/gen-contract -check-release -branch "$(CONTRACT_BRANCH)"
+
+.PHONY: contract-diff
+contract-diff: ## Show how the contract changed since REF (default: the tag of the latest release). INPUT=<name> for one input, RAW=1 for the bytes each digest hashes.
+	@go run ./hack/gen-contract diff $(if $(REF),-ref "$(REF)") $(if $(INPUT),-input "$(INPUT)") $(if $(RAW),-raw)
 
 ##@ Kustomize Deployment
 

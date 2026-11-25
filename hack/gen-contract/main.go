@@ -12,31 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Command gen-contract writes zz_generated.version.go in the contract
-// package from its VERSION and MIN_VERSION files, which hold the window of
-// contract versions this core serves. Keeping the versions in plain files
-// lets tools that do not build Go, such as release workflows, read them
-// from any git ref.
 package main
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"go/format"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
-
-	"github.com/openeverest/openeverest/v2/contract"
 )
 
 const (
-	versionFile    = "VERSION"
-	minVersionFile = "MIN_VERSION"
+	versionFile    = "contract/VERSION"
+	minVersionFile = "contract/MIN_VERSION"
 	outputFile     = "zz_generated.version.go"
+	outputPath     = "contract/" + outputFile
+	headerFile     = "hack/boilerplate.go.txt"
 )
 
 const generatedText = `{{.Header}}
@@ -45,12 +42,14 @@ const generatedText = `{{.Header}}
 
 package contract
 
-// The window of contract versions this core serves, from the ` + versionFile + ` and
-// ` + minVersionFile + ` files of this package.
+// The contract version of this core and the window of contract versions it
+// serves, worked out by hack/gen-contract from the fingerprints of the
+// contract and the release records in releases/.
 const (
-	// Version is the contract version of this core: the core release that
-	// last changed the contract, or the development value that follows the
-	// last release when the contract has changed since.
+	// Version is the contract version of this core: the contract version
+	// of the latest release while the contract is the one it was cut with,
+	// or the development value that follows that release once the
+	// contract has changed since.
 	Version = {{printf "%q" .Version}}
 
 	// MinVersion is the oldest contract version this core serves.
@@ -59,40 +58,244 @@ const (
 )
 `
 
+const usage = `usage: gen-contract [-root dir]
+       gen-contract [-root dir] -check-release -version X.Y.Z | -branch release-X.Y
+       gen-contract [-root dir] rebaseline -version X.Y.Z [-tag vX.Y.Z]
+       gen-contract [-root dir] diff [-ref vX.Y.Z] [-input name] [-raw] [-max-lines n]
+       gen-contract [-root dir] verify [-tag vX.Y.Z]
+       gen-contract [-root dir] check-records -changes file | -all
+       gen-contract [-root dir] latest
+       gen-contract [-root dir] show version|min-version|scheme|development|record-schemes [-version V] [-ref R]
+
+`
+
 func main() {
-	dir := flag.String("dir", "contract", "directory of the contract package")
-	header := flag.String("header", "hack/boilerplate.go.txt", "file whose content heads the generated file")
-	flag.Parse()
-	if err := run(*dir, *header); err != nil {
+	log.SetFlags(0)
+	log.SetPrefix("gen-contract: ")
+	var notices io.Writer = os.Stderr
+	actions := os.Getenv("GITHUB_ACTIONS") == "true"
+	if actions {
+		notices = &annotator{w: os.Stderr}
+	}
+	msg, err := execute(os.Args[1:], os.Stdout, notices)
+	switch {
+	case errors.Is(err, flag.ErrHelp):
+		return
+	case err != nil && actions:
+		fmt.Fprintf(os.Stderr, "::error title=gen-contract::%s\n", escapeCommand(err.Error()))
+		os.Exit(1)
+	case err != nil:
 		log.Fatal(err)
+	case msg != "":
+		fmt.Fprintln(os.Stdout, msg)
 	}
 }
 
-func run(dir, headerFile string) error {
-	src, err := render(dir, headerFile)
+// noticePrefix starts every notice line: a message that says what a
+// command did not compare or check, and why.
+const noticePrefix = "gen-contract: "
+
+// notifyf writes a notice to w.
+func notifyf(w io.Writer, format string, args ...any) {
+	fmt.Fprintf(w, noticePrefix+format+"\n", args...)
+}
+
+// An annotator turns the notice lines written to it into GitHub Actions
+// workflow commands, which show them on the run, and passes other lines,
+// such as a diff, through.
+type annotator struct {
+	w   io.Writer
+	buf []byte
+}
+
+func (a *annotator) Write(p []byte) (int, error) {
+	a.buf = append(a.buf, p...)
+	for {
+		i := bytes.IndexByte(a.buf, '\n')
+		if i < 0 {
+			return len(p), nil
+		}
+		line := string(a.buf[:i])
+		a.buf = a.buf[i+1:]
+		if msg, ok := strings.CutPrefix(line, noticePrefix); ok {
+			line = "::notice title=gen-contract::" + escapeCommand(msg)
+		}
+		if _, err := io.WriteString(a.w, line+"\n"); err != nil {
+			return 0, err
+		}
+	}
+}
+
+// escapeCommand escapes the message of a workflow command.
+func escapeCommand(msg string) string {
+	return strings.NewReplacer("%", "%25", "\r", "%0D", "\n", "%0A").Replace(msg)
+}
+
+// execute runs the command line args and returns what to tell the user.
+// Notices, which say what a command did not check and why, go to notices.
+func execute(args []string, stdout, notices io.Writer) (string, error) {
+	fs := flag.NewFlagSet("gen-contract", flag.ContinueOnError)
+	fs.SetOutput(notices)
+	fs.Usage = func() {
+		fmt.Fprint(fs.Output(), usage)
+		fs.PrintDefaults()
+	}
+	root := fs.String("root", ".", "root directory of the repository")
+	checkOnly := fs.Bool("check-release", false, "only check that a patch release from here keeps the contract of the latest release")
+	version := fs.String("version", "", "with -check-release: the release to cut, such as 2.1.1")
+	branch := fs.String("branch", "", "with -check-release: the branch to cut it from, such as release-2.1")
+	if err := fs.Parse(args); err != nil {
+		return "", err
+	}
+	if fs.NArg() > 0 {
+		if *checkOnly || *version != "" || *branch != "" {
+			return "", fmt.Errorf("-check-release, -version and -branch do not go with the %s command", fs.Arg(0))
+		}
+		return runCommand(*root, fs.Arg(0), fs.Args()[1:], stdout, notices)
+	}
+	switch {
+	case *checkOnly:
+		return runCheckRelease(*root, *version, *branch, notices)
+	case *version != "" || *branch != "":
+		return "", errors.New("-version and -branch go with -check-release")
+	default:
+		return "", generate(*root, notices)
+	}
+}
+
+// runCommand runs the command name with its arguments. Only diff writes
+// to stdout itself, since -raw prints bytes that must stay exact.
+func runCommand(root, name string, args []string, stdout, notices io.Writer) (string, error) {
+	switch name {
+	case "rebaseline":
+		return runRebaseline(root, args)
+	case "diff":
+		return "", runDiff(root, args, stdout)
+	case "verify":
+		return runVerify(root, args, notices)
+	case "check-records":
+		return runCheckRecords(root, args, notices)
+	case "show":
+		return runShow(root, args, notices)
+	case "latest":
+		if len(args) > 0 {
+			return "", fmt.Errorf("latest: unexpected argument %q", args[0])
+		}
+		releases, err := readReleases(filepath.Join(root, filepath.FromSlash(releasesDir)))
+		if err != nil {
+			return "", err
+		}
+		return releases[len(releases)-1].Version, nil
+	default:
+		return "", fmt.Errorf("unknown command %q", name)
+	}
+}
+
+// run writes the window of the core at root to the contract package.
+func run(root string) error {
+	return generate(root, io.Discard)
+}
+
+// generate writes the window of the core at root to the contract package,
+// and says on notices why the contract version is a development value.
+func generate(root string, notices io.Writer) error {
+	w, c, err := compute(root)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, outputFile), src, 0o600)
+	if n := c.skippedNotice(); n != "" {
+		notifyf(notices, "%s", n)
+	}
+	if !c.release.isSeed() && !c.equal() {
+		notifyf(notices, "contract version %s: %s; make contract-diff shows how", w.version, c.summary())
+	}
+	src, err := render(root, w)
+	if err != nil {
+		return err
+	}
+	for file, data := range map[string][]byte{
+		versionFile:    []byte(w.version + "\n"),
+		minVersionFile: []byte(w.minVersion + "\n"),
+		outputPath:     src,
+	} {
+		if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(file)), data, 0o600); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// render returns the content of zz_generated.version.go for the contract
-// package in dir.
-func render(dir, headerFile string) ([]byte, error) {
-	version, err := readVersion(filepath.Join(dir, versionFile))
+// load returns the release records and the contract fingerprints of the
+// core at root.
+func load(root string) ([]release, map[string]string, error) {
+	releases, err := readReleases(filepath.Join(root, filepath.FromSlash(releasesDir)))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	minVersion, err := readVersion(filepath.Join(dir, minVersionFile))
+	fps, err := fingerprints(root)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if contract.Compare(minVersion, version) > 0 {
-		return nil, fmt.Errorf("%s %s is above %s %s: a core must serve its own version",
-			minVersionFile, minVersion, versionFile, version,
-		)
+	return releases, fps, nil
+}
+
+// compute returns the window of the core at root, and the comparison it
+// was worked out from.
+func compute(root string) (window, comparison, error) {
+	releases, fps, err := load(root)
+	if err != nil {
+		return window{}, comparison{}, err
 	}
-	header, err := os.ReadFile(headerFile) //nolint:gosec // a file of this repository named on the command line
+	return decide(releases, fps)
+}
+
+// runCheckRelease checks that the next release, which version names or
+// which is cut from branch, keeps the contract of the latest release when
+// it is a patch release. On a difference it writes to notices the diff
+// against the tag of that release, when the tag is here.
+func runCheckRelease(root, version, branch string, notices io.Writer) (string, error) {
+	var line string
+	switch {
+	case version != "" && branch != "":
+		return "", errors.New("-check-release takes -version or -branch, not both")
+	case version != "":
+		if err := releaseVersion(version); err != nil {
+			return "", fmt.Errorf("-version: %w", err)
+		}
+		line = version
+	case branch != "":
+		l, ok := lineOfBranch(branch)
+		if !ok {
+			return fmt.Sprintf("%s is not a release branch release-X.Y, so no release cut from it is a patch release", branch), nil
+		}
+		line = l
+	default:
+		return "", errors.New("-check-release needs -version X.Y.Z, the release to cut, or -branch release-X.Y, the branch to cut it from")
+	}
+	releases, fps, err := load(root)
+	if err != nil {
+		return "", err
+	}
+	msg, c, err := checkRelease(releases, fps, line)
+	if n := c.skippedNotice(); n != "" {
+		notifyf(notices, "%s", n)
+	}
+	if err != nil && !c.equal() {
+		tag := "v" + c.release.Version
+		if hasRef(root, tag) {
+			if d, derr := diffInputs(root, tag, c.differ, defaultMaxLines); derr == nil {
+				fmt.Fprint(notices, d)
+			}
+		} else {
+			notifyf(notices, "fetch %[1]s to see the diff: git fetch --depth=1 origin refs/tags/%[1]s:refs/tags/%[1]s", tag)
+		}
+	}
+	return msg, err
+}
+
+// render returns the content of zz_generated.version.go.
+func render(root string, w window) ([]byte, error) {
+	header, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(headerFile))) //nolint:gosec // a file of this repository
 	if err != nil {
 		return nil, fmt.Errorf("read header: %w", err)
 	}
@@ -101,28 +304,12 @@ func render(dir, headerFile string) ([]byte, error) {
 		return nil, err
 	}
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{
+	if err := tmpl.Execute(&buf, map[string]any{
 		"Header":     strings.TrimSpace(string(header)),
-		"Version":    version,
-		"MinVersion": minVersion,
+		"Version":    w.version,
+		"MinVersion": w.minVersion,
 	}); err != nil {
 		return nil, err
 	}
 	return format.Source(buf.Bytes())
-}
-
-// readVersion returns the version a file holds on its single line.
-func readVersion(file string) (string, error) {
-	data, err := os.ReadFile(file) //nolint:gosec // a file of the contract package
-	if err != nil {
-		return "", err
-	}
-	v := strings.TrimSuffix(string(data), "\n")
-	if strings.Contains(v, "\n") {
-		return "", fmt.Errorf("%s: must hold a single line", file)
-	}
-	if !contract.Valid(v) {
-		return "", fmt.Errorf("%s: %q is not a SemVer 2.0.0 version such as 2.1.0 or 2.1.0-alpha.1", file, v)
-	}
-	return v, nil
 }
