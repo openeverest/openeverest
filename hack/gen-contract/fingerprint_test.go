@@ -15,8 +15,12 @@
 package main
 
 import (
+	"errors"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -424,11 +428,11 @@ func TestFingerprintOfThisRepository(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestInputsAreContractAdjacent checks that the paths of every input are
-// in the contract-adjacent block of CODEOWNERS, so a pull request that
-// changes them needs a contract decision and the owners of the contract.
-func TestInputsAreContractAdjacent(t *testing.T) {
-	t.Parallel()
+// contractAdjacentPaths returns the paths of the contract-adjacent block of
+// this repository's CODEOWNERS, relative to the root, without a trailing
+// slash.
+func contractAdjacentPaths(t *testing.T) []string {
+	t.Helper()
 
 	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "CODEOWNERS"))
 	require.NoError(t, err)
@@ -436,18 +440,133 @@ func TestInputsAreContractAdjacent(t *testing.T) {
 	start := strings.Index(block, "# BEGIN contract-adjacent")
 	end := strings.Index(block, "# END contract-adjacent")
 	require.True(t, start >= 0 && end > start, "CODEOWNERS has no contract-adjacent block")
-	var patterns []string
+	var paths []string
 	for line := range strings.Lines(block[start:end]) {
 		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "#") {
-			patterns = append(patterns, strings.Fields(line)[0])
+			paths = append(paths, strings.Trim(strings.Fields(line)[0], "/"))
 		}
 	}
+	return paths
+}
+
+// TestInputsAreContractAdjacent checks that the paths of every input are
+// in the contract-adjacent block of CODEOWNERS, so a pull request that
+// changes them needs a contract decision and the owners of the contract.
+func TestInputsAreContractAdjacent(t *testing.T) {
+	t.Parallel()
+
+	paths := contractAdjacentPaths(t)
 	for _, prefix := range inputPrefixes() {
 		covered := false
-		for _, p := range patterns {
-			p = strings.TrimPrefix(p, "/")
-			covered = covered || prefix == strings.TrimSuffix(p, "/") || strings.HasPrefix(prefix, strings.TrimSuffix(p, "/")+"/")
+		for _, p := range paths {
+			covered = covered || prefix == p || strings.HasPrefix(prefix, p+"/")
 		}
 		assert.True(t, covered, "%s is an input of the fingerprint but not in the contract-adjacent block of .github/CODEOWNERS", prefix)
 	}
+}
+
+// markdownNames are names of Markdown files a glob must not match.
+//
+//nolint:gochecknoglobals // immutable test table
+var markdownNames = []string{"x.md", "README.md", "MAINTAINING.md", "CHANGES.md", "X.MD"}
+
+// couldMatchMarkdown reports whether a glob, whose last element names
+// files, could match a Markdown file.
+func couldMatchMarkdown(glob string) bool {
+	if strings.HasSuffix(strings.ToLower(glob), ".md") {
+		return true
+	}
+	for _, name := range markdownNames {
+		if ok, _ := path.Match(path.Base(glob), name); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// TestNoMarkdownIsContract keeps documentation out of the contract, which
+// lets contract-decision drop Markdown files from what a pull request
+// touches: no fingerprint input reads a Markdown file, and no package
+// under a contract-adjacent path embeds one, so a change to one cannot
+// change the contract.
+func TestNoMarkdownIsContract(t *testing.T) {
+	t.Parallel()
+
+	// No pattern of a file names a Markdown file, and one next to, or
+	// below, every path an input reads, a directory of Go packages
+	// included, changes no digest.
+	for _, in := range inputs {
+		for _, p := range in.parts {
+			if !strings.HasSuffix(p.pattern, "/...") {
+				assert.False(t, couldMatchMarkdown(p.pattern), "%s: %s could match a Markdown file", in.name, p.pattern)
+			}
+		}
+	}
+	files := testRepo()
+	for _, prefix := range inputPrefixes() {
+		dir := prefix
+		if _, isFile := files[prefix]; isFile {
+			dir = path.Dir(prefix)
+		}
+		for _, name := range markdownNames {
+			files[path.Join(dir, name)] = "# Not part of the contract.\n"
+			files[path.Join(dir, "docs", name)] = "# Not part of the contract.\n"
+		}
+	}
+	assert.Equal(t, testFingerprints(t, testRepo()), testFingerprints(t, files), "a Markdown file changed a digest")
+
+	// No package under a contract-adjacent path embeds a Markdown file, or
+	// a directory, which could hold one.
+	root := filepath.Join("..", "..")
+	for _, adjacent := range contractAdjacentPaths(t) {
+		err := filepath.WalkDir(filepath.Join(root, filepath.FromSlash(adjacent)), func(file string, d fs.DirEntry, err error) error {
+			switch {
+			case err != nil:
+				return err
+			case d.IsDir() && (d.Name() == "testdata" || d.Name() == "vendor" || d.Name() == "node_modules"):
+				return filepath.SkipDir
+			case d.IsDir() || !strings.HasSuffix(file, ".go"):
+				return nil
+			}
+			for _, pattern := range embedPatterns(t, file) {
+				assert.False(t, couldMatchMarkdown(pattern), "%s: //go:embed %s could match a Markdown file", file, pattern)
+				matches, err := filepath.Glob(filepath.Join(filepath.Dir(file), filepath.FromSlash(pattern)))
+				require.NoError(t, err)
+				for _, m := range matches {
+					info, err := os.Stat(m)
+					require.NoError(t, err)
+					assert.False(t, info.IsDir(), "%s: //go:embed %s embeds the directory %s, which could hold a Markdown file", file, pattern, m)
+				}
+			}
+			return nil
+		})
+		if !errors.Is(err, fs.ErrNotExist) {
+			require.NoError(t, err, adjacent)
+		}
+	}
+}
+
+// embedPatterns returns the patterns of the //go:embed directives of a Go
+// file, without the all: prefix.
+func embedPatterns(t *testing.T, file string) []string {
+	t.Helper()
+
+	data, err := os.ReadFile(file) //nolint:gosec // a Go file of this repository
+	require.NoError(t, err)
+	var patterns []string
+	for line := range strings.Lines(string(data)) {
+		args, ok := strings.CutPrefix(strings.TrimSpace(line), "//go:embed")
+		if !ok || (args != "" && args[0] != ' ' && args[0] != '\t') {
+			continue
+		}
+		for f := range strings.FieldsSeq(args) {
+			if f[0] == '"' || f[0] == '`' {
+				unquoted, err := strconv.Unquote(f)
+				require.NoError(t, err, "%s: //go:embed %s", file, args)
+				f = unquoted
+			}
+			patterns = append(patterns, strings.TrimPrefix(f, "all:"))
+		}
+	}
+	return patterns
 }

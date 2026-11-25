@@ -205,7 +205,7 @@ func runVerify(root string, args []string, notices io.Writer) (string, error) {
 		return "", fmt.Errorf("the fingerprint scheme changed: bump it and run rebaseline. "+
 			"This generator computes from %s digests that differ from those the record of release %s holds under scheme %s, for %s, "+
 			"so a change to the generator, its dependencies or Go changed how an unchanged contract hashes. "+
-			"Name a new scheme in hack/gen-contract, then run go run ./hack/gen-contract rebaseline -version %s. See contract/README.md",
+			"Name a new scheme in hack/gen-contract, then run go run ./hack/gen-contract rebaseline -version %s. See contract/MAINTAINING.md",
 			*tag, latest.Version, scheme, strings.Join(differentInputs(recorded, fps), ", "), latest.Version,
 		)
 	}

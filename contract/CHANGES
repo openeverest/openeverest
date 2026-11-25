@@ -12,4 +12,4 @@
 # contract change; these comments are not, so editing them moves nothing.
 # A line that is neither blank, a comment ("# ...") nor an entry fails
 # make gen-contract, so nothing meant as an entry can fail to count. See
-# README.md.
+# MAINTAINING.md.

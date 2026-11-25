@@ -40,7 +40,7 @@
   description: Pins an unmerged helm-charts commit; that PR must land before this one
 
 # Contract decision (.github/workflows/contract-decision.yaml, see
-# contract/README.md): required on a pull request touching a contract-adjacent
+# contract/MAINTAINING.md): required on a pull request touching a contract-adjacent
 # path while the contract is unchanged since the last release.
 - name: contract-change
   color: d93f0b

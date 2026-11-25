@@ -379,7 +379,7 @@ func noSchemeError(r release) error {
 		"Add them from the tag of the release:\n\n"+
 		"\tgit fetch upstream --tags   # or origin: the remote of openeverest/openeverest\n"+
 		"\tgo run ./hack/gen-contract rebaseline -version %[1]s\n\n"+
-		"then run make gen-contract again and commit the record. See contract/README.md",
+		"then run make gen-contract again and commit the record. See contract/MAINTAINING.md",
 		r.Version, recordPath(r.Version), scheme,
 	)
 }

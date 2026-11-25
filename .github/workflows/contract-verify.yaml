@@ -5,7 +5,7 @@
 # hack/gen-contract, its dependencies or Go changes how an unchanged
 # contract hashes without naming a new scheme: every comparison with the
 # record is then wrong, and the contract version moves, or fails to move,
-# for no reason. See contract/README.md.
+# for no reason. See contract/MAINTAINING.md.
 #
 # Pull requests run it when they touch the generator, go.mod, go.sum or the
 # records. A scheduled workflow runs only on the default branch, so the

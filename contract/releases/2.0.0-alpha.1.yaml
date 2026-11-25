@@ -10,4 +10,4 @@ upgradableFrom: []                 # decided
 # carries no contract package, which was added before any check decided
 # whether a change touched the contract, so main counts from it with the
 # development value 2.0.0-alpha.1.next until the next release is recorded.
-# See contract/README.md.
+# See contract/MAINTAINING.md.

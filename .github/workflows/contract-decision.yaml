@@ -6,7 +6,7 @@
 # impose a new requirement on extensions without changing any artifact. The
 # paths are listed once, in the contract-adjacent block of
 # .github/CODEOWNERS; the logic is hack/contract-decision, which runs
-# locally too. See contract/README.md.
+# locally too. See contract/MAINTAINING.md.
 #
 # Label events re-run it, so adding the label updates the check. It reads
 # only the event, the pull request's file list and contract/VERSION on both

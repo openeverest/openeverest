@@ -4,7 +4,7 @@
 # Paths where a change can alter what core and its extensions rely on. While
 # the contract is unchanged since the last release, a pull request touching
 # any of them needs the label contract-change or no-contract-change: see
-# contract/README.md. .github/workflows/contract-decision.yaml reads this
+# contract/MAINTAINING.md. .github/workflows/contract-decision.yaml reads this
 # block; list one path per line, anchored at the root.
 #
 # The contract, and the artifacts its fingerprint covers.

@@ -142,7 +142,7 @@ func runCheckRecords(root string, args []string, notices io.Writer) (string, err
 	}
 	if len(errs) > 0 {
 		return "", fmt.Errorf("release records are frozen: only a new record, as the tag of its release carries it, "+
-			"or fingerprints of a new scheme computed from that tag may be added (see contract/README.md):\n%w", errors.Join(errs...),
+			"or fingerprints of a new scheme computed from that tag may be added (see contract/MAINTAINING.md):\n%w", errors.Join(errs...),
 		)
 	}
 	if checked == 0 {

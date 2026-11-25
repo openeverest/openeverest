@@ -27,7 +27,8 @@
 // no-contract-change, and the label must agree with contract/VERSION:
 // contract-change needs the development value there, which recording the
 // change in contract/CHANGES produces when no artifact shows it, and
-// no-contract-change needs the release value still.
+// no-contract-change needs the release value still. Markdown files never
+// count as touched: documentation is not part of the contract.
 //
 // It imports only the standard library, so CI runs it without downloading
 // the module's dependencies.
@@ -272,11 +273,17 @@ func decide(in input) decision {
 		)}}
 	}
 
-	adjacent, err := adjacentFiles(in)
+	adjacent, docs, err := adjacentFiles(in)
 	if err != nil {
 		return decision{failure: err.Error()}
 	}
-	if len(adjacent) == 0 {
+	switch {
+	case len(adjacent) == 0 && len(docs) > 0:
+		return decision{notices: []string{fmt.Sprintf(
+			"This pull request touches no contract-adjacent path but Markdown files (%s), which are never part of the contract.",
+			describeFiles(docs),
+		)}}
+	case len(adjacent) == 0:
 		return decision{notices: []string{"This pull request touches no contract-adjacent path."}}
 	}
 
@@ -293,7 +300,7 @@ func decide(in input) decision {
 			"This pull request touches contract-adjacent paths (%s), and the contract is unchanged since the last release "+
 				"(contract/VERSION is %s on the base branch). Add exactly one label: %s if an extension built against the "+
 				"base branch could break or need to change, even though no CRD or API schema changes; %s otherwise. "+
-				"See contract/README.md.",
+				"See contract/MAINTAINING.md.",
 			touched, in.baseVersion, labelChange, labelNoChange,
 		)}
 	case chosen[0] == labelChange && !isDevelopment(in.headVersion):
@@ -313,26 +320,38 @@ func decide(in input) decision {
 }
 
 // adjacentFiles returns the paths of in that match a contract-adjacent
-// pattern.
-func adjacentFiles(in input) ([]string, error) {
+// pattern, and apart from them the Markdown files that do. Documentation
+// is never part of the contract, so a Markdown file never counts as
+// touched: gen-contract's tests fail when a fingerprint input, or what a
+// contract-adjacent package embeds, could match one.
+func adjacentFiles(in input) ([]string, []string, error) {
 	if in.allAdjacent {
-		return []string{"every path, since they could not be listed"}, nil
+		return []string{"every path, since they could not be listed"}, nil, nil
 	}
 	matchers := make([]*regexp.Regexp, 0, len(in.patterns))
 	for _, p := range in.patterns {
 		m, err := matcher(p)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		matchers = append(matchers, m)
 	}
-	var adjacent []string
+	var adjacent, docs []string
 	for _, f := range in.files {
-		if slices.ContainsFunc(matchers, func(m *regexp.Regexp) bool { return m.MatchString(f) }) {
+		switch {
+		case !slices.ContainsFunc(matchers, func(m *regexp.Regexp) bool { return m.MatchString(f) }):
+		case isMarkdown(f):
+			docs = append(docs, f)
+		default:
 			adjacent = append(adjacent, f)
 		}
 	}
-	return adjacent, nil
+	return adjacent, docs, nil
+}
+
+// isMarkdown reports whether path names a Markdown file.
+func isMarkdown(path string) bool {
+	return strings.HasSuffix(strings.ToLower(path), ".md")
 }
 
 func describeFiles(files []string) string {
