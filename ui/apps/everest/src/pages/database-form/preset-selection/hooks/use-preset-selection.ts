@@ -12,39 +12,124 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useClusterInstancePresets } from 'hooks/api/cluster-instance-presets';
-import { PresetSelectionContextType } from '../preset-selection-context';
+import { useInstancePresets } from 'hooks/api/instance-presets';
+import {
+  PresetScope,
+  PresetSelection,
+  PresetStatus,
+} from '../preset-selection.types';
+import { mergePresets, parsePresetId } from '../preset-selection.utils';
 
-// The picked preset NAME lives in react-hook-form (PRESET_NAME_FIELD) and is
-// passed in; the selected spec is taken from the already-fetched preset list.
+// The picked preset ID lives in react-hook-form (DbWizardFormFields.presetId)
+// and is passed in; the selected spec is taken from the already-fetched lists.
+// This only derives where the pick stands: acting on it (filling the form,
+// dropping a pick that no longer applies) is usePresetFormSync's job.
 export const usePresetSelection = (
   clusterName: string,
   provider: string | undefined,
-  presetName: string
-): PresetSelectionContextType => {
-  const {
-    data: presets = [],
-    isLoading: isLoadingPresets,
-    isError,
-  } = useClusterInstancePresets(clusterName, provider);
-
-  const selectedPreset = useMemo(
-    () =>
-      presets.find((preset) => preset.metadata?.name === presetName) ?? null,
-    [presets, presetName]
+  namespace: string,
+  presetId: string
+): PresetSelection => {
+  const clusterPresetsQuery = useClusterInstancePresets(clusterName, provider);
+  const namespacePresetsQuery = useInstancePresets(
+    clusterName,
+    namespace,
+    provider
   );
 
-  return useMemo<PresetSelectionContextType>(
+  const presets = useMemo(
+    () =>
+      mergePresets(
+        clusterPresetsQuery.data,
+        namespacePresetsQuery.data,
+        namespace
+      ),
+    [clusterPresetsQuery.data, namespacePresetsQuery.data, namespace]
+  );
+
+  const selectedPreset = useMemo(
+    () => presets.find((preset) => preset.id === presetId) ?? null,
+    [presets, presetId]
+  );
+
+  // The cards first appear once both lists have arrived, so the form is not
+  // pushed down twice. After that a namespace switch reloads only the
+  // namespace presets, and the cluster ones must stay on screen meanwhile.
+  const isLoadingAnyList =
+    clusterPresetsQuery.isLoading || namespacePresetsQuery.isLoading;
+  const [hasShownPresets, setHasShownPresets] = useState(false);
+  if (!hasShownPresets && !isLoadingAnyList) {
+    setHasShownPresets(true);
+  }
+  const isLoadingPresets = hasShownPresets
+    ? clusterPresetsQuery.isLoading
+    : isLoadingAnyList;
+
+  const pickedId = parsePresetId(presetId);
+  const pickedFromOtherNamespace =
+    pickedId?.scope === PresetScope.Namespace &&
+    pickedId.namespace !== namespace;
+  const isOwnerListFetching =
+    pickedId?.scope === PresetScope.Namespace
+      ? namespacePresetsQuery.isFetching
+      : clusterPresetsQuery.isFetching;
+
+  let status: PresetStatus = 'none';
+  if (selectedPreset) {
+    status = 'ready';
+  } else if (presetId) {
+    // A missing preset is gone only once the list it belongs to has settled;
+    // until then it may simply not have loaded yet.
+    status =
+      pickedFromOtherNamespace || !isOwnerListFetching
+        ? 'unavailable'
+        : 'loading';
+  }
+
+  const clusterListFailed = clusterPresetsQuery.isError;
+  const namespaceListFailed = namespacePresetsQuery.isError;
+  const refetchClusterList = clusterPresetsQuery.refetch;
+  const refetchNamespaceList = namespacePresetsQuery.refetch;
+  const retryFailedLists = useCallback(() => {
+    if (clusterListFailed) {
+      refetchClusterList();
+    }
+    if (namespaceListFailed) {
+      refetchNamespaceList();
+    }
+  }, [
+    clusterListFailed,
+    namespaceListFailed,
+    refetchClusterList,
+    refetchNamespaceList,
+  ]);
+  const isRetrying =
+    (clusterListFailed && clusterPresetsQuery.isFetching) ||
+    (namespaceListFailed && namespacePresetsQuery.isFetching);
+
+  return useMemo<PresetSelection>(
     () => ({
       presets,
       isLoadingPresets,
-      isError,
-      presetName,
+      isError: clusterListFailed || namespaceListFailed,
+      retryFailedLists,
+      isRetrying,
+      presetId,
       selectedPreset,
-      presetSelected: Boolean(presetName),
-      presetPending: Boolean(presetName) && !selectedPreset,
+      status,
     }),
-    [presets, isLoadingPresets, isError, presetName, selectedPreset]
+    [
+      presets,
+      isLoadingPresets,
+      clusterListFailed,
+      namespaceListFailed,
+      retryFailedLists,
+      isRetrying,
+      presetId,
+      selectedPreset,
+      status,
+    ]
   );
 };

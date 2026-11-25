@@ -12,15 +12,103 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ClusterInstancePreset } from 'shared-types/api.types';
-import { CLUSTER_INSTANCE_PRESET_ANNOTATION } from './preset-selection.constants';
+import { extractWizardBackup } from 'pages/database-form/database-form-body/steps/backup-step/backup-step.utils';
+import { ClusterInstancePreset, InstancePreset } from 'shared-types/api.types';
+import { PRESET_ANNOTATION_BY_SCOPE } from './preset-selection.constants';
+import {
+  DroppedPreset,
+  PresetIdParts,
+  PresetScope,
+  SelectablePreset,
+} from './preset-selection.types';
+
+// Kubernetes names never contain "/", so it is a safe separator. A namespace
+// preset's id carries its namespace: after a namespace switch the picked id no
+// longer matches anything, instead of silently resolving to a same-named
+// preset with a different spec.
+const ID_SEPARATOR = '/';
+
+export const getClusterPresetId = (name: string): string =>
+  [PresetScope.Cluster, name].join(ID_SEPARATOR);
+
+export const getNamespacePresetId = (namespace: string, name: string): string =>
+  [PresetScope.Namespace, namespace, name].join(ID_SEPARATOR);
+
+export const parsePresetId = (id: string): PresetIdParts | undefined => {
+  const [scope, ...rest] = id.split(ID_SEPARATOR);
+  if (scope === PresetScope.Cluster && rest.length === 1) {
+    return { scope, name: rest[0] };
+  }
+  if (scope === PresetScope.Namespace && rest.length === 2) {
+    return { scope, namespace: rest[0], name: rest[1] };
+  }
+  return undefined;
+};
+
+export const toDroppedPreset = (
+  presetId: string,
+  wizardNamespace: string
+): DroppedPreset | null => {
+  const dropped = parsePresetId(presetId);
+  if (!dropped) {
+    return null;
+  }
+  return {
+    name: dropped.name,
+    wizardNamespace,
+    ownerNamespace:
+      dropped.scope === PresetScope.Namespace ? dropped.namespace : undefined,
+  };
+};
+
+const toSelectablePresets = (
+  presets: (ClusterInstancePreset | InstancePreset)[],
+  scope: PresetScope,
+  getId: (name: string) => string
+): SelectablePreset[] =>
+  presets.flatMap(({ metadata, spec }) =>
+    metadata?.name
+      ? [{ id: getId(metadata.name), scope, name: metadata.name, spec }]
+      : []
+  );
+
+// Cluster presets first: they are known before a namespace is, so namespace
+// presets are appended without moving the cards already on screen. The scope
+// comes from the endpoint each list was read from, never from the items.
+export const mergePresets = (
+  clusterPresets: ClusterInstancePreset[] = [],
+  namespacePresets: InstancePreset[] = [],
+  namespace: string
+): SelectablePreset[] => [
+  ...toSelectablePresets(
+    clusterPresets,
+    PresetScope.Cluster,
+    getClusterPresetId
+  ),
+  ...toSelectablePresets(namespacePresets, PresetScope.Namespace, (name) =>
+    getNamespacePresetId(namespace, name)
+  ),
+];
+
+// The backups a preset will run, in the wizard's form shape. A preset is
+// deployed as is, so what it switches off is left out instead of being shown
+// as scheduled.
+export const getPresetBackupFormValues = (spec: SelectablePreset['spec']) => {
+  const backup = extractWizardBackup({ spec });
+  if (!spec?.backup?.enabled) {
+    return { ...backup, schedules: [], pitr: {} };
+  }
+  return {
+    ...backup,
+    schedules: backup.schedules.filter(({ enabled }) => enabled),
+  };
+};
 
 interface BuildPresetCreateArgsInput {
-  selectedPreset: ClusterInstancePreset;
+  selectedPreset: SelectablePreset;
   provider: string;
   dbName: string;
   k8sNamespace: string;
-  presetName: string;
 }
 
 interface PresetCreateArgs {
@@ -28,22 +116,22 @@ interface PresetCreateArgs {
     provider: string;
     dbName: string;
     k8sNamespace: string;
-    spec: ClusterInstancePreset['spec'];
+    spec: SelectablePreset['spec'];
   };
   annotations: Record<string, string>;
 }
 
 // Builds the create-instance arguments for a one-click preset deploy: the
 // selected preset spec is sent verbatim (never rebuilt from the wizard fields)
-// and the originating preset is recorded in an annotation. Only request-address
-// fields ride alongside the spec; they are stripped before submit by
-// buildCreateInstanceSpec, so no wizard-only value leaks into the Instance spec.
+// and the originating preset is recorded in the annotation of its kind. Only
+// request-address fields ride alongside the spec; they are stripped before
+// submit by buildCreateInstanceSpec, so no wizard-only value leaks into the
+// Instance spec.
 export const buildPresetCreateArgs = ({
   selectedPreset,
   provider,
   dbName,
   k8sNamespace,
-  presetName,
 }: BuildPresetCreateArgsInput): PresetCreateArgs => ({
   formValue: {
     provider,
@@ -51,5 +139,7 @@ export const buildPresetCreateArgs = ({
     k8sNamespace,
     spec: selectedPreset.spec,
   },
-  annotations: { [CLUSTER_INSTANCE_PRESET_ANNOTATION]: presetName },
+  annotations: {
+    [PRESET_ANNOTATION_BY_SCOPE[selectedPreset.scope]]: selectedPreset.name,
+  },
 });

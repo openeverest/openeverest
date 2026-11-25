@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package definitions
 
 import (
 	"testing"
@@ -24,7 +24,7 @@ import (
 
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/contract"
 )
 
 func TestValidateConfigMapSchema(t *testing.T) {
@@ -67,7 +67,7 @@ func TestValidateConfigMapSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-configmap",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "test-config",
+						contract.DefinitionLabel: "test-config",
 					},
 				},
 				Data: map[string]string{
@@ -107,7 +107,7 @@ func TestValidateConfigMapSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-configmap",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "non-existent",
+						contract.DefinitionLabel: "non-existent",
 					},
 				},
 				Data: map[string]string{
@@ -123,7 +123,7 @@ func TestValidateConfigMapSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-configmap",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "test-config",
+						contract.DefinitionLabel: "test-config",
 					},
 				},
 				Data: map[string]string{
@@ -139,7 +139,7 @@ func TestValidateConfigMapSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-configmap",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "test-config",
+						contract.DefinitionLabel: "test-config",
 					},
 				},
 				Data: map[string]string{
@@ -154,7 +154,7 @@ func TestValidateConfigMapSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-configmap",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "test-config",
+						contract.DefinitionLabel: "test-config",
 					},
 				},
 				BinaryData: map[string][]byte{
@@ -169,7 +169,7 @@ func TestValidateConfigMapSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-configmap",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "test-config",
+						contract.DefinitionLabel: "test-config",
 					},
 				},
 				Data: map[string]string{
@@ -187,7 +187,7 @@ func TestValidateConfigMapSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-configmap",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "test-config",
+						contract.DefinitionLabel: "test-config",
 					},
 				},
 			},
@@ -200,7 +200,7 @@ func TestValidateConfigMapSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-configmap",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "test-config",
+						contract.DefinitionLabel: "test-config",
 					},
 				},
 				Data: map[string]string{
@@ -216,7 +216,7 @@ func TestValidateConfigMapSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-configmap",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "test-config",
+						contract.DefinitionLabel: "test-config",
 					},
 				},
 				Data: map[string]string{
@@ -233,7 +233,7 @@ func TestValidateConfigMapSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-configmap",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "test-config",
+						contract.DefinitionLabel: "test-config",
 					},
 				},
 				Data: map[string]string{

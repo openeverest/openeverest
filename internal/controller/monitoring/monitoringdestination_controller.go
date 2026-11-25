@@ -40,9 +40,10 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	contractmonitoring "github.com/openeverest/openeverest/v2/contract/monitoring"
 	"github.com/openeverest/openeverest/v2/internal/controller/inuse"
 	"github.com/openeverest/openeverest/v2/internal/controller/secretusage"
-	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	"github.com/openeverest/openeverest/v2/internal/controller/ssa"
 )
 
 // DestinationReconciler owns the Accepted condition, status.attachedInstances
@@ -124,7 +125,7 @@ func (r *DestinationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	// One apply for every status field this owner writes: a second apply
 	// would prune the first one's fields.
-	if err := rtmonitoring.ApplyCondition(ctx, r.Client, dst, dst.Status.Conditions, rtmonitoring.MaterializerFieldOwner, cond,
+	if err := ssa.ApplyCondition(ctx, r.Client, dst, dst.Status.Conditions, contractmonitoring.MaterializerFieldOwner, cond,
 		map[string]any{"attachedInstances": int64(attached.Count)},
 	); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -168,7 +169,7 @@ func (r *DestinationReconciler) attachedInstances(ctx context.Context, dst *moni
 // present, and the CA bundle parseable.
 func (r *DestinationReconciler) acceptedCondition(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination) (metav1.Condition, error) {
 	reject := func(reason, msg string) (metav1.Condition, error) {
-		return rtmonitoring.NewCondition(dst, monitoringv1alpha1.MonitoringDestinationConditionAccepted, metav1.ConditionFalse, reason, msg), nil
+		return ssa.NewCondition(dst, monitoringv1alpha1.MonitoringDestinationConditionAccepted, metav1.ConditionFalse, reason, msg), nil
 	}
 
 	class := &monitoringv1alpha1.MonitoringClass{}
@@ -208,7 +209,7 @@ func (r *DestinationReconciler) acceptedCondition(ctx context.Context, dst *moni
 	if msg != "" {
 		return reject(monitoringv1alpha1.ReasonInvalidCABundle, msg)
 	}
-	return rtmonitoring.NewCondition(dst, monitoringv1alpha1.MonitoringDestinationConditionAccepted, metav1.ConditionTrue,
+	return ssa.NewCondition(dst, monitoringv1alpha1.MonitoringDestinationConditionAccepted, metav1.ConditionTrue,
 		monitoringv1alpha1.ReasonAccepted, fmt.Sprintf("valid for MonitoringClass %q", class.Name),
 	), nil
 }

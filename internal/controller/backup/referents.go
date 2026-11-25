@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 )
 
 // referentAppearedOrGone passes only creations and deletions: an operation
@@ -107,7 +107,7 @@ func restoreNamesBackup(o, backup client.Object) bool {
 func restoreNamesInstance(o, instance client.Object) bool {
 	rs, ok := o.(*backupv1alpha1.Restore)
 	return ok && restoreUnfinished(rs) &&
-		(rs.Spec.InstanceRef.Name == instance.GetName() || controller.RestoreStreamInstanceName(rs) == instance.GetName())
+		(rs.Spec.InstanceRef.Name == instance.GetName() || referents.RestoreStreamInstanceName(rs) == instance.GetName())
 }
 
 func importNamesClass(o, class client.Object) bool {

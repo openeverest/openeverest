@@ -1,0 +1,41 @@
+openapi: 3.0.0
+info:
+  title: Test API
+  description: The test API.
+  version: 1.0.0
+paths:
+  /widgets:
+    get:
+      summary: List widgets
+      description: Lists every widget.
+      operationId: listWidgets
+      parameters:
+        - name: limit
+          in: query
+          description: How many.
+          required: false
+          example: 10
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Widget'
+              examples:
+                one:
+                  value: {name: a}
+components:
+  schemas:
+    Widget:
+      type: object
+      description: A widget.
+      properties:
+        name:
+          type: string
+          example: a
+        summary:
+          type: string
+          description: A summary of the widget.

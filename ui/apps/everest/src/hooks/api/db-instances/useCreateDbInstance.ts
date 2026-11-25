@@ -70,14 +70,14 @@ const parseDbWizardCore = (
 //   dbName       -> the Instance name (metadata.name), set via createDbInstanceFn
 //   k8sNamespace -> the request namespace (URL path), not the body
 //   spec         -> merged in separately
-//   presetName   -> UI-only control, never sent
+//   presetId     -> UI-only control, never sent
 // Everything else on the form is a ui-generator-produced spec field.
 const NON_SPEC_FORM_FIELDS = new Set([
   'provider',
   'dbName',
   'k8sNamespace',
   'spec',
-  'presetName',
+  'presetId',
 ]);
 
 export const buildCreateInstanceSpec = (

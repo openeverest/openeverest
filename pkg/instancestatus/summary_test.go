@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/provider-runtime/summary"
+	"github.com/openeverest/openeverest/v2/contract/summary"
 )
 
 // The fixtures' summary conditions keep the rules provider-runtime writes
