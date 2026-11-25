@@ -36,9 +36,20 @@
 // (additionalProperties: false): a key the type does not declare is invalid,
 // as it is for a strict decoder. controller-gen ignores it.
 //
-// The command in ./cmd prints the schema of a type as YAML, so a contract in
-// another repository generates its schemas with
+// An integration's chart also tells OpenEverest which contract it was built
+// against: [StampChart] writes the contract version of the core into the
+// chart's Chart.yaml, as the openeverest.io/contract-version annotation, with
+// [ChartHelper], the helper template that renders it on the MonitoringClass
+// and the other objects OpenEverest interprets. The stamp is the oldest
+// OpenEverest the build works with. [VerifyChart] checks that Chart.yaml and
+// every such object the chart renders carry it.
 //
-//	go run github.com/openeverest/openeverest/v2/pkg/classgen/cmd@<version> \
-//		--package . --type Parameters --output zz_generated.parameters.yaml
+// The command in ./cmd/classgen does all three. An integration runs it as
+// `go tool classgen` from its own module, which builds it against the core
+// that module requires; see README.md:
+//
+//	go get -tool github.com/openeverest/openeverest/v2/pkg/classgen/cmd/classgen@<version>
+//	go tool classgen --package . --type Parameters --output zz_generated.parameters.yaml
+//	go tool classgen stamp --chart-dir charts/<name>
+//	go tool classgen verify --chart-dir charts/<name>
 package classgen

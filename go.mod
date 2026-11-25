@@ -40,6 +40,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.59.0
+	golang.org/x/mod v0.42.0
 	golang.org/x/term v0.48.0
 	golang.org/x/time v0.16.0
 	golang.org/x/tools v0.52.0
@@ -433,7 +434,6 @@ require (
 	golang.org/x/build v0.0.0-20240906172953-ad8de1aafeaf // indirect
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20260811152304-ee035b5b010f // indirect
-	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
