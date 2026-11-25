@@ -141,11 +141,19 @@ func newHarness(t *testing.T, objs ...client.Object) *harness {
 	h := &harness{t: t, now: t0}
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1alpha1.AddToScheme(scheme))
+	// The builder sets resourceVersion on the objects it is given, which
+	// parallel tests share.
+	seeded := make([]client.Object, 0, len(objs))
+	for _, obj := range objs {
+		copied, ok := obj.DeepCopyObject().(client.Object)
+		require.True(t, ok)
+		seeded = append(seeded, copied)
+	}
 	h.c = fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithTypeConverters(crdTypeConverter(t), managedfields.NewDeducedTypeConverter()).
 		WithReturnManagedFields().
-		WithObjects(objs...).
+		WithObjects(seeded...).
 		WithStatusSubresource(&corev1alpha1.Instance{}).
 		Build()
 	// Only the reconciler's applies are recorded, not the stand-in
