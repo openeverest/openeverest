@@ -207,6 +207,14 @@ upgradableFrom: []
 
 const testGoMod = "module github.com/openeverest/openeverest/v2\n\ngo 1.27\n"
 
+const testVectors = `{
+  "order": ["2.0.0-alpha.1", "2.0.0"],
+  "check": [
+    {"ext": "2.0.0", "min": "2.0.0-alpha.1", "cur": "2.0.0", "status": "True", "reason": "Supported", "weight": 1.50}
+  ]
+}
+`
+
 const testChanges = `# Changes no artifact shows.
 #
 # - #1: an example, in a comment.
@@ -227,7 +235,7 @@ func testRepo() map[string]string {
 		"config/backupstorageclasses/kustomization.yaml":    "resources:\n- s3.yaml\n",
 		"contract/keys.go":                                  testContractGo,
 		"contract/check_test.go":                            "package contract\n\nfunc TestX() {}\n",
-		"contract/testdata/order.json":                      "{}\n",
+		vectorsFile:                                         testVectors,
 		classGoPath:                                         "package s3\n\n// ClassName is the name of the class.\nconst ClassName = \"s3\"\n",
 		changesFile:                                         testChanges,
 		releasesDir + "/2.0.0-alpha.1.yaml":                 testSeedRelease,

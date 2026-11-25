@@ -42,6 +42,7 @@ var Fingerprints = map[string]string{
 	"crds":     "sha256:f6e7f5a375306c1abb2cffa868a5ba13b02c6a240b2c890813b54b06efdab269",
 	"http-api": "sha256:5b590796b5752be08e481741c3649e6ceeb907295e598befa71ae74804aa5dae",
 	"go-api":   "sha256:647e8895ee7a2a88669ff1907fd168e94ba402f21276c5115ce3dd67f0ec6a53",
+	"vectors":  "sha256:16b6d1129b5c8c2bbd9030a0c9e50b5d02e317181545e620a5108f001107a103",
 	"changes":  "sha256:a852a6c613baff5e7be041a54ea4e2f0a92088947d8dac144c6674aa9225b7be",
 }
 

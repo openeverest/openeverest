@@ -18,7 +18,8 @@ import _ "embed"
 
 // OrderVectors is the JSON document of the cases every implementation of the
 // check must pass, so that a Helm template, the UI or a CEL rule decides
-// exactly as Check, IsDevelopment and AcknowledgementHolds do:
+// exactly as Check, IsDevelopment and AcknowledgementHolds do. The cases
+// are part of the contract, so changing them changes its version:
 //
 //   - "order" lists valid versions in strictly ascending precedence;
 //   - "invalid" lists values Valid rejects;
@@ -30,5 +31,5 @@ import _ "embed"
 //     and "coreVersion", the arguments of AcknowledgementHolds, and "holds",
 //     its result.
 //
-//go:embed testdata/order.json
+//go:embed vectors.json
 var OrderVectors []byte

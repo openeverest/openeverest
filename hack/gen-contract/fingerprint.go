@@ -96,6 +96,9 @@ var inputs = []input{
 	}},
 	// The Go identifiers and rules both sides link.
 	{name: "go-api", parts: []part{{pattern: "contract/...", entries: goAPIEntries}}},
+	// The cases every implementation of the rules runs, which extensions
+	// turn into checks of their own.
+	{name: "vectors", parts: []part{{pattern: vectorsFile, entries: vectorsEntries}}},
 	// The changes no artifact shows. It is never absent: a tree without
 	// the log has the empty one.
 	{name: "changes", parts: []part{{pattern: changesFile, entries: changesEntries}}},
@@ -482,6 +485,41 @@ func stripOpenAPI(node any, names bool) {
 			stripOpenAPI(v, false)
 		}
 	}
+}
+
+// vectorsFile holds the cases of contract.OrderVectors, and vectorsKey is
+// the key of its entry.
+const (
+	vectorsFile = "contract/vectors.json"
+	vectorsKey  = "vectors"
+)
+
+// vectorsEntries returns the entry of the vectors file: its JSON document,
+// compact, with the keys of every object sorted and the order of every
+// array kept, so that only a change to a case changes the digest. Numbers
+// keep their exact text. A missing file has none.
+func vectorsEntries(root, pattern string) ([]entry, error) {
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(pattern))) //nolint:gosec // a file of this repository
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	var doc any
+	if err := dec.Decode(&doc); err != nil {
+		return nil, err
+	}
+	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
+		return nil, errors.New("holds more than one JSON value")
+	}
+	canonical, err := json.Marshal(doc)
+	if err != nil {
+		return nil, err
+	}
+	return []entry{{key: vectorsKey, data: canonical, json: true}}, nil
 }
 
 // changesFile is the log of contract changes no artifact shows, and

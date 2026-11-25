@@ -23,7 +23,7 @@ Between releases, `Version` is a development value that sorts after the last rel
 | `*.go` | hand-edited | the library extensions import |
 | `zz_generated.version.go` | generated | `Version`, `MinVersion`, `FingerprintScheme`, `Fingerprints` and `UpgradableFrom` |
 | `VERSION`, `MIN_VERSION` | generated | `Version` and `MinVersion`, for tools that read them from a git ref without building Go |
-| `testdata/order.json` | hand-edited | the cases of `OrderVectors` |
+| `vectors.json` | hand-edited | the cases of `OrderVectors`, which are part of the contract |
 | `CHANGES` | hand-edited | the contract changes no artifact shows |
 | `releases/<version>.yaml` | frozen | the record of each core release |
 | `MAINTAINING.md` | hand-edited | how the version moves, and how releases are recorded |
