@@ -7,12 +7,12 @@ on:
         description: "The version to release, e.g. X.Y.Z for a release or X.Y.Z-<suffix> (e.g. X.Y.Z-rc1, X.Y.Z-dev) for a dev build"
         required: true
       release_type:
-        description: "fresh-install: users must install this release fresh. upgradable: it can be upgraded to in place from the releases in upgradable_from. See contract/MAINTAINING.md"
+        description: "upgradable: it can be upgraded to in place from the releases in upgradable_from, which with min_contract_version it then needs. fresh-install: users must install this release fresh. See contract/MAINTAINING.md"
         type: choice
         options:
-          - fresh-install
           - upgradable
-        default: fresh-install
+          - fresh-install
+        default: upgradable
       min_contract_version:
         description: "upgradable only: the oldest contract version it serves, at most the contract version of the latest release and of each release in upgradable_from"
         required: false
@@ -70,10 +70,11 @@ jobs:
 
           # A dev build such as X.Y.Z-dev sorts above every alpha and beta of
           # X.Y.Z, so its record would stay the latest until the first release
-          # candidate. It is a snapshot, not a release: it gets none.
+          # candidate. It is a snapshot, not a release: it gets none, so
+          # release_type does not apply to it.
           if [[ $VERSION == *-* && .${VERSION#*-}. == *.dev.* ]]; then
-            if [[ $RELEASE_TYPE != fresh-install || -n $MIN_CONTRACT_VERSION || -n $UPGRADABLE_FROM ]]; then
-              echo "::error::$VERSION is a dev build, not a release: it gets no contract record, so leave release_type, min_contract_version and upgradable_from at their defaults."
+            if [[ -n $MIN_CONTRACT_VERSION || -n $UPGRADABLE_FROM ]]; then
+              echo "::error::$VERSION is a dev build, not a release: it gets no contract record, so leave min_contract_version and upgradable_from empty."
               exit 1
             fi
             echo "::notice::$VERSION is a dev build, not a release: it gets no contract record."
@@ -90,7 +91,7 @@ jobs:
               ;;
             upgradable)
               if [[ -z $MIN_CONTRACT_VERSION || -z $UPGRADABLE_FROM ]]; then
-                echo "::error::An upgradable release needs min_contract_version, the oldest contract version it serves, and upgradable_from, the releases it can be upgraded from in place."
+                echo "::error::An upgradable release needs min_contract_version, the oldest contract version it serves, and upgradable_from, the releases it can be upgraded from in place. If users must install this release fresh, choose release_type fresh-install instead."
                 exit 1
               fi
               IFS=, read -ra upgradable_from <<< "$UPGRADABLE_FROM"

@@ -208,8 +208,8 @@ The [Release workflow](../.github/workflows/release.yml) records every core rele
 
 | Inputs | The release | Its record |
 |---|---|---|
-| `release_type: fresh-install`, the default | Users install it fresh; nothing can be upgraded to it in place. | `minContractVersion` is its contract version, so extensions built for an earlier core must be rebuilt for it, and `upgradableFrom` is empty. |
-| `release_type: upgradable`, `min_contract_version`, `upgradable_from` | It can be upgraded to in place from the releases `upgradable_from` lists, comma-separated. | `minContractVersion` is `min_contract_version`, and `upgradableFrom` the list. |
+| `release_type: upgradable`, the default, with `min_contract_version` and `upgradable_from` | It can be upgraded to in place from the releases `upgradable_from` lists, comma-separated. The workflow fails without either input, so a release is never recorded as one users must install fresh by omission. | `minContractVersion` is `min_contract_version`, and `upgradableFrom` the list. |
+| `release_type: fresh-install` | Users install it fresh; nothing can be upgraded to it in place. | `minContractVersion` is its contract version, so extensions built for an earlier core must be rebuilt for it, and `upgradableFrom` is empty. |
 
 The workflow checks the format of the inputs first, then runs, on the release branch:
 
