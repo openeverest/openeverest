@@ -7,19 +7,34 @@
 # record is then wrong, and the contract version moves, or fails to move,
 # for no reason. See contract/MAINTAINING.md.
 #
-# Pull requests run it when they touch the generator, go.mod, go.sum or the
-# records. A scheduled workflow runs only on the default branch, so the
-# nightly run lists main and every v2 release branch, release-X.Y with X of
-# 2 or more, and checks out each with its own generator. Only v1 predates
-# the contract: a v2 release branch without it fails, with what to do. A
-# release branch cut before the contract, such as release-2.0, gets it when
-# main is merged into it to prepare its next pre-release. While the latest
-# record is the seed, which has no fingerprints, there is nothing to
-# verify.
+# Pull requests into main and release-* run it, and so do pushes to them,
+# when they touch the generator, go.mod, go.sum or the records: each run
+# verifies the code it runs on, with its own generator. Those are the only
+# ways the result can change, since go.mod pins Go and go.sum the
+# generator's dependencies.
+#
+# The nightly run verifies main, and checks through the API that every v2
+# release branch, release-X.Y with X of 2 or more, carries the contract.
+# It never checks out another branch: a scheduled run has the privileges of
+# the default branch, its cache scope included, which the code of another
+# branch must not get. Only v1 predates the contract: a v2 release branch
+# without it fails, with what to do. A release branch cut before the
+# contract, such as release-2.0, gets it when main is merged into it to
+# prepare its next pre-release. While the latest record is the seed, which
+# has no fingerprints, there is nothing to verify.
 name: Contract verify
 
 on:
   pull_request:
+    branches:
+      - main
+      - 'release-*'
+    paths:
+      - 'hack/gen-contract/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'contract/releases/**'
+  push:
     branches:
       - main
       - 'release-*'
@@ -40,81 +55,25 @@ permissions:
   contents: read
 
 jobs:
-  verify-pr:
+  verify:
     name: Verify the latest release record
-    if: github.event_name == 'pull_request'
     runs-on: cncf-ubuntu-8-32-x86
     timeout-minutes: 15
     steps:
+      # The head of the pull request, or the commit the run is on: never
+      # the code of another branch.
       - name: Check out code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
-      - name: Set up Go release
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: 'go.mod'
-          cache: true
-
-      - name: Verify the latest release record
-        run: |
-          set -euo pipefail
-
-          tag="v$(go run ./hack/gen-contract latest)"
-          git fetch --no-tags --depth=1 origin "refs/tags/$tag:refs/tags/$tag" || true
-          go run ./hack/gen-contract verify
-
-  branches:
-    name: List the branches to verify
-    if: github.event_name != 'pull_request'
-    runs-on: cncf-ubuntu-8-32-x86
-    timeout-minutes: 5
-    outputs:
-      branches: ${{ steps.list.outputs.branches }}
-    steps:
-      - name: List main and the v2 release branches
-        id: list
+      # The generator cannot say this: a branch without the contract has
+      # none. contract-decision checks the branches of pull requests.
+      - name: Check that ${{ github.ref_name }} carries the contract
+        if: github.event_name != 'pull_request'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-
-          branches=(main)
-          while IFS= read -r branch; do
-            # v1 release branches predate the contract; every other one must
-            # carry it, which the job below checks.
-            if [[ $branch =~ ^release-([0-9]+)\.[0-9]+$ ]] && (( BASH_REMATCH[1] >= 2 )); then
-              branches+=("$branch")
-            fi
-          done < <(gh api "repos/$REPO/branches" --paginate --jq '.[].name | select(startswith("release-"))')
-          json=$(printf '%s\n' "${branches[@]}" | jq -R . | jq -cs .)
-          echo "Branches to verify: $json"
-          echo "branches=$json" >> "$GITHUB_OUTPUT"
-
-  verify-branch:
-    name: Verify the latest release record (${{ matrix.branch }})
-    needs: branches
-    runs-on: cncf-ubuntu-8-32-x86
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        branch: ${{ fromJSON(needs.branches.outputs.branches) }}
-    steps:
-      - name: Check out ${{ matrix.branch }}
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ matrix.branch }}
-          persist-credentials: false
-
-      # The branch's own generator cannot say this: a branch without the
-      # contract has none.
-      - name: Check that ${{ matrix.branch }} carries the contract
-        env:
-          BRANCH: ${{ matrix.branch }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
 
@@ -131,6 +90,8 @@ jobs:
             exit 1
           done
 
+      # The cache is the run's own: that of the pull request, or of the
+      # branch the code was pushed to or the run is on.
       - name: Set up Go release
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -144,3 +105,55 @@ jobs:
           tag="v$(go run ./hack/gen-contract latest)"
           git fetch --no-tags --depth=1 origin "refs/tags/$tag:refs/tags/$tag" || true
           go run ./hack/gen-contract verify
+
+  release-branches:
+    name: Check that the v2 release branches carry the contract
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: cncf-ubuntu-8-32-x86
+    timeout-minutes: 5
+    steps:
+      # Through the API, without checking anything out: this run has the
+      # privileges of the branch it runs on, which the code of another
+      # branch must not get. Pushes to a release branch verify its record
+      # with its own generator, in the context of that branch.
+      - name: Check the v2 release branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # has reports whether branch $1 holds path $2, and fails on any
+          # error but a 404.
+          has() {
+            local out
+            if out=$(gh api "repos/$REPO/contents/$2?ref=$1" --silent 2>&1); then
+              return 0
+            fi
+            if [[ $out == *"HTTP 404"* ]]; then
+              return 1
+            fi
+            echo "::error title=Contract verify::Cannot read $2 on $1: $out"
+            exit 1
+          }
+
+          branches=$(gh api "repos/$REPO/branches" --paginate --jq '.[].name | select(startswith("release-"))')
+          failed=0
+          while IFS= read -r branch; do
+            # v1 release branches predate the contract.
+            if [[ ! $branch =~ ^release-([0-9]+)\.[0-9]+$ ]] || (( BASH_REMATCH[1] < 2 )); then
+              continue
+            fi
+            ok=1
+            for path in contract/VERSION contract/releases; do
+              if ! has "$branch" "$path"; then
+                echo "::error title=Contract verify::$branch is a v2 release branch, which carries the contract, but it has no $path, so the record of its latest release cannot be verified. Merge main into $branch when preparing its next pre-release, which brings the contract to a release branch cut before it; until then this check fails. See contract/MAINTAINING.md."
+                ok=0
+                failed=1
+              fi
+            done
+            if (( ok )); then
+              echo "$branch carries the contract."
+            fi
+          done <<< "$branches"
+          exit "$failed"
