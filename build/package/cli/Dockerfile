@@ -27,9 +27,9 @@ RUN mkdir -p ./public/dist && touch ./public/dist/index.html
 RUN go mod download && \
     CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags "-s -w \
-      -X 'github.com/percona/everest/pkg/version.Version=${VERSION}' \
-      -X 'github.com/percona/everest/pkg/version.FullCommit=${RELEASE_FULLCOMMIT}' \
-      -X 'github.com/percona/everest/pkg/version.ProjectName=everestctl'" \
+      -X 'github.com/openeverest/openeverest/v2/pkg/version.Version=${VERSION}' \
+      -X 'github.com/openeverest/openeverest/v2/pkg/version.FullCommit=${RELEASE_FULLCOMMIT}' \
+      -X 'github.com/openeverest/openeverest/v2/pkg/version.ProjectName=everestctl'" \
     -o /usr/local/bin/everestctl \
     ./cmd/cli
 
