@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -28,10 +27,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/controller/ssa"
 )
 
 const (
 	pluginFinalizer = "plugin.core.openeverest.io/finalizer"
+
+	// pluginFieldOwner is the field manager of the status core writes on
+	// Plugins: the Available and Ready conditions. Other writers apply their
+	// own conditions to the same list under their own field managers.
+	pluginFieldOwner = "openeverest-plugin"
 
 	// ConditionTypeAvailable is True when the Plugin CR is valid and the
 	// backend (if declared) was reachable at last check.
@@ -103,27 +108,26 @@ func (r *PluginReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// --- Reconcile status conditions ---
-	patch := client.MergeFrom(plugin.DeepCopy())
-
-	r.reconcileConditions(plugin)
-
-	if err := r.Client.Status().Patch(ctx, plugin, patch); err != nil && !apierrors.IsNotFound(err) {
-		return ctrl.Result{}, fmt.Errorf("failed to patch plugin status: %w", err)
+	// Apply only the conditions this controller owns, under its own field
+	// manager: a merge patch replaces the whole list, so it would erase the
+	// conditions other writers set on the Plugin, even ones set after our
+	// read.
+	conditions := pluginConditions(plugin)
+	if err := ssa.ApplyConditions(ctx, r.Client, plugin, plugin.Status.Conditions, pluginFieldOwner, conditions); err != nil && !apierrors.IsNotFound(err) {
+		return ctrl.Result{}, err
 	}
 
-	logger.Info("Reconciled", "ready", isConditionTrue(plugin.Status.Conditions, ConditionTypeReady))
+	logger.Info("Reconciled", "ready", isConditionTrue(conditions, ConditionTypeReady))
 	return ctrl.Result{}, nil
 }
 
-// reconcileConditions sets Available and Ready conditions based on spec state.
-func (r *PluginReconciler) reconcileConditions(plugin *pluginv1alpha1.Plugin) {
-	now := metav1.Now()
-
+// pluginConditions returns the Available and Ready conditions, based on spec
+// state.
+func pluginConditions(plugin *pluginv1alpha1.Plugin) []metav1.Condition {
 	// Available: plugin spec is valid.
 	availCond := metav1.Condition{
 		Type:               ConditionTypeAvailable,
 		ObservedGeneration: plugin.Generation,
-		LastTransitionTime: now,
 	}
 	if plugin.Spec.DisplayName == "" {
 		availCond.Status = metav1.ConditionFalse
@@ -134,13 +138,11 @@ func (r *PluginReconciler) reconcileConditions(plugin *pluginv1alpha1.Plugin) {
 		availCond.Reason = reasonReconciling
 		availCond.Message = "Plugin spec is valid"
 	}
-	meta.SetStatusCondition(&plugin.Status.Conditions, availCond)
 
 	// Ready: plugin is enabled and has a backend (or is frontend-only).
 	readyCond := metav1.Condition{
 		Type:               ConditionTypeReady,
 		ObservedGeneration: plugin.Generation,
-		LastTransitionTime: now,
 	}
 	switch {
 	case !plugin.Spec.Enabled:
@@ -156,7 +158,8 @@ func (r *PluginReconciler) reconcileConditions(plugin *pluginv1alpha1.Plugin) {
 		readyCond.Reason = reasonBackendReady
 		readyCond.Message = "Plugin is enabled and configured"
 	}
-	meta.SetStatusCondition(&plugin.Status.Conditions, readyCond)
+
+	return []metav1.Condition{availCond, readyCond}
 }
 
 func isConditionTrue(conditions []metav1.Condition, condType string) bool {
