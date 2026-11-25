@@ -26,6 +26,10 @@ import {
   collectToggleableMetas,
   withToggleableSwitchDependencies,
 } from '../toggleable/toggleable';
+import {
+  extractBadgeMappingsFromSections,
+  stripBadgesFromData,
+} from '../badge-to-api/badge-to-api';
 
 export type BuildSectionSchemaOptions = {
   formMode?: FormMode;
@@ -81,12 +85,19 @@ export const buildSectionZodSchema = (
 
   zodSchema = applyToggleableValidation(zodSchema, toggleableFieldRules);
 
+  // Other sections' fields pass through unparsed, so a badgeToApi value is still
+  // the string the form holds ("25"), while this section's and `original`'s are
+  // numbers. A rule comparing them fails on the type and blocks Save from a
+  // field the dialog doesn't render.
+  const badgeMappings = extractBadgeMappingsFromSections(allSections);
+
   // Apply CEL validation from all sections
   zodSchema = applyCelValidation(
     zodSchema,
     allCelExpValidations,
     options?.originalData,
-    toggleables
+    toggleables,
+    (data) => stripBadgesFromData(data, badgeMappings)
   );
 
   return {

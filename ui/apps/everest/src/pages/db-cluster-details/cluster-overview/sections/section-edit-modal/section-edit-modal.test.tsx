@@ -254,6 +254,92 @@ describe('SectionEditModal CEL validation', () => {
       },
     });
   });
+
+  it('keeps Save enabled when a rule on a badgeToApi field of another section compares with original', async () => {
+    mutate.mockClear();
+
+    const sections: Record<string, Section> = {
+      resources: {
+        label: 'Resources',
+        components: {
+          disk: {
+            uiType: FieldType.Number,
+            path: 'spec.components.engine.storage.size',
+            fieldParams: { label: 'Disk', badge: 'Gi', badgeToApi: true },
+            validation: {
+              required: true,
+              min: 1,
+              modes: {
+                [FormMode.Edit]: {
+                  celExpressions: [
+                    {
+                      celExpr:
+                        'spec.components.engine.storage.size >= original.spec.components.engine.storage.size',
+                      message: 'Disk size cannot be decreased',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+      advanced: {
+        label: 'Advanced configuration',
+        components: {
+          configuration: {
+            uiType: FieldType.Text,
+            path: 'spec.components.engine.config',
+            fieldParams: { label: 'Configuration' },
+          },
+        },
+      },
+    };
+
+    const instance = {
+      metadata: { name: 'test-db', namespace: 'ns' },
+      spec: {
+        topology: { type: 'replicaSet' },
+        components: { engine: { storage: { size: '25Gi' } } },
+      },
+    } as unknown as Instance;
+
+    render(
+      <TestWrapper>
+        <SectionEditModal
+          sectionKey="advanced"
+          sections={sections}
+          instance={instance}
+          provider={{ spec: {} } as Provider}
+          namespace="ns"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      </TestWrapper>
+    );
+
+    const saveButton = screen.getByTestId('form-dialog-save');
+
+    fireEvent.change(screen.getByLabelText('Configuration'), {
+      target: { value: 'operationProfiling: {}' },
+    });
+
+    await waitFor(() => {
+      expect(saveButton).toBeEnabled();
+    });
+
+    fireEvent.click(saveButton);
+
+    await waitFor(() => expect(mutate).toHaveBeenCalled());
+    expect(mutate.mock.calls[0][0].spec).toMatchObject({
+      components: {
+        engine: {
+          config: 'operationProfiling: {}',
+          storage: { size: '25Gi' },
+        },
+      },
+    });
+  });
 });
 
 describe('SectionEditModal toggleable group', () => {

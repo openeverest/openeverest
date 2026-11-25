@@ -231,7 +231,11 @@ collected from all sections.
 
 CEL's `original` is built from the same read as the form (`extractInstanceValues`), so a
 `quantity` disk rule like `size >= original.size` compares numbers (`10 >= 10`), not
-`10 >= "10240Mi"`. Legacy `badgeToApi` fields are still stripped on top.
+`10 >= "10240Mi"`. Legacy `badgeToApi` fields are still stripped on top, on both sides: the modal
+strips `original`, and `buildSectionZodSchema` strips the form values CEL reads. The second matters
+for fields of other sections, which pass through unparsed as the strings the form holds (`"25"`); a
+rule on them would otherwise fail on the type (`"25" >= 25`) and disable Save from a field the
+dialog doesn't render.
 
 The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
 `mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
@@ -374,4 +378,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-20
+- Last updated: 2026-11-25

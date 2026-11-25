@@ -47,14 +47,18 @@ export const applyCelValidation = (
   schema: z.ZodTypeAny,
   celExpValidations: CelExpValidation[],
   originalData?: Record<string, unknown>,
-  toggleables: ToggleableMeta[] = []
+  toggleables: ToggleableMeta[] = [],
+  // Reads values the schema passed through unparsed the way it parses its own.
+  normalizeData: (data: Record<string, unknown>) => Record<string, unknown> = (
+    data
+  ) => data
 ): z.ZodTypeAny => {
   if (celExpValidations.length === 0) {
     return schema;
   }
 
   return schema.superRefine((data, ctx) => {
-    const celData = withoutSwitchedOffFields(data, toggleables);
+    const celData = withoutSwitchedOffFields(normalizeData(data), toggleables);
 
     celExpValidations.forEach(({ path, celExpressions, activeWhen }) => {
       if (activeWhen && !isToggleableOn(data, activeWhen)) return;
