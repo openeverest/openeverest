@@ -61,7 +61,7 @@ gen-openapi-ts-types: ## Generate TypeScript types from all OpenAPI YAML files i
 generate: gen
 
 .PHONY: gen
-gen: gen-crds-deepcopy gen-crds-manifests gen-backupstorageclasses gen-crds-openapi gen-openapi-ts-types ## Generate code.
+gen: gen-crds-deepcopy gen-crds-manifests gen-backupstorageclasses gen-crds-openapi gen-openapi-ts-types gen-contract ## Generate code.
 	go generate ./...
 	python3 hack/add_copyright.py \
 		internal/server/api/everest-server.gen.go \
@@ -548,6 +548,10 @@ gen-backupstorageclasses: controller-gen ## Generate the built-in BackupStorageC
 	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && \
 	"$(CONTROLLER_GEN)" crd paths=./hack/gen-backupstorageclasses/_schema output:crd:dir="$$tmp" && \
 	go run ./hack/gen-backupstorageclasses -crd-dir "$$tmp" -out config/backupstorageclasses
+
+.PHONY: gen-contract
+gen-contract: ## Generate the contract version constants from contract/VERSION and contract/MIN_VERSION.
+	go run ./hack/gen-contract
 
 ##@ Kustomize Deployment
 
