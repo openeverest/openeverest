@@ -458,7 +458,7 @@ func TestRun_JSONErrorsOnEmptyCreateBody(t *testing.T) {
 	assert.Contains(t, err.Error(), "unreadable response body")
 }
 
-// ---- create --json output contract ------------------------------------------
+// ---- create -o json output contract -----------------------------------------
 
 // captureStdout returns what fn writes to os.Stdout. Not parallel-safe
 // (os.Stdout is global), so callers must not use t.Parallel.

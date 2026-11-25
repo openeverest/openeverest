@@ -18,7 +18,6 @@ package instance
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -35,6 +34,7 @@ import (
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/instancestatus"
@@ -134,7 +134,7 @@ func (is *InstanceStatusRunner) watch(
 			lastKey = key
 			var buf bytes.Buffer
 			is.render(&buf, inst, opts.Namespace, now)
-			if is.config.Pretty {
+			if is.config.Pretty || is.config.YAML {
 				fmt.Fprintln(os.Stdout, "---")
 			}
 			fmt.Fprint(os.Stdout, buf.String())
@@ -157,7 +157,7 @@ func (is *InstanceStatusRunner) changeKey(inst *client.Instance, namespace strin
 
 func (is *InstanceStatusRunner) render(w io.Writer, inst *client.Instance, namespace string, now time.Time) {
 	if !is.config.Pretty {
-		_ = json.NewEncoder(w).Encode(inst) //nolint:errchkjson
+		_ = cli.Encode(w, inst, is.config.YAML)
 		return
 	}
 	printInstanceStatus(w, inst, namespace, now)

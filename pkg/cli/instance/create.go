@@ -51,6 +51,7 @@ const (
 
 type Config struct {
 	Pretty bool
+	YAML   bool // -o yaml: machine-readable YAML instead of JSON when Pretty is false
 }
 
 type CreateOptions struct {
@@ -240,7 +241,7 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 // header in pretty mode, as the request body in JSON mode.
 func (ic *InstanceCreator) emitClientDryRun(payload map[string]any, opts CreateOptions) error {
 	if !ic.config.Pretty {
-		if err := json.NewEncoder(os.Stdout).Encode(payload); err != nil {
+		if err := cli.Encode(os.Stdout, payload, ic.config.YAML); err != nil {
 			return fmt.Errorf("failed to encode instance: %w", err)
 		}
 		return nil
@@ -264,11 +265,11 @@ func (ic *InstanceCreator) emitServerDryRun(created *client.Instance, opts Creat
 	if created == nil {
 		return fmt.Errorf("the server accepted instance %q but returned an unreadable response body", opts.Name)
 	}
-	return writeInstanceJSON(created)
+	return writeInstance(created, ic.config.YAML)
 }
 
 // emitCreated reports a non-waiting create: a success line in pretty mode, or
-// the created instance in JSON mode (so `create --json` is parseable either way).
+// the created instance in JSON/YAML mode (so `create -o json`/`-o yaml` is parseable).
 func (ic *InstanceCreator) emitCreated(created *client.Instance, opts CreateOptions) error {
 	if ic.config.Pretty {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q created in namespace %q", opts.Name, opts.Namespace))
@@ -278,7 +279,7 @@ func (ic *InstanceCreator) emitCreated(created *client.Instance, opts CreateOpti
 	if created == nil {
 		return fmt.Errorf("instance %q was created but the server returned an unreadable response body", opts.Name)
 	}
-	return writeInstanceJSON(created)
+	return writeInstance(created, ic.config.YAML)
 }
 
 // waitForInstance blocks until the instance is ready or will not become
@@ -334,14 +335,14 @@ func (ic *InstanceCreator) waitForInstance(
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q is ready", opts.Name))
 		return nil
 	}
-	return writeInstanceJSON(final)
+	return writeInstance(final, ic.config.YAML)
 }
 
-func writeInstanceJSON(inst *client.Instance) error {
+func writeInstance(inst *client.Instance, asYAML bool) error {
 	if inst == nil {
 		return nil
 	}
-	if err := json.NewEncoder(os.Stdout).Encode(inst); err != nil {
+	if err := cli.Encode(os.Stdout, inst, asYAML); err != nil {
 		return fmt.Errorf("failed to encode instance: %w", err)
 	}
 	return nil

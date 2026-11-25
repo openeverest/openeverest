@@ -18,8 +18,7 @@ import { APIRequestContext, expect } from '@playwright/test';
 
 type StorageClassItem = { metadata?: { name?: string } };
 
-// Lists the cluster's storage class names in the shape the deprecated
-// /cluster-info returned, so existing callers keep working.
+// Keep the existing helper response shape for release E2E callers.
 export const getClusterDetailedInfo = async (
   token: string,
   request: APIRequestContext

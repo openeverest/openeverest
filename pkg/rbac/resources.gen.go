@@ -77,9 +77,7 @@ var resourcePathMap = map[string]string{
 var skipPaths = []string{
 	"/auth/revoke",
 	"/auth/token",
-	"/cluster-info",
 	"/permissions",
-	"/resources",
 	"/settings",
 	"/version",
 }

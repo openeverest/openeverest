@@ -26,19 +26,6 @@ export type StorageClass = HttpApi.components['schemas']['StorageClass'];
 export type StorageClassList =
   HttpApi.components['schemas']['StorageClassList'];
 
-type Resource = {
-  cpuMillis: number;
-  memoryBytes: number;
-  diskSize: number;
-};
-export type GetKubernetesClusterResourcesInfoPayload = {
-  capacity: Resource;
-  available: Resource;
-};
-
-export type KubernetesClusterResourcesInfo =
-  GetKubernetesClusterResourcesInfoPayload;
-
 export type GetKubernetesClusterMonitoringInfoResponse = {
   clusterType: string;
   storageClassNames: string[];

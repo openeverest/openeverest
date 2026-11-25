@@ -30,6 +30,11 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
+const (
+	annotationStorageClassDefault      = "storageclass.kubernetes.io/is-default-class"
+	annotationStorageClassDefaultValue = "true"
+)
+
 func TestK8s_StorageClasses(t *testing.T) {
 	t.Parallel()
 

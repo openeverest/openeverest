@@ -121,6 +121,8 @@ func TestNewRefreshTokenCookie(t *testing.T) {
 	t.Run("secure on https", func(t *testing.T) {
 		t.Parallel()
 		req := httptest.NewRequest(http.MethodPost, "/v1/auth/token", nil)
+		// echo trusts X-Forwarded-Proto only from loopback or private peers.
+		req.RemoteAddr = "10.0.0.1:1234"
 		req.Header.Set(echo.HeaderXForwardedProto, "https")
 		ctx := echo.New().NewContext(req, httptest.NewRecorder())
 		cookie := e.newRefreshTokenCookie(ctx, "everest_rt_abc", 3600)

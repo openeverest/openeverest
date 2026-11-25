@@ -272,3 +272,12 @@ func TestInstanceList_JSONOutput(t *testing.T) {
 	}, cfgPath)
 	require.NoError(t, err)
 }
+
+func TestInstanceList_YAMLOutput(t *testing.T) {
+	t.Parallel()
+
+	inst := instanceFromJSON(`{"metadata":{"name":"my-mongo"}}`)
+	var buf bytes.Buffer
+	NewListRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, []client.Instance{*inst}, time.Now())
+	assert.Contains(t, buf.String(), "- metadata:\n    name: my-mongo\n")
+}

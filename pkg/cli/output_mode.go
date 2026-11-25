@@ -12,4 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './useKubernetesClusterResourcesInfo';
+package cli
+
+import "github.com/spf13/cobra"
+
+// IsPretty is true when neither --verbose nor -o/--output was passed.
+func IsPretty(cmd *cobra.Command) bool {
+	return !cmd.Flag(FlagVerbose).Changed && !cmd.Flag(FlagOutput).Changed
+}
+
+// IsYAML is true when -o/--output yaml was passed.
+func IsYAML(cmd *cobra.Command) bool {
+	return cmd.Flag(FlagOutput).Changed && cmd.Flag(FlagOutput).Value.String() == string(OutputYAML)
+}
+
+// IsMachineReadable is true when -o/--output was passed (json or yaml).
+func IsMachineReadable(cmd *cobra.Command) bool {
+	return cmd.Flag(FlagOutput).Changed
+}

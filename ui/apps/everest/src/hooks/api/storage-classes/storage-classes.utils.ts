@@ -26,8 +26,8 @@ const createdAt = (storageClass: StorageClass) =>
 
 // Data-source fields preselect the first option, so the default class goes
 // first. With several defaults Kubernetes uses the newest one, so newer
-// defaults go first. The API does not order the list; this keeps the order
-// /cluster-info used to return.
+// defaults go first. The API does not order the list, so the UI preserves the
+// default-first behavior when selecting an initial option.
 export const sortDefaultStorageClassesFirst = (
   storageClasses: StorageClass[]
 ): StorageClass[] =>

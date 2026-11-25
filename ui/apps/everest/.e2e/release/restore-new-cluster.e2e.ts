@@ -36,7 +36,7 @@ import {
 } from '@e2e/pr/db-cluster/db-wizard/db-wizard-utils';
 import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
 import {
-  waitForStatus,
+  waitForInstanceStatus,
   waitForDelete,
   findRowAndClickActions,
   confirmDeletion,
@@ -218,15 +218,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
           await page.waitForURL('**/databases', {
             timeout: TIMEOUTS.ThirtySeconds,
           });
-          if (db !== 'postgresql' && db !== 'pxc') {
-            await waitForStatus(page, clusterName, 'Initializing', 15000);
-          }
-
-          if (db === 'pxc') {
-            await waitForStatus(page, clusterName, 'Ready', 900000);
-          } else {
-            await waitForStatus(page, clusterName, 'Up', 900000);
-          }
+          await waitForInstanceStatus(page, clusterName, 'Ready', 900000);
         });
 
         await test.step('Check db cluster k8s object options', async () => {
@@ -428,33 +420,23 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         });
 
         await test.step('Check restored DB list and status', async () => {
-          // A PXC instance seeded from a backup reports Restoring from the moment
-          // its engine exists, so it never shows Initializing.
-          if (db !== 'postgresql' && db !== 'pxc') {
-            await waitForStatus(
-              page,
-              restoredClusterName,
-              'Initializing',
-              15000
-            );
-          }
-          await waitForStatus(page, restoredClusterName, 'Restoring', 660000);
-          await waitForStatus(
+          await waitForInstanceStatus(
             page,
             restoredClusterName,
-            db === 'pxc' ? 'Ready' : 'Up',
+            'Restoring',
+            660000
+          );
+          await waitForInstanceStatus(
+            page,
+            restoredClusterName,
+            'Ready',
             2400000
           );
         });
 
         await test.step(`Delete primary database cluster`, async () => {
           await deleteDbCluster(page, clusterName);
-          await waitForStatus(
-            page,
-            clusterName,
-            db === 'pxc' ? 'Terminating' : 'Deleting',
-            15000
-          );
+          await waitForInstanceStatus(page, clusterName, 'Deleting', 15000);
           await waitForDelete(page, clusterName, 240000);
         });
 
@@ -588,10 +570,10 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         page,
       }) => {
         await deleteDbCluster(page, restoredClusterName);
-        await waitForStatus(
+        await waitForInstanceStatus(
           page,
           restoredClusterName,
-          db === 'pxc' ? 'Terminating' : 'Deleting',
+          'Deleting',
           15000
         );
         await waitForDelete(page, restoredClusterName, 240000);

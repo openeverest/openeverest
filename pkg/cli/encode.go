@@ -1,5 +1,3 @@
-// everest
-// Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,11 +11,26 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { api } from './api';
-import { GetKubernetesClusterResourcesInfoPayload } from 'shared-types/kubernetes.types';
 
-export const getKubernetesClusterResourcesInfo = async () => {
-  const response =
-    await api.get<GetKubernetesClusterResourcesInfoPayload>(`resources`);
-  return response.data;
-};
+package cli
+
+import (
+	"encoding/json"
+	"io"
+
+	"sigs.k8s.io/yaml"
+)
+
+// Encode writes v to w as YAML when asYAML is true, otherwise as JSON.
+// YAML encoding follows json struct tags (via sigs.k8s.io/yaml).
+func Encode(w io.Writer, v any, asYAML bool) error {
+	if asYAML {
+		b, err := yaml.Marshal(v)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(b)
+		return err
+	}
+	return json.NewEncoder(w).Encode(v)
+}
