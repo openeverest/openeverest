@@ -35,8 +35,9 @@ const (
 
 // ProviderStatusFieldOwner returns the server-side-apply field manager under
 // which the runtime of the named provider writes the status it shares with
-// other writers: the fields it owns on Instance.status and the Accepted
-// condition of the BackupClasses the provider claims.
+// other writers: the fields it owns on Instance.status, the Accepted
+// condition of the BackupClasses the provider claims, and the contract
+// version observed on its Provider.
 func ProviderStatusFieldOwner(provider string) string {
 	return "openeverest-provider/" + provider
 }
