@@ -30,7 +30,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	"github.com/openeverest/openeverest/v2/internal/controller/ssa"
 )
 
 const (
@@ -80,7 +80,7 @@ func (r *BackupClassReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		providers = append(providers, raw)
 	}
-	return ctrl.Result{}, rtmonitoring.ApplyStatus(ctx, r.Client, class, backupClassFieldOwner, map[string]any{
+	return ctrl.Result{}, ssa.ApplyStatus(ctx, r.Client, class, backupClassFieldOwner, map[string]any{
 		"providers": providers,
 	})
 }

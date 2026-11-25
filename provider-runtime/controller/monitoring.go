@@ -28,6 +28,7 @@ import (
 	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	contractmonitoring "github.com/openeverest/openeverest/v2/contract/monitoring"
 	"github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
 
@@ -136,7 +137,7 @@ func (c *Context) MonitoringBindings() ([]ResolvedBinding, error) {
 		}
 		rb.Apply = b.Spec.ExecutionMode == v1alpha1.MonitoringExecutionModeProviderManaged && rb.Entry != nil &&
 			kindDefaulted(b.Spec.DestinationRef) == kindDefaulted(rb.Entry.DestinationRef) &&
-			monitoring.IsAccepted(b) && rb.Destination != nil && rb.Class != nil
+			contractmonitoring.IsAccepted(b) && rb.Destination != nil && rb.Class != nil
 		out = append(out, rb)
 	}
 	return out, nil

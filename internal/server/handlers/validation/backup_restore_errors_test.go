@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 )
 
 func TestIsValidationError(t *testing.T) {
@@ -32,20 +32,20 @@ func TestIsValidationError(t *testing.T) {
 		err  error
 		want bool
 	}{
-		{name: "the umbrella sentinel itself", err: controller.ErrInvalidReference, want: true},
+		{name: "the umbrella sentinel itself", err: referents.ErrInvalidReference, want: true},
 		{
 			name: "a reference-validation sentinel satisfies the umbrella",
-			err:  controller.ErrInstanceNotFound,
+			err:  referents.ErrInstanceNotFound,
 			want: true,
 		},
 		{
 			name: "a wrapped reference-validation sentinel satisfies the umbrella",
-			err:  fmt.Errorf("failed to get instance '%s': %w", "x", controller.ErrInstanceNotFound),
+			err:  fmt.Errorf("failed to get instance '%s': %w", "x", referents.ErrInstanceNotFound),
 			want: true,
 		},
 		{
 			name: "a newly added reference-validation sentinel satisfies the umbrella without any change here",
-			err:  controller.ErrRestorePITRDateRequired,
+			err:  referents.ErrRestorePITRDateRequired,
 			want: true,
 		},
 		{name: "unrelated error is not a validation error", err: errors.New("connection refused"), want: false},

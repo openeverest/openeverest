@@ -14,7 +14,10 @@
 
 import { PreviewContentText } from '../preview-section';
 import { SectionProps } from './section.types';
-import { getTimeSelectionPreviewMessage } from '../database.preview.messages';
+import {
+  Messages,
+  getTimeSelectionPreviewMessage,
+} from '../database.preview.messages';
 import { getFormValuesFromCronExpression } from 'components/time-selection/time-selection.utils';
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 
@@ -30,12 +33,20 @@ export const PreviewBackupSection = (props: SectionProps) => {
     .filter(([, config]) => config?.enabled)
     .map(([storageName]) => storageName);
 
-  if (schedules.length === 0) {
-    return <PreviewContentText text="No backup schedules" />;
+  // The wizard attaches PITR only to storages that have a schedule, while a
+  // preset is deployed as is: its PITR runs with no schedule at all.
+  const hasPitrWithoutSchedules =
+    Boolean(props.presetId) && pitrStorages.length > 0;
+
+  if (schedules.length === 0 && !hasPitrWithoutSchedules) {
+    return <PreviewContentText text={Messages.noBackupSchedules} />;
   }
 
   return (
     <>
+      {schedules.length === 0 && (
+        <PreviewContentText text={Messages.noBackupSchedules} />
+      )}
       {schedules.map((schedule) => (
         <PreviewContentText
           key={schedule.name}

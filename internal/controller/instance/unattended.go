@@ -41,7 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/contract"
 )
 
 const (
@@ -421,7 +421,7 @@ func providerNotFoundMessage(name string, installed []string) string {
 // label shows that the provider picked the Instance up.
 func notRespondingMessage(in *corev1alpha1.Instance, waited time.Duration) string {
 	name := in.Spec.ProviderRef.Name
-	if controllerutil.ContainsFinalizer(in, controller.ProviderFinalizer) || in.Labels[controller.ProviderLabel] != "" {
+	if controllerutil.ContainsFinalizer(in, contract.ProviderFinalizer) || in.Labels[contract.ProviderLabel] != "" {
 		return fmt.Sprintf("Provider %q picked this Instance up but has not reported on generation %d for %s; check its logs.",
 			name, in.Generation, spellDuration(waited),
 		)

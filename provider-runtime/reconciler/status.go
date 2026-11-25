@@ -41,6 +41,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/summary"
 )
@@ -739,7 +740,7 @@ func runtimeCondition(t string) bool {
 // know, are left alone. in's resourceVersion is advanced to the written
 // one.
 func (r *ProviderReconciler) applyStatus(ctx context.Context, in *v1alpha1.Instance) error {
-	owner := controller.StatusFieldOwner(r.provider.Name())
+	owner := contract.ProviderStatusFieldOwner(r.provider.Name())
 	if err := r.adoptLegacyStatusFields(ctx, in, owner); err != nil {
 		return err
 	}

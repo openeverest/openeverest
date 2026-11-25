@@ -24,7 +24,7 @@ import (
 
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	"github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	contractmonitoring "github.com/openeverest/openeverest/v2/contract/monitoring"
 )
 
 func annotationDiscoveryClass(name string, prefixes ...string) *monitoringv1alpha1.MonitoringClass {
@@ -45,7 +45,7 @@ func requestingPodMetadata(entry, class string, accepted metav1.ConditionStatus,
 // firstBindingEntry returns the entry whose binding name sorts first; binding
 // names carry a hash, so the order is not the entries' order.
 func firstBindingEntry(a, b string) string {
-	if monitoring.BindingName("orders", b) < monitoring.BindingName("orders", a) {
+	if contractmonitoring.BindingName("orders", b) < contractmonitoring.BindingName("orders", a) {
 		return b
 	}
 	return a

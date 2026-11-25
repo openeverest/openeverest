@@ -61,7 +61,7 @@ gen-openapi-ts-types: ## Generate TypeScript types from all OpenAPI YAML files i
 generate: gen
 
 .PHONY: gen
-gen: gen-crds-deepcopy gen-crds-manifests gen-backupstorageclasses gen-crds-openapi gen-openapi-ts-types ## Generate code.
+gen: gen-crds-deepcopy gen-crds-manifests gen-backupstorageclasses gen-crds-openapi gen-openapi-ts-types gen-contract ## Generate code.
 	go generate ./...
 	python3 hack/add_copyright.py \
 		internal/server/api/everest-server.gen.go \
@@ -539,15 +539,36 @@ prepare-pr: gen ## Prepare code for pushing to GitHub PR (includes 'update-dev-c
 gen-crds-deepcopy: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	"$(CONTROLLER_GEN)" object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
+# Both generators below write manifests that gen-contract stamps with the
+# contract version, so each runs it after, to put the stamps back.
 .PHONY: gen-crds-manifests
 gen-crds-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	"$(CONTROLLER_GEN)" rbac:roleName=manager-role crd:allowDangerousTypes=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	go run ./hack/gen-contract
 
 .PHONY: gen-backupstorageclasses
 gen-backupstorageclasses: controller-gen ## Generate the built-in BackupStorageClasses from their Go types.
 	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && \
 	"$(CONTROLLER_GEN)" crd paths=./hack/gen-backupstorageclasses/_schema output:crd:dir="$$tmp" && \
 	go run ./hack/gen-backupstorageclasses -crd-dir "$$tmp" -out config/backupstorageclasses
+	go run ./hack/gen-contract
+
+# gen lists it after every generator whose output the contract fingerprint covers.
+.PHONY: gen-contract
+gen-contract: ## Work out the contract version from the contract artifacts and contract/releases, and stamp it on the manifests core ships.
+	go run ./hack/gen-contract
+
+# The branch a release would be cut from: CI passes the base branch of the
+# pull request, so that a patch release of release-X.Y keeps the contract.
+CONTRACT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+.PHONY: check-contract-release
+check-contract-release: ## Check that a patch release cut from CONTRACT_BRANCH (default: the current branch) keeps the contract of the latest release.
+	go run ./hack/gen-contract -check-release -branch "$(CONTRACT_BRANCH)"
+
+.PHONY: contract-diff
+contract-diff: ## Show how the contract changed since REF (default: the tag of the latest release). INPUT=<name> for one input, RAW=1 for the bytes each digest hashes.
+	@go run ./hack/gen-contract diff $(if $(REF),-ref "$(REF)") $(if $(INPUT),-input "$(INPUT)") $(if $(RAW),-raw)
 
 ##@ Kustomize Deployment
 
