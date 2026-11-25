@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +27,15 @@ import (
 func (k *Kubernetes) ListCRDs(ctx context.Context, opts ...ctrlclient.ListOption) (*apiextv1.CustomResourceDefinitionList, error) {
 	result := &apiextv1.CustomResourceDefinitionList{}
 	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// GetCRD returns the CRD with the given name.
+func (k *Kubernetes) GetCRD(ctx context.Context, name string) (*apiextv1.CustomResourceDefinition, error) {
+	result := &apiextv1.CustomResourceDefinition{}
+	if err := k.k8sClient.Get(ctx, ctrlclient.ObjectKey{Name: name}, result); err != nil {
 		return nil, err
 	}
 	return result, nil

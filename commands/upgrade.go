@@ -33,10 +33,12 @@ var (
 	upgradeCmd = &cobra.Command{
 		Use:    "upgrade [flags]",
 		Args:   cobra.NoArgs,
-		Long:   "Upgrade Percona Everest using Helm",
 		Short:  "Upgrade Percona Everest using Helm",
 		PreRun: upgradePreRun,
 		Run:    upgradeRun,
+		Long: "Upgrade Percona Everest using Helm.\n\n" +
+			"The upgrade is refused when the target release cannot be upgraded to in place from the installed one, " +
+			"because it requires a fresh install.",
 	}
 
 	upgradeCfg = &upgrade.Config{}

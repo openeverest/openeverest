@@ -24,6 +24,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chartutil"
 	kubefake "helm.sh/helm/v3/pkg/kube/fake"
+	"helm.sh/helm/v3/pkg/storage/driver"
 )
 
 func TestHelm_RenderTemplates(t *testing.T) {
@@ -107,4 +108,44 @@ func TestHelm_InstallOrUpgrade(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, rel.Version)
 	assert.Equal(t, "0.2.0", rel.Chart.Metadata.Version)
+}
+
+func TestHelm_DeployedChartVersion(t *testing.T) {
+	t.Parallel()
+
+	testNs := "test-ns"
+
+	cfg := action.Configuration{}
+	err := cfg.Init(nil, testNs, "memory", nil)
+	require.NoError(t, err)
+	cfg.KubeClient = &kubefake.PrintingKubeClient{Out: io.Discard}
+	cfg.Capabilities = chartutil.DefaultCapabilities
+	cfg.Log = func(_ string, _ ...any) {}
+
+	installer := Installer{
+		ReleaseName:      "test-release",
+		ReleaseNamespace: testNs,
+	}
+	err = installer.Init("", ChartOptions{
+		Directory: "../../../data/testchart",
+		Version:   "0.1.0",
+	})
+	require.NoError(t, err)
+	installer.cfg = &cfg
+
+	ctx := context.Background()
+
+	_, err = installer.DeployedChartVersion()
+	require.ErrorIs(t, err, driver.ErrNoDeployedReleases)
+
+	require.NoError(t, installer.InstallOrUpgrade(ctx, UpgradeOptions{}))
+	deployed, err := installer.DeployedChartVersion()
+	require.NoError(t, err)
+	assert.Equal(t, "0.1.0", deployed)
+
+	installer.chart.Metadata.Version = "0.2.0"
+	require.NoError(t, installer.InstallOrUpgrade(ctx, UpgradeOptions{}))
+	deployed, err = installer.DeployedChartVersion()
+	require.NoError(t, err)
+	assert.Equal(t, "0.2.0", deployed)
 }

@@ -116,6 +116,8 @@ type KubernetesConnector interface {
 	DeleteClusterServiceVersions(ctx context.Context, opts ...ctrlclient.ListOption) error
 	// ListCRDs lists all CRDs that match the criteria.
 	ListCRDs(ctx context.Context, opts ...ctrlclient.ListOption) (*apiextv1.CustomResourceDefinitionList, error)
+	// GetCRD returns the CRD with the given name.
+	GetCRD(ctx context.Context, name string) (*apiextv1.CustomResourceDefinition, error)
 	// DeleteCRD deletes a CRD that matches the criteria.
 	DeleteCRD(ctx context.Context, obj *apiextv1.CustomResourceDefinition) error
 	// ListDatabaseClusters returns list of managed database clusters that match the criteria.
