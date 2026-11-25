@@ -247,7 +247,7 @@ func TestNewReleaseErrors(t *testing.T) {
 			fp:   fpB,
 			wantErrs: []string{
 				"release 2.0.2 is a patch release of 2.0.1, so it must keep its contract, " +
-					"but the contract changed since release 2.0.1: crds, http-api, go-api, vectors, changes differ",
+					"but the contract changed since release 2.0.1: crds, http-api, go-api, changes differ",
 			},
 		},
 		{

@@ -35,6 +35,7 @@ const (
 	classPath    = "config/backupstorageclasses/s3.yaml"
 	classGoPath  = "backupstorageclasses/s3/s3.go"
 	contractPath = "contract/keys.go"
+	vectorsPath  = "contract/vectors.json"
 )
 
 func testFingerprints(t *testing.T, files map[string]string) map[string]string {
@@ -250,23 +251,12 @@ func TestFingerprintNormalisation(t *testing.T) {
 			f["contract/references/errors.go"] = "package references\n\nimport \"errors\"\n\nvar ErrNotFound = errors.New(\"not found\")\n"
 		}},
 
-		// The conformance vectors.
-		{name: "vectors layout and key order", mutate: func(t *testing.T, f map[string]string) {
+		// The conformance vectors test the rules, which no artifact shows:
+		// a case added or changed changes no digest.
+		{name: "vectors", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
-			replace(t, f, vectorsFile, `"status": "True", "reason": "Supported"`, `"reason": "Supported",`+"\r\n\t"+`"status": "True"`)
-			replace(t, f, vectorsFile, "{\n  \"order\"", "{\"order\"")
-		}},
-		{name: "vectors case", input: "vectors", mutate: func(t *testing.T, f map[string]string) {
-			t.Helper()
-			replace(t, f, vectorsFile, `"reason": "Supported"`, `"reason": "CoreTooOld"`)
-		}},
-		{name: "vectors order", input: "vectors", mutate: func(t *testing.T, f map[string]string) {
-			t.Helper()
-			replace(t, f, vectorsFile, `["2.0.0-alpha.1", "2.0.0"]`, `["2.0.0", "2.0.0-alpha.1"]`)
-		}},
-		{name: "vectors number", input: "vectors", mutate: func(t *testing.T, f map[string]string) {
-			t.Helper()
-			replace(t, f, vectorsFile, `1.50`, `1.5`)
+			replace(t, f, vectorsPath, `"reason": "Supported"`, `"reason": "CoreTooOld"`)
+			replace(t, f, vectorsPath, `["2.0.0-alpha.1", "2.0.0"]`, `["2.0.0-alpha.1", "2.0.0", "2.1.0"]`)
 		}},
 
 		// The log of contract changes.
@@ -336,12 +326,6 @@ func TestFingerprintErrors(t *testing.T) {
 		{name: "CHANGES entry without its bullet", wantErr: `changes: contract/CHANGES: line 4 is neither a comment`, mutate: func(f map[string]string) {
 			f[changesFile] += "#1234: a change.\n"
 		}},
-		{name: "vectors that do not read", wantErr: "vectors: contract/vectors.json: invalid character", mutate: func(f map[string]string) {
-			f[vectorsFile] = "{\"order\": [}\n"
-		}},
-		{name: "vectors with a second value", wantErr: "vectors: contract/vectors.json: holds more than one JSON value", mutate: func(f map[string]string) {
-			f[vectorsFile] += "{}\n"
-		}},
 		{name: "Go packages without a module", wantErr: "go-api: contract/...: the import path of contract: open ", mutate: func(f map[string]string) {
 			delete(f, goModFile)
 		}},
@@ -373,7 +357,6 @@ func TestEntryKeys(t *testing.T) {
 		"crds":     {"widgets.test.openeverest.io"},
 		"http-api": {"crd-schemas", "http-api"},
 		"go-api":   {"github.com/openeverest/openeverest/v2/contract"},
-		"vectors":  {vectorsKey},
 		"changes":  {changesKey},
 	}
 	for _, in := range inputs {
@@ -393,7 +376,6 @@ func TestEntryKeys(t *testing.T) {
 		httpAPIPath: "api/http-api.yaml",
 		crdsGenPath: "api/crds.gen.yaml",
 		changesFile: "CHANGES",
-		vectorsFile: "vectors.json",
 	} {
 		moved[to] = testRepo()[from]
 	}
@@ -406,7 +388,6 @@ func TestEntryKeys(t *testing.T) {
 		{entries: yamlEntries(canonicalOpenAPI("http-api")), from: httpAPIPath, to: "api/http-api.yaml"},
 		{entries: yamlEntries(canonicalOpenAPI("crd-schemas")), from: crdsGenPath, to: "api/crds.gen.yaml"},
 		{entries: changesEntries, from: changesFile, to: "CHANGES"},
-		{entries: vectorsEntries, from: vectorsFile, to: "vectors.json"},
 	} {
 		before, err := tt.entries(root, tt.from)
 		require.NoError(t, err)
@@ -431,7 +412,6 @@ func TestAbsentInputs(t *testing.T) {
 		{name: "CRDs", delete: []string{crdPath}, wantAbsent: "crds"},
 		{name: "HTTP API", delete: []string{httpAPIPath, crdsGenPath}, wantAbsent: "http-api"},
 		{name: "Go API", delete: []string{contractPath}, wantAbsent: "go-api"},
-		{name: "vectors", delete: []string{vectorsFile}, wantAbsent: "vectors"},
 		{name: "CHANGES", delete: []string{changesFile}},
 	}
 	for _, tt := range tests {
