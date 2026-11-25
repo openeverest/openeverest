@@ -187,9 +187,8 @@ A release branch cut before the contract landed, such as `release-2.0`, gets it 
 
 | Where | Carries |
 |---|---|
-| Every CRD in `config/crd/bases` | `openeverest.io/contract-version` (`Version`), `openeverest.io/min-contract-version` (`MinVersion`) and `openeverest.io/upgradable-from` (`UpgradableFrom`, comma-separated, empty for a release that can only be installed fresh) |
+| Every CRD in `config/crd/bases` | `openeverest.io/contract-version` (`Version`), `openeverest.io/min-contract-version` (`MinVersion`) and `openeverest.io/upgradable-from` (the release record's `upgradableFrom`, comma-separated, empty for a release that can only be installed fresh) |
 | The built-in BackupStorageClasses | `openeverest.io/contract-version`, the stamp every extension object carries |
-| `GET /v1/version` | `contractVersion`, `minContractVersion` and `upgradableFrom` |
 
 The CRDs are where extension tooling reads the window, because:
 
@@ -197,7 +196,11 @@ The CRDs are where extension tooling reads the window, because:
 - any client that can read a CRD finds the window there, without having to guess the namespace core is installed in;
 - the window changes in the same apply as the schemas it describes.
 
-The helm-charts repository builds its CRDs and built-in classes from `config/crd` and `config/backupstorageclasses` with kustomize, so the annotations travel with them. The stamps are metadata, which the fingerprint ignores, so stamping cannot move the version. A reader that sees several CRDs takes their intersection (`Intersect`): the lowest `contract-version` and the highest `min-contract-version`, so it never claims more than every CRD serves while an upgrade is under way.
+The helm-charts repository builds its CRDs and built-in classes from `config/crd` and `config/backupstorageclasses` with kustomize, so the annotations travel with them, and it copies them into the chart's `Chart.yaml`, where `everestctl upgrade` reads the `upgradable-from` of the release it upgrades to.
+
+`GET /v1/version` does not repeat the window. It would report the constants of the API server's binary, which can disagree with the CRDs the cluster serves, and the releases a core can be upgraded from matter only before an upgrade, from the release being upgraded to, never from the running one.
+
+The stamps are metadata, which the fingerprint ignores, so stamping cannot move the version. A reader that sees several CRDs takes their intersection (`Intersect`): the lowest `contract-version` and the highest `min-contract-version`, so it never claims more than every CRD serves while an upgrade is under way.
 
 ## `CHANGES`: changes no artifact shows
 
