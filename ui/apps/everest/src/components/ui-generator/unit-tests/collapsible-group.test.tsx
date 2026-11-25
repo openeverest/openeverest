@@ -60,11 +60,7 @@ const buildSchema = (
     },
   });
 
-const FormWrapper = ({
-  schema,
-}: {
-  schema: TopologyUISchemas;
-}) => {
+const FormWrapper = ({ schema }: { schema: TopologyUISchemas }) => {
   const { schema: zodSchema } = buildZodSchema(schema, TOPOLOGY);
   const methods = useForm({
     resolver: zodResolver(zodSchema),
@@ -74,9 +70,7 @@ const FormWrapper = ({
 
   return (
     <FormProvider {...methods}>
-      <form
-        onSubmit={methods.handleSubmit(() => undefined)}
-      >
+      <form onSubmit={methods.handleSubmit(() => undefined)}>
         <UIGenerator
           sections={schema[TOPOLOGY].sections}
           sectionKey="advanced"
@@ -88,7 +82,9 @@ const FormWrapper = ({
 };
 
 const renderCollapsible = (
-  groupType: GroupType.Collapsible | GroupType.Accordion = GroupType.Collapsible,
+  groupType:
+    | GroupType.Collapsible
+    | GroupType.Accordion = GroupType.Collapsible,
   options?: { label?: string; defaultExpanded?: boolean }
 ) => {
   const schema = buildSchema(groupType, options);
