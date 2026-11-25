@@ -152,12 +152,6 @@ func TestDecide(t *testing.T) {
 		wantNotice  string
 	}{
 		{
-			name:        "base without a contract",
-			headVersion: "2.0.0-alpha.1.next",
-			files:       adjacent,
-			wantNotice:  "no contract/VERSION",
-		},
-		{
 			name:        "contract changed since the last pre-release",
 			baseVersion: "2.0.0-alpha.1.next",
 			headVersion: "2.0.0-alpha.1.next",
@@ -267,8 +261,11 @@ func TestDecide(t *testing.T) {
 			t.Parallel()
 
 			d := decide(input{
+				baseRef:     "main",
 				baseVersion: tt.baseVersion,
+				baseRecords: true,
 				headVersion: tt.headVersion,
+				headRecords: true,
 				patterns:    patterns,
 				files:       tt.files,
 				allAdjacent: tt.allAdjacent,
@@ -282,6 +279,128 @@ func TestDecide(t *testing.T) {
 			require.Len(t, d.notices, 1)
 			assert.Contains(t, d.notices[0], tt.wantNotice)
 		})
+	}
+}
+
+// TestDecideWhereTheContractIs checks which branches must carry the
+// contract: every branch but those of v1, which predate it. A v2 branch
+// without it fails, unless the pull request brings it there.
+func TestDecideWhereTheContractIs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		baseRef     string
+		baseVersion string
+		baseRecords bool
+		headVersion string
+		headRecords bool
+		wantFailure string
+		wantNotice  string
+	}{
+		{name: "v1.x", baseRef: "v1.x", wantNotice: "v1.x is a v1 branch, which predates the contract: there is nothing to decide."},
+		{name: "v1 release branch", baseRef: "release-1.16", wantNotice: "release-1.16 is a v1 branch"},
+		{name: "v0 release branch", baseRef: "release-0.9", wantNotice: "release-0.9 is a v1 branch"},
+		{
+			name:        "v1 release branch with a contract",
+			baseRef:     "refs/heads/release-1.17",
+			baseVersion: "2.0.0", baseRecords: true, headVersion: "2.0.0", headRecords: true,
+			wantNotice: "release-1.17 is a v1 branch",
+		},
+		{
+			name:        "the merge that brings the contract to a release branch",
+			baseRef:     "release-2.0",
+			headVersion: "2.0.0-alpha.1.next", headRecords: true,
+			wantNotice: "The base branch release-2.0 has no contract/VERSION or contract/releases, and this pull request adds them: " +
+				"it brings the contract to the branch, so there is nothing to decide.",
+		},
+		{
+			name:        "the pull request that brings release records to main",
+			baseRef:     "main",
+			baseVersion: "2.0.0-alpha.1.next",
+			headVersion: "2.0.0-alpha.1.next", headRecords: true,
+			wantNotice: "The base branch main has no contract/releases, and this pull request adds it",
+		},
+		{
+			name:    "a release branch without the contract",
+			baseRef: "release-2.0",
+			wantFailure: "The base branch release-2.0 is a v2 branch, which carries the contract, but it has no contract/VERSION or contract/releases. " +
+				"Merge main into release-2.0 when preparing its next pre-release, which brings the contract to a release branch cut before it. " +
+				"See contract/MAINTAINING.md.",
+		},
+		{
+			name:        "a later release branch without records",
+			baseRef:     "release-3.1",
+			baseVersion: "3.1.0",
+			headVersion: "3.1.0",
+			wantFailure: "The base branch release-3.1 is a v2 branch, which carries the contract, but it has no contract/releases. Merge main into release-3.1",
+		},
+		{
+			name:        "main without the contract",
+			baseRef:     "main",
+			baseVersion: "2.0.0", headVersion: "2.0.0", headRecords: true, baseRecords: false,
+			wantNotice: "this pull request adds it",
+		},
+		{
+			name:        "main and the pull request without the contract",
+			baseRef:     "main",
+			wantFailure: "The base branch main is a v2 branch, which carries the contract, but it has no contract/VERSION or contract/releases. Restore them on main.",
+		},
+		{
+			name:        "a branch this cannot tell",
+			baseVersion: "2.0.0",
+			wantFailure: "The base branch (unnamed) is a v2 branch, which carries the contract, but it has no contract/releases. Restore it on (unnamed).",
+		},
+		{
+			name:        "a branch named like a release branch",
+			baseRef:     "release-e2e-pod-scheduling",
+			wantFailure: "Merge main into release-e2e-pod-scheduling when preparing its next pre-release",
+		},
+		{
+			name:        "a pull request that removes the records",
+			baseRef:     "release-2.1",
+			baseVersion: "2.1.0", baseRecords: true, headVersion: "2.1.0",
+			wantFailure: "This pull request removes contract/releases, which every v2 branch carries, from release-2.1: restore it.",
+		},
+		{
+			name:        "a pull request that removes the contract",
+			baseRef:     "main",
+			baseVersion: "2.1.0", baseRecords: true,
+			wantFailure: "This pull request removes contract/VERSION and contract/releases, which every v2 branch carries, from main: restore them.",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			d := decide(input{
+				baseRef:     strings.TrimPrefix(tt.baseRef, "refs/heads/"),
+				baseVersion: tt.baseVersion,
+				baseRecords: tt.baseRecords,
+				headVersion: tt.headVersion,
+				headRecords: tt.headRecords,
+				patterns:    []string{"/contract/"},
+				files:       []string{"contract/VERSION"},
+			})
+			if tt.wantFailure != "" {
+				assert.Contains(t, d.failure, tt.wantFailure)
+				return
+			}
+			assert.Empty(t, d.failure)
+			require.Len(t, d.notices, 1)
+			assert.Contains(t, d.notices[0], tt.wantNotice)
+		})
+	}
+}
+
+func TestIsV1Branch(t *testing.T) {
+	t.Parallel()
+
+	for _, b := range []string{"v1.x", "v0.x", "release-1.16", "release-1.0", "release-0.9", "release-1.17-hotfix"} {
+		assert.True(t, isV1Branch(b), b)
+	}
+	for _, b := range []string{"", "main", "v2.x", "release-2.0", "release-10.1", "release-e2e-debug", "release-", "v1.x-old", "feat/x", "release-1"} {
+		assert.False(t, isV1Branch(b), b)
 	}
 }
 
@@ -330,6 +449,19 @@ func TestRun(t *testing.T) {
 			wantOut:  "error: This pull request is labelled no-contract-change, but it changes the contract",
 		},
 		{
+			name:     "release branch without records",
+			args:     []string{"-base-ref", "release-2.0", "-base-version", "", "-head-version", "", "-files", "testdata/files-api.txt"},
+			actions:  true,
+			wantCode: 1,
+			wantOut:  "::error title=Contract decision::The base branch release-2.0 is a v2 branch, which carries the contract, but it has no contract/VERSION or contract/releases. Merge main into release-2.0 when preparing its next pre-release",
+		},
+		{
+			name:     "merging main into a release branch",
+			args:     []string{"-base-ref", "release-2.0", "-base-records=false", "-head-version", "2.0.0-alpha.1.next", "-head-records", "-files", "testdata/files-api.txt"},
+			wantCode: 0,
+			wantOut:  "notice: The base branch release-2.0 has no contract/VERSION or contract/releases, and this pull request adds them",
+		},
+		{
 			name:     "missing CODEOWNERS",
 			args:     []string{"-codeowners", "testdata/missing", "-base-version", "2.0.0"},
 			wantCode: 1,
@@ -354,6 +486,9 @@ func TestRun(t *testing.T) {
 
 			var out bytes.Buffer
 			args := tt.args
+			if !strings.Contains(strings.Join(args, " "), "-base-ref") {
+				args = append([]string{"-base-ref", "main", "-base-records", "-head-records"}, args...)
+			}
 			if !strings.HasPrefix(strings.Join(args, " "), "-codeowners") {
 				args = append([]string{"-codeowners", fixtureCodeowners}, args...)
 			}
@@ -410,8 +545,11 @@ func TestRepositoryBlock(t *testing.T) {
 	}
 
 	d := decide(input{
+		baseRef:     "main",
 		baseVersion: "2.0.0",
+		baseRecords: true,
 		headVersion: "2.0.0",
+		headRecords: true,
 		patterns:    patterns,
 		files: []string{
 			"contract/CHANGES",

@@ -9,9 +9,12 @@
 #
 # Pull requests run it when they touch the generator, go.mod, go.sum or the
 # records. A scheduled workflow runs only on the default branch, so the
-# nightly run lists main and the v2 release branches, those that carry
-# contract/releases, and checks out each with its own generator. While the
-# latest record is the seed, which has no fingerprints, there is nothing to
+# nightly run lists main and every v2 release branch, release-X.Y with X of
+# 2 or more, and checks out each with its own generator. Only v1 predates
+# the contract: a v2 release branch without it fails, with what to do. A
+# release branch cut before the contract, such as release-2.0, gets it when
+# main is merged into it to prepare its next pre-release. While the latest
+# record is the seed, which has no fingerprints, there is nothing to
 # verify.
 name: Contract verify
 
@@ -81,8 +84,9 @@ jobs:
 
           branches=(main)
           while IFS= read -r branch; do
-            # v1 release branches carry no release records.
-            if gh api "repos/$REPO/contents/contract/releases?ref=$branch" --silent 2>/dev/null; then
+            # v1 release branches predate the contract; every other one must
+            # carry it, which the job below checks.
+            if [[ $branch =~ ^release-([0-9]+)\.[0-9]+$ ]] && (( BASH_REMATCH[1] >= 2 )); then
               branches+=("$branch")
             fi
           done < <(gh api "repos/$REPO/branches" --paginate --jq '.[].name | select(startswith("release-"))')
@@ -105,6 +109,27 @@ jobs:
         with:
           ref: ${{ matrix.branch }}
           persist-credentials: false
+
+      # The branch's own generator cannot say this: a branch without the
+      # contract has none.
+      - name: Check that ${{ matrix.branch }} carries the contract
+        env:
+          BRANCH: ${{ matrix.branch }}
+        run: |
+          set -euo pipefail
+
+          for path in contract/VERSION contract/releases; do
+            if [[ -e $path ]]; then
+              continue
+            fi
+            if [[ $BRANCH == main ]]; then
+              fix="Restore it on main."
+            else
+              fix="Merge main into $BRANCH when preparing its next pre-release, which brings the contract to a release branch cut before it; until then this check fails."
+            fi
+            echo "::error title=Contract verify::$BRANCH is a v2 branch, which carries the contract, but it has no $path, so the record of its latest release cannot be verified. $fix See contract/MAINTAINING.md."
+            exit 1
+          done
 
       - name: Set up Go release
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0

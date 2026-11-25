@@ -30,6 +30,10 @@
 // no-contract-change needs the release value still. Markdown files never
 // count as touched: documentation is not part of the contract.
 //
+// Only a v1 branch predates the contract. A v2 branch without
+// contract/VERSION or contract/releases fails, rather than skip the
+// decision, unless the pull request is the one that brings them to it.
+//
 // It imports only the standard library, so CI runs it without downloading
 // the module's dependencies.
 package main
@@ -43,6 +47,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -81,8 +86,11 @@ func run(args []string, stdin io.Reader, stdout io.Writer, actions bool) int {
 	fs := flag.NewFlagSet("contract-decision", flag.ContinueOnError)
 	fs.SetOutput(stdout)
 	codeowners := fs.String("codeowners", ".github/CODEOWNERS", "CODEOWNERS file holding the contract-adjacent block")
+	baseRef := fs.String("base-ref", "", "the base branch, such as main or release-2.0")
 	baseVersion := fs.String("base-version", "", "content of contract/VERSION on the base branch; empty when it has none")
-	headVersion := fs.String("head-version", "", "content of contract/VERSION in the pull request")
+	baseRecords := fs.Bool("base-records", false, "whether the base branch has contract/releases")
+	headVersion := fs.String("head-version", "", "content of contract/VERSION in the pull request; empty when it has none")
+	headRecords := fs.Bool("head-records", false, "whether the pull request has contract/releases")
 	files := fs.String("files", "-", "file listing the paths the pull request changes, one per line; - for standard input")
 	allAdjacent := fs.Bool("all-adjacent", false, "treat the pull request as touching contract-adjacent paths, when its paths cannot be listed")
 	var prLabels labels
@@ -101,8 +109,11 @@ func run(args []string, stdin io.Reader, stdout io.Writer, actions bool) int {
 		fmt.Fprintf(stdout, "%s: %s\n", level, msg)
 	}
 	in := input{
+		baseRef:     strings.TrimPrefix(strings.TrimSpace(*baseRef), "refs/heads/"),
 		baseVersion: strings.TrimSpace(*baseVersion),
+		baseRecords: *baseRecords,
 		headVersion: strings.TrimSpace(*headVersion),
+		headRecords: *headRecords,
 		labels:      prLabels,
 		allAdjacent: *allAdjacent,
 	}
@@ -241,11 +252,18 @@ func matcher(pattern string) (*regexp.Regexp, error) {
 }
 
 type input struct {
+	// baseRef is the base branch.
+	baseRef string
 	// baseVersion is contract/VERSION on the base branch, empty when the
 	// base branch has none.
 	baseVersion string
-	// headVersion is contract/VERSION in the pull request.
+	// baseRecords is whether the base branch has contract/releases.
+	baseRecords bool
+	// headVersion is contract/VERSION in the pull request, empty when it
+	// has none.
 	headVersion string
+	// headRecords is whether the pull request has contract/releases.
+	headRecords bool
 	// patterns are the contract-adjacent patterns.
 	patterns []string
 	// files are the paths the pull request changes.
@@ -261,12 +279,41 @@ type decision struct {
 	failure string
 }
 
+// whereTheContractIs decides a pull request whose base branch is of v1,
+// which predates the contract, or where either side lacks the contract,
+// and returns false for any other.
+func whereTheContractIs(in input) (decision, bool) {
+	if isV1Branch(in.baseRef) {
+		return decision{notices: []string{fmt.Sprintf("%s is a v1 branch, which predates the contract: there is nothing to decide.", in.baseRef)}}, true
+	}
+	baseMissing := missingContract(in.baseVersion, in.baseRecords)
+	headMissing := missingContract(in.headVersion, in.headRecords)
+	switch {
+	case len(baseMissing) > 0 && len(headMissing) == 0:
+		return decision{notices: []string{fmt.Sprintf(
+			"The base branch %s has no %s, and this pull request adds %s: it brings the contract to the branch, so there is nothing to decide.",
+			branchName(in.baseRef), strings.Join(baseMissing, " or "), plural(len(baseMissing), "it", "them"),
+		)}}, true
+	case len(baseMissing) > 0:
+		return decision{failure: fmt.Sprintf(
+			"The base branch %s is a v2 branch, which carries the contract, but it has no %s. %s. See contract/MAINTAINING.md.",
+			branchName(in.baseRef), strings.Join(baseMissing, " or "), fixMissingContract(in.baseRef, len(baseMissing)),
+		)}, true
+	case len(headMissing) > 0:
+		return decision{failure: fmt.Sprintf(
+			"This pull request removes %s, which every v2 branch carries, from %s: restore %s.",
+			strings.Join(headMissing, " and "), branchName(in.baseRef), plural(len(headMissing), "it", "them"),
+		)}, true
+	}
+	return decision{}, false
+}
+
 // decide checks the decision of a pull request.
 func decide(in input) decision {
-	switch {
-	case in.baseVersion == "":
-		return decision{notices: []string{"The base branch has no contract/VERSION, so there is no contract to decide about."}}
-	case isDevelopment(in.baseVersion):
+	if d, ok := whereTheContractIs(in); ok {
+		return d
+	}
+	if isDevelopment(in.baseVersion) {
 		return decision{notices: []string{fmt.Sprintf(
 			"The contract has changed since the last release already (contract/VERSION is %s on the base branch), so no decision is needed.",
 			in.baseVersion,
@@ -359,6 +406,61 @@ func describeFiles(files []string) string {
 		return strings.Join(files, ", ")
 	}
 	return fmt.Sprintf("%s and %d more", strings.Join(files[:maxListed], ", "), len(files)-maxListed)
+}
+
+// v1Branch matches the branches of v1, which predate the contract: v1.x
+// and its release branches release-1.Y, and those of earlier majors.
+var v1Branch = regexp.MustCompile(`^(?:v([0-9]+)\.x|release-([0-9]+)\..*)$`)
+
+// isV1Branch reports whether branch is a v1 branch. Every other branch,
+// main, a v2 release branch or one this cannot tell, is v2, and must carry
+// the contract.
+func isV1Branch(branch string) bool {
+	m := v1Branch.FindStringSubmatch(branch)
+	if m == nil {
+		return false
+	}
+	major, err := strconv.Atoi(m[1] + m[2])
+	return err == nil && major < 2
+}
+
+// missingContract returns the paths of the contract a tree lacks, given
+// its contract/VERSION and whether it has contract/releases.
+func missingContract(version string, records bool) []string {
+	var missing []string
+	if version == "" {
+		missing = append(missing, "contract/VERSION")
+	}
+	if !records {
+		missing = append(missing, "contract/releases")
+	}
+	return missing
+}
+
+// fixMissingContract says how the v2 branch gets the n paths of the
+// contract it lacks.
+func fixMissingContract(branch string, n int) string {
+	if branch == "" || branch == "main" {
+		return fmt.Sprintf("Restore %s on %s", plural(n, "it", "them"), branchName(branch))
+	}
+	return fmt.Sprintf("Merge main into %s when preparing its next pre-release, "+
+		"which brings the contract to a release branch cut before it", branch,
+	)
+}
+
+// branchName returns branch, or a phrase for an unknown one.
+func branchName(branch string) string {
+	if branch == "" {
+		return "(unnamed)"
+	}
+	return branch
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }
 
 // isDevelopment reports whether the valid version v is a development value,

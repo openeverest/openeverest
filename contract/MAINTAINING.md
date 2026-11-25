@@ -133,7 +133,7 @@ go run ./hack/gen-contract rebaseline -version 2.1.0   # -tag v2.1.0 by default
 
 Only `main` allocates a scheme. A release branch pins the generator's dependencies, or cherry-picks `main`'s generator together with its scheme, so two branches never mean different things by the same name. A pull request that adds an input group also adds its paths to the contract-adjacent block of [`.github/CODEOWNERS`](../.github/CODEOWNERS); `TestInputsAreContractAdjacent` checks it.
 
-[`.github/workflows/contract-verify.yaml`](../.github/workflows/contract-verify.yaml) recomputes the latest record's digests under the current scheme from its tag, with the branch's own generator (`go run ./hack/gen-contract verify`), and fails with "the fingerprint scheme changed: bump it and run rebaseline" when they differ: a change to the generator, its dependencies or Go then changed how an unchanged contract hashes. It runs on pull requests into `main` and `release-*` that touch `hack/gen-contract`, `go.mod`, `go.sum` or the records, and nightly over `main` and every v2 release branch. While the latest record is the seed, there is nothing to verify.
+[`.github/workflows/contract-verify.yaml`](../.github/workflows/contract-verify.yaml) recomputes the latest record's digests under the current scheme from its tag, with the branch's own generator (`go run ./hack/gen-contract verify`), and fails with "the fingerprint scheme changed: bump it and run rebaseline" when they differ: a change to the generator, its dependencies or Go then changed how an unchanged contract hashes. It runs on pull requests into `main` and `release-*` that touch `hack/gen-contract`, `go.mod`, `go.sum` or the records, and nightly over `main` and every v2 release branch, which must carry the contract (see [Branches without the contract](#branches-without-the-contract)). While the latest record is the seed, there is nothing to verify.
 
 ### Records are frozen
 
@@ -154,6 +154,15 @@ For each input, `make contract-diff` (`go run ./hack/gen-contract diff`) prints 
 ### Release branches
 
 A patch release must not change the contract. `isPatchOf(latest, v)` decides when that applies: the latest record is a final release `X.Y.Z`, without a pre-release, and `v` has the same `X.Y`. Then `make check-contract-release` (`go run ./hack/gen-contract -check-release -branch release-X.Y`, or `-version X.Y.Z`) fails when a compared input differs from the latest record, and prints the diff when the tag of that release is here. Otherwise, after a pre-release or for the first release of a new minor, the release may change the contract, and the check passes with a notice.
+
+### Branches without the contract
+
+Only v1 predates the contract: `v1.x`, and the release branches and tags of major 1 and below. Every other branch must carry `contract/VERSION` and `contract/releases`, and the checks fail closed on one that does not, rather than skip what they check:
+
+- `contract-decision` fails a pull request whose base branch lacks them, and one that removes them. A pull request whose base branch lacks them and which adds them passes with a notice: it brings the contract to the branch.
+- The nightly `contract-verify` fails on a v2 release branch, `release-X.Y` with `X` of 2 or more, that lacks them.
+
+A release branch cut before the contract landed, such as `release-2.0`, gets it when `main` is merged into it, which is a step of preparing its next pre-release (2.0.0-alpha.2 for `release-2.0`): until then the nightly `contract-verify` fails on it, saying so. The merge pull request is the one exempt from the decision. In the merge, take `main`'s side of the files `make gen-contract` writes and run it again; the seed record then makes the branch's version `2.0.0-alpha.1.next`, as on `main`.
 
 ## `CHANGES`: changes no artifact shows
 
@@ -176,7 +185,7 @@ The fingerprint cannot see a change like the one above, so a person has to say w
 | `contract-change` | An extension built against the base branch could break or need to change. | `VERSION` in the pull request is the development value: if no artifact changed, record the change in `CHANGES` and run `make gen-contract`. |
 | `no-contract-change` | It does not. | `VERSION` in the pull request is still the release value. A pull request that changes a contract artifact changes the contract, whatever its label. |
 
-Once the contract has changed since the last release, the next release changes it anyway, so no decision is needed until then.
+Once the contract has changed since the last release, the next release changes it anyway, so no decision is needed until then. A pull request into a v1 branch needs none either; one into a v2 branch without the contract fails (see [Branches without the contract](#branches-without-the-contract)).
 
 The contract-adjacent paths are listed once, between `# BEGIN contract-adjacent` and `# END contract-adjacent` in [`.github/CODEOWNERS`](../.github/CODEOWNERS): the contract and its artifacts, the SDK extensions link, API middleware, admission (webhooks, admission policies, the API's validation handler and the packages they decide through), the readers of the status extensions write, and the finalizers core holds on objects extensions install. Each line says why its paths are there.
 
@@ -186,7 +195,7 @@ Markdown files never count as touched, wherever they are, so fixing this file or
 
 ```sh
 git diff --name-only origin/main... | go run ./hack/contract-decision \
-  -base-version "$(git show origin/main:contract/VERSION)" \
-  -head-version "$(cat contract/VERSION)" \
+  -base-ref main -base-version "$(git show origin/main:contract/VERSION)" -base-records \
+  -head-version "$(cat contract/VERSION)" -head-records \
   -label no-contract-change
 ```

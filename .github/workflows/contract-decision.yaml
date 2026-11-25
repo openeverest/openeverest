@@ -9,8 +9,11 @@
 # locally too. See contract/MAINTAINING.md.
 #
 # Label events re-run it, so adding the label updates the check. It reads
-# only the event, the pull request's file list and contract/VERSION on both
-# sides, so a run takes seconds.
+# only the event, the pull request's file list, and contract/VERSION and
+# whether contract/releases exists on both sides, so a run takes seconds.
+# Only a v1 base branch predates the contract: a v2 one without it fails,
+# unless the pull request brings it there, as merging main into a release
+# branch cut before the contract does.
 #
 # The records job keeps release records frozen: a record says what a release
 # was cut with, so a change to contract/releases may only add a record as the
@@ -69,16 +72,28 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
           CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
         run: |
           set -euo pipefail
 
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          # A base branch without the file predates the contract: nothing to decide.
+          # Empty or false when a side lacks them: contract-decision says
+          # whether that is right for the base branch.
           base_version=$(git show "$BASE_SHA:contract/VERSION" 2>/dev/null || true)
           head_version=$(cat contract/VERSION 2>/dev/null || true)
+          base_records=false
+          head_records=false
+          if git cat-file -e "$BASE_SHA:contract/releases" 2>/dev/null; then
+            base_records=true
+          fi
+          if [ -d contract/releases ]; then
+            head_records=true
+          fi
 
-          args=(-base-version "$base_version" -head-version "$head_version")
+          args=(-base-ref "$BASE_REF"
+            -base-version "$base_version" -base-records="$base_records"
+            -head-version "$head_version" -head-records="$head_records")
           while IFS= read -r label; do
             args+=(-label "$label")
           done < <(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
