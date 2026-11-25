@@ -52,7 +52,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
           topologies
         )
       : undefined;
-  const { presetSelected, presets, isError } = usePresetSelectionContext();
+  const { status: presetStatus, presets } = usePresetSelectionContext();
   const { watch, setValue, getFieldState } = useFormContext();
 
   // const dbType: DbType = watch(DbWizardFormFields.dbType);
@@ -139,12 +139,11 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
       <StepHeader
         pageTitle={Messages.pageTitle}
         pageDescription={
-          !isError && presets.length > 0
+          presets.length > 0
             ? Messages.pageDescriptionWithPresets
             : Messages.pageDescription
         }
       />
-      {mode === FormMode.New && <PresetSelectCards />}
       {importNavigation && importPrefill && (
         <ImportSourceBanner
           importSource={importNavigation.importSource}
@@ -172,6 +171,13 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
             isOptionEqualToValue: (option, value) => option === value,
           }}
         />
+      </FormGroup>
+      {/*
+        Below the namespace, which decides the presets on offer. Kept out of the
+        form groups: their wrapping column layout mis-sizes the card grid.
+      */}
+      {mode === FormMode.New && <PresetSelectCards />}
+      <FormGroup sx={{ mt: 3 }}>
         <TextInput
           name={DbWizardFormFields.dbName}
           label={Messages.labels.dbName}
@@ -189,7 +195,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
                 mode === FormMode.Restore ||
                 !!importPrefill?.topology ||
                 loadingDefaultsForEdition ||
-                presetSelected,
+                presetStatus !== 'none',
             }}
           >
             {topologies.map((topology) => (

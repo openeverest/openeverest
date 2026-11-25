@@ -21,8 +21,13 @@ import {
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
 import { getByPath } from 'components/ui-generator/utils/object-path/object-path';
-import { ClusterInstancePreset } from 'shared-types/api.types';
 import { DbWizardType } from '../../database-form-schema';
+import {
+  TEAM_A,
+  clusterPreset as defaultClusterPreset,
+  teamAPreset,
+} from '../__mocks__/presets';
+import { PresetStatus, SelectablePreset } from '../preset-selection.types';
 import { usePresetFormSync } from './use-preset-form-sync';
 
 const makeComponent = (path: string, defaultValue?: unknown): Component =>
@@ -58,18 +63,20 @@ const uiSchema = {
   },
 } as unknown as TopologyUISchemas;
 
-const selectedPreset: ClusterInstancePreset = {
+// Differs from the schema defaults above in cpu and storageClass, so a test
+// can tell which of the two won.
+const clusterPreset: SelectablePreset = {
+  ...defaultClusterPreset,
   spec: {
-    version: '8.0.12',
-    topology: { type: 'replicaSet' },
+    ...defaultClusterPreset.spec,
     components: {
       engine: {
         resources: { limits: { cpu: 2 } },
-        storage: { storageClass: 'preset-sc' },
+        storage: { size: '25Gi', storageClass: 'preset-sc' },
       },
     },
   },
-} as unknown as ClusterInstancePreset;
+};
 
 const CPU_PATH = 'spec.components.engine.resources.limits.cpu';
 const SC_PATH = 'spec.components.engine.storage.storageClass';
@@ -77,48 +84,54 @@ const EXTRA_PATH = 'spec.components.engine.extra';
 
 interface HookArgs {
   mode?: FormMode;
-  presetName?: string;
-  preset?: ClusterInstancePreset | null;
+  presetId?: string;
+  preset?: SelectablePreset | null;
+  status?: PresetStatus;
+  namespace?: string;
 }
 
 const setup = (args: HookArgs = {}) => {
   const utils = renderHook(
-    ({ mode, presetName, preset }: Required<HookArgs>) => {
+    ({ mode, presetId, preset, status, namespace }: Required<HookArgs>) => {
       const methods = useForm({
         defaultValues: {
           provider: 'psmdb',
           dbName: 'my-db',
           k8sNamespace: 'ns-1',
-          presetName: '',
+          presetId: '',
           topology: { type: 'replicaSet' },
           backup: { enabled: false },
           spec: {},
         },
       });
-      usePresetFormSync({
+      const notice = usePresetFormSync({
         mode,
         uiSchema,
         defaultValues: { backup: { enabled: false } },
         defaultTopology: 'replicaSet',
         selectedPreset: preset,
-        presetName,
+        presetId,
+        status,
+        namespace,
         reset: methods.reset as unknown as UseFormReset<DbWizardType>,
         getValues:
           methods.getValues as unknown as UseFormGetValues<DbWizardType>,
       });
-      return methods;
+      return { methods, notice };
     },
     {
       initialProps: {
         mode: args.mode ?? FormMode.New,
-        presetName: args.presetName ?? 'psmdb-replicaset',
-        preset: args.preset === undefined ? selectedPreset : args.preset,
+        presetId: args.presetId ?? clusterPreset.id,
+        preset: args.preset === undefined ? clusterPreset : args.preset,
+        status: args.status ?? 'ready',
+        namespace: args.namespace ?? 'ns-1',
       },
     }
   );
   const read = (path: string): unknown =>
     getByPath(
-      utils.result.current.getValues() as Record<string, unknown>,
+      utils.result.current.methods.getValues() as Record<string, unknown>,
       path
     );
   return { ...utils, read };
@@ -154,7 +167,37 @@ describe('usePresetFormSync', () => {
     await waitFor(() => expect(read(CPU_PATH)).toBe(2));
     expect(read('dbName')).toBe('my-db');
     expect(read('k8sNamespace')).toBe('ns-1');
-    expect(read('presetName')).toBe('psmdb-replicaset');
+    expect(read('presetId')).toBe(clusterPreset.id);
+  });
+
+  // The preview reads the form, while the request sends the preset spec: both
+  // must describe the same backups and monitoring.
+  it('shows the preset backups and monitoring in the wizard form', async () => {
+    const { read } = setup({ preset: teamAPreset, presetId: teamAPreset.id });
+
+    await waitFor(() =>
+      expect(read('backup.schedules')).toEqual([
+        {
+          name: 'daily',
+          cron: '0 0 * * *',
+          enabled: true,
+          storageName: 'bs-team-a',
+        },
+      ])
+    );
+    expect(read('backup.classRef.name')).toBe('psmdb-backup-class');
+    expect(read('backup.pitr')).toEqual({ 'bs-team-a': { enabled: true } });
+    expect(read('monitoring.destinations')).toEqual(
+      teamAPreset.spec.monitoring?.destinations
+    );
+  });
+
+  it('shows no backups or monitoring for a preset that sets none', async () => {
+    const { read } = setup();
+
+    await waitFor(() => expect(read(CPU_PATH)).toBe(2));
+    expect(read('backup.schedules')).toEqual([]);
+    expect(read('monitoring.destinations')).toEqual([]);
   });
 
   it('reverts to defaults when the preset is cleared (None)', async () => {
@@ -164,12 +207,61 @@ describe('usePresetFormSync', () => {
 
     rerender({
       mode: FormMode.New,
-      presetName: '',
+      presetId: '',
       preset: null,
+      status: 'none',
+      namespace: 'ns-1',
     });
 
-    await waitFor(() => expect(read('presetName')).toBe(''));
+    await waitFor(() => expect(read('presetId')).toBe(''));
     expect(read(CPU_PATH)).toBeUndefined();
+  });
+
+  it('drops a preset that became unavailable, keeping the chosen namespace', async () => {
+    const { read, rerender, result } = setup({
+      preset: teamAPreset,
+      presetId: teamAPreset.id,
+    });
+
+    await waitFor(() => expect(read('backup.schedules')).toHaveLength(1));
+    expect(read(CPU_PATH)).toBe(1);
+
+    // Namespace switched: the pick is still in the form but no longer resolves.
+    rerender({
+      mode: FormMode.New,
+      presetId: teamAPreset.id,
+      preset: null,
+      status: 'unavailable',
+      namespace: 'ns-1',
+    });
+
+    await waitFor(() => expect(read('presetId')).toBe(''));
+    expect(read(CPU_PATH)).toBeUndefined();
+    expect(read('backup.schedules')).toBeUndefined();
+    expect(read('k8sNamespace')).toBe('ns-1');
+    expect(read('dbName')).toBe('my-db');
+    // The drop and the notice about it come from the same place.
+    expect(result.current.notice.droppedPreset).toEqual({
+      name: teamAPreset.name,
+      wizardNamespace: 'ns-1',
+      ownerNamespace: TEAM_A,
+    });
+  });
+
+  it('does not report a preset the user cleared', async () => {
+    const { read, rerender, result } = setup();
+    await waitFor(() => expect(read(CPU_PATH)).toBe(2));
+
+    rerender({
+      mode: FormMode.New,
+      presetId: '',
+      preset: null,
+      status: 'none',
+      namespace: 'ns-1',
+    });
+
+    await waitFor(() => expect(read(CPU_PATH)).toBeUndefined());
+    expect(result.current.notice.droppedPreset).toBeNull();
   });
 
   it('does nothing outside New mode', async () => {
