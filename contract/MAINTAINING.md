@@ -55,14 +55,13 @@ A workflow that needs a fact whose reading takes a rule or parsing asks the gene
 | `crds` | every CRD in `config/crd/bases` |
 | `http-api` | `api/openapi/http-api.yaml` and the CRD schemas it refers to, `api/openapi/crds.gen.yaml` |
 | `go-api` | the exported Go API of `contract/...` |
-| `vectors` | the cases of [`vectors.json`](vectors.json), which every other implementation of the rules runs, as `OrderVectors` |
 | `changes` | the entries of [`CHANGES`](CHANGES) |
 
 When the JSON Schema of the `uiSchema` lands, it joins the inputs under a new scheme.
 
-The vectors are an input because extensions turn them into checks of their own, such as the Helm templates provider-sdk generates, so a case added or changed changes what extensions decide, even when `check.go` does not change. A change to them therefore moves the version like any other contract change: add vectors on `main`, never on a `release-X.Y` branch, whose patch releases cannot change the contract (see [Release branches](#release-branches)).
-
 The BackupStorageClasses this repository ships, such as `s3`, are not inputs: a class is an extension that only ships here for convenience, and covering it would raise every extension's minimum OpenEverest whenever the class changed. The `BackupStorageClass` and `BackupStorage` kinds are core contract, and `crds` covers them.
+
+Nor are the cases of [`vectors.json`](vectors.json): they test the rules rather than define them, so adding one changes no rule and leaves the version alone, on `main` and on release branches alike. A change to a rule, or to what an existing case expects, is a contract change the fingerprint cannot see, which reviewers catch (see [The decision labels](#the-decision-labels)).
 
 It first strips what does not change the contract, so a digest changes when its part of the contract does and only then:
 
@@ -70,7 +69,6 @@ It first strips what does not change the contract, so a digest changes when its 
 - the printer columns of CRDs, which only `kubectl get` uses;
 - the `metadata` of manifests, which holds controller-gen's version and the annotations tools stamp;
 - in Go: comments, layout, parameter names, function bodies, unexported identifiers and test files;
-- in `vectors.json`: its layout and the order of the keys of its objects, while the order of its arrays stays;
 - in `CHANGES`: comments and blank lines.
 
 Each artifact then has a canonical form, compact JSON with sorted keys and exact numbers, or one line of tokens per Go declaration, or one line per change, and a key that names it by what it is rather than by the path of its file: a CRD by its name (`instances.core.openeverest.io`), the HTTP API and the CRD schemas it refers to as `http-api` and `crd-schemas`, the log as `changes`, and a Go package by its import path (`github.com/openeverest/openeverest/v2/contract`), the module path in `go.mod` and its directory, since the import path is part of its API. Moving a file therefore changes no digest, as long as the input still finds it: name the new path in `inputs` next to the old one, which the tags of earlier releases hold, so that `verify` and `rebaseline` still find it there. Two artifacts with the same key in one input fail. The **canonical stream** of an input is its artifacts in order of key, each as its key, a space, the length of its canonical form, a newline, the form and a newline. The **digest** of the input is `sha256:` and the SHA-256 of that stream, the same on every machine. An input none of whose artifacts exist, as at a tag that predates it, has no digest, except `changes`: a tree without `CHANGES` has the empty log.
@@ -259,6 +257,8 @@ The fingerprint cannot see a change like the one above, so a person has to say w
 |---|---|---|
 | `contract-change` | An extension built against the base branch could break or need to change. | `VERSION` in the pull request is the development value: if no artifact changed, record the change in `CHANGES` and run `make gen-contract`. |
 | `no-contract-change` | It does not. | `VERSION` in the pull request is still the release value. A pull request that changes a contract artifact changes the contract, whatever its label. |
+
+The fingerprint strips function bodies and does not read `vectors.json`, so for the rules the label is the reviewer's call. Changing a rule in `check.go` or `acknowledge.go` (`Check`, `Valid`, `Compare`, `IsDevelopment`, `AcknowledgementHolds`), or what an existing case in `vectors.json` expects, is a contract change: label it `contract-change` and add a `CHANGES` entry, since no artifact shows it. Adding cases is not: label it `no-contract-change`.
 
 Once the contract has changed since the last release, the next release changes it anyway, so no decision is needed until then. A pull request into a v1 branch needs none either; one into a v2 branch without the contract fails (see [Branches without the contract](#branches-without-the-contract)).
 

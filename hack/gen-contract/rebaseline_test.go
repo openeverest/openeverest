@@ -148,7 +148,7 @@ func TestRebaseline(t *testing.T) {
 
 	msg, err := execute([]string{"-root", root, "rebaseline", "-version", "2.1.0"}, io.Discard, io.Discard)
 	require.NoError(t, err)
-	assert.Equal(t, "added the fingerprints of v2.1.0 under scheme "+scheme+" to contract/releases/2.1.0.yaml: crds, http-api, go-api, vectors, changes", msg)
+	assert.Equal(t, "added the fingerprints of v2.1.0 under scheme "+scheme+" to contract/releases/2.1.0.yaml: crds, http-api, go-api, changes", msg)
 
 	fps := testFingerprints(t, testRepo())
 	var block strings.Builder
@@ -179,12 +179,12 @@ func TestRebaselineAbsentInputs(t *testing.T) {
 	t.Parallel()
 
 	files := testRepo()
-	for _, f := range []string{contractPath, "contract/check_test.go", vectorsFile, changesFile} {
+	for _, f := range []string{contractPath, "contract/check_test.go", changesFile} {
 		delete(files, f)
 	}
-	// The older scheme found no Go API and no vectors at the tag either.
+	// The older scheme found no Go API at the tag either.
 	files[recordPath("2.1.0")] = recordWith("2.1.0", "2.1.0", "2.0.0", "upgradable", "[2.0.0]",
-		map[string]map[string]string{otherScheme: with(with(digests(fpA), "go-api", ""), "vectors", "")},
+		map[string]map[string]string{otherScheme: with(digests(fpA), "go-api", "")},
 	)
 	root := gitRepo(t, files, "v2.1.0")
 	_, err := execute([]string{"-root", root, "rebaseline", "-version", "2.1.0"}, io.Discard, io.Discard)
@@ -193,7 +193,6 @@ func TestRebaselineAbsentInputs(t *testing.T) {
 	require.NoError(t, err)
 	recorded := releases[len(releases)-1].Fingerprints[scheme]
 	assert.NotContains(t, recorded, "go-api")
-	assert.NotContains(t, recorded, "vectors")
 	assert.Equal(t, testFingerprints(t, map[string]string{changesFile: "# Only comments.\n"})["changes"], recorded["changes"],
 		"a missing CHANGES is the empty log",
 	)
@@ -288,7 +287,7 @@ func TestVerify(t *testing.T) {
 	msg, err = execute([]string{"-root", root, "verify"}, io.Discard, io.Discard)
 	require.NoError(t, err)
 	assert.Equal(t, "the record of release 2.1.0 holds what this generator computes from v2.1.0 under scheme "+scheme+
-		" (crds, http-api, go-api, vectors, changes)", msg,
+		" (crds, http-api, go-api, changes)", msg,
 	)
 
 	// A record whose digests this generator no longer computes from the

@@ -18,8 +18,10 @@ import _ "embed"
 
 // OrderVectors is the JSON document of the cases every implementation of the
 // check must pass, so that a Helm template, the UI or a CEL rule decides
-// exactly as Check, IsDevelopment and AcknowledgementHolds do. The cases
-// are part of the contract, so changing them changes its version:
+// exactly as Check, IsDevelopment and AcknowledgementHolds do. The cases test
+// the rules rather than define them: adding one changes nothing, while
+// changing what one expects means a rule changed, which is a contract change
+// (see MAINTAINING.md). The document holds:
 //
 //   - "order" lists valid versions in strictly ascending precedence;
 //   - "invalid" lists values Valid rejects;

@@ -141,7 +141,7 @@ func TestCheckReleaseCommand(t *testing.T) {
 		notices.Reset()
 		msg, err := execute(append([]string{"-root", root, "-check-release"}, args...), io.Discard, &notices)
 		require.NoError(t, err, args)
-		assert.Equal(t, "the contract is the one release 2.1.0 was cut with (crds, http-api, vectors, changes equal under fingerprint scheme "+scheme+")", msg)
+		assert.Equal(t, "the contract is the one release 2.1.0 was cut with (crds, http-api, changes equal under fingerprint scheme "+scheme+")", msg)
 		assert.Contains(t, notices.String(), "not compared: go-api", "the message names what it skipped")
 	}
 

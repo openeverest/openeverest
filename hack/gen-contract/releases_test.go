@@ -373,7 +373,7 @@ func TestComparisonMessages(t *testing.T) {
 	c, err = compareWith(r, with(digests(fpA), "go-api", ""))
 	require.NoError(t, err)
 	assert.Empty(t, c.skippedNotice())
-	assert.Equal(t, "the contract is the one release 2.1.0 was cut with (crds, http-api, vectors, changes equal under fingerprint scheme "+scheme+")", c.summary())
+	assert.Equal(t, "the contract is the one release 2.1.0 was cut with (crds, http-api, changes equal under fingerprint scheme "+scheme+")", c.summary())
 }
 
 func TestReadReleasesErrors(t *testing.T) {

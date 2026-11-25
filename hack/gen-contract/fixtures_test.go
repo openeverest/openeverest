@@ -226,7 +226,7 @@ const testGoMod = "module github.com/openeverest/openeverest/v2\n\ngo 1.27\n"
 const testVectors = `{
   "order": ["2.0.0-alpha.1", "2.0.0"],
   "check": [
-    {"ext": "2.0.0", "min": "2.0.0-alpha.1", "cur": "2.0.0", "status": "True", "reason": "Supported", "weight": 1.50}
+    {"ext": "2.0.0", "min": "2.0.0-alpha.1", "cur": "2.0.0", "status": "True", "reason": "Supported"}
   ]
 }
 `
@@ -237,8 +237,8 @@ const testChanges = `# Changes no artifact shows.
 `
 
 // testRepo returns the files of a minimal repository holding one artifact
-// of every input, and a storage class, which no input covers, by path
-// relative to its root.
+// of every input, and a storage class and conformance vectors, which no
+// input covers, by path relative to its root.
 func testRepo() map[string]string {
 	return map[string]string{
 		headerFile: testHeader,
@@ -252,7 +252,7 @@ func testRepo() map[string]string {
 		"backupstorageclasses/s3/class.yaml":                testBackupStorageClass,
 		"contract/keys.go":                                  testContractGo,
 		"contract/check_test.go":                            "package contract\n\nfunc TestX() {}\n",
-		vectorsFile:                                         testVectors,
+		vectorsPath:                                         testVectors,
 		classGoPath:                                         "package s3\n\n// ClassName is the name of the class.\nconst ClassName = \"s3\"\n",
 		changesFile:                                         testChanges,
 		releasesDir + "/2.0.0-alpha.1.yaml":                 testSeedRelease,

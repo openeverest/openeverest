@@ -1,2 +1,0 @@
-vectors 387
-{"check":[{"cur":"2.0.0","ext":"2.0.0","min":"2.0.0-alpha.1","reason":"Supported","status":"True"},{"cur":"2.0.0","ext":"","min":"2.0.0-alpha.1","reason":"Unversioned","status":"Unknown"}],"development":[{"development":true,"version":"2.1.0-alpha.0"}],"exact":{"html":"\u003ca \u0026 b\u003e","number":1.50},"invalid":["","v2.0.0"],"order":["2.0.0-alpha.1","2.0.0-alpha.1.next","2.0.0"]}

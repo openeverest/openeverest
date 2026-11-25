@@ -529,8 +529,8 @@ func TestIsDevelopment(t *testing.T) {
 
 // TestRepositoryBlock checks the contract-adjacent block of this
 // repository: every path it lists exists, and it covers every artifact the
-// contract's fingerprint covers, so no change to the contract can skip the
-// decision.
+// contract's fingerprint covers, and the cases of its rules, which the
+// fingerprint does not, so no change to the contract can skip the decision.
 func TestRepositoryBlock(t *testing.T) {
 	t.Parallel()
 
