@@ -494,6 +494,10 @@ func lineOfBranch(branch string) (string, bool) {
 // may, so it passes with a notice. The latest record must have
 // fingerprints under scheme, as for decide, so blanking them cannot turn
 // the check off; only the seed has none, and it is a pre-release.
+//
+// When v is the latest release recorded here, the release workflow is
+// about to tag the commit that recorded it: then the contract must be the
+// one its record holds, whatever release it is.
 func checkRelease(releases []release, fps map[string]string, v string) (string, comparison, error) {
 	latest := releases[len(releases)-1]
 	var c comparison
@@ -502,6 +506,12 @@ func checkRelease(releases []release, fps map[string]string, v string) (string, 
 		if c, err = compareWith(latest, fps); err != nil {
 			return "", comparison{}, err
 		}
+	}
+	if v == latest.Version && !latest.isSeed() {
+		if !c.equal() {
+			return "", c, fmt.Errorf("%s, so this tree is not the one release %s was recorded from", c.summary(), v)
+		}
+		return c.summary(), c, nil
 	}
 	if !isPatchOf(latest.Version, v) {
 		next := "release " + v
