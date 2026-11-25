@@ -26,6 +26,12 @@ import (
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
+const (
+	yes     = metav1.ConditionTrue
+	no      = metav1.ConditionFalse
+	unknown = metav1.ConditionUnknown
+)
+
 func TestCheckConditions(t *testing.T) {
 	t.Parallel()
 

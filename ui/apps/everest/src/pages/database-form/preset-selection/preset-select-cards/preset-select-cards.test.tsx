@@ -12,46 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { ClusterInstancePreset } from 'shared-types/api.types';
 import { TestWrapper } from 'utils/test';
 import { PresetSelectCards } from './preset-select-cards';
 import {
   PresetSelectionContext,
   PresetSelectionContextType,
 } from '../preset-selection-context';
-
-const baseContext: PresetSelectionContextType = {
-  presets: [],
-  isLoadingPresets: false,
-  isError: false,
-  presetName: '',
-  selectedPreset: null,
-  presetSelected: false,
-  presetPending: false,
-};
-
-const preset: ClusterInstancePreset = {
-  metadata: { name: 'psmdb-x' },
-  spec: {
-    providerRef: { name: 'percona-server-mongodb' },
-    version: '8.0.12',
-    topology: { type: 'replicaSet' },
-    components: {
-      engine: {
-        replicas: 3,
-        resources: { limits: { cpu: 1, memory: '4Gi' } },
-        storage: { size: '25Gi' },
-      },
-    },
-  },
-};
+import { TEAM_A, TEAM_B, clusterPreset } from '../__mocks__/presets';
+import { noPresetsContext } from '../__mocks__/preset-selection-context';
 
 const renderCards = (overrides: Partial<PresetSelectionContextType>) => {
-  const value = { ...baseContext, ...overrides };
+  const value = { ...noPresetsContext, ...overrides };
   const Harness = () => {
-    const methods = useForm({ defaultValues: { presetName: '' } });
+    const methods = useForm({ defaultValues: { presetId: '' } });
     return (
       <TestWrapper>
         <PresetSelectionContext.Provider value={value}>
@@ -79,7 +54,7 @@ describe('PresetSelectCards', () => {
   });
 
   it('renders the scratch card and wires presets into the picker', () => {
-    renderCards({ presets: [preset] });
+    renderCards({ presets: [clusterPreset] });
 
     expect(
       screen.getByRole('button', { name: /Start from scratch/ })
@@ -91,14 +66,72 @@ describe('PresetSelectCards', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows a disabled notice card when the presets fail to load (A3)', () => {
-    renderCards({ presets: [], isError: true });
+  it('reports a failed load under the cards and offers to retry (A3)', () => {
+    const retryFailedLists = vi.fn();
+    renderCards({ presets: [], isError: true, retryFailedLists });
 
-    // Failure is surfaced in-grid as a disabled card beside "start from
-    // scratch", not as an out-of-flow error line.
-    expect(screen.getByText(/Presets didn't load/i)).toBeInTheDocument();
+    // "Presets", not "Some presets": nothing loaded at all.
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Presets didn't load\./
+    );
     expect(
       screen.getByRole('button', { name: /Start from scratch/ })
     ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+    expect(retryFailedLists).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the loaded presets and says only some failed when one list fails', () => {
+    renderCards({ presets: [clusterPreset], isError: true });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Some presets didn't load\./
+    );
+    expect(
+      screen.getByRole('button', { name: /Browse all 1 presets/ })
+    ).toBeInTheDocument();
+  });
+
+  it('holds the retry button while the failed list is requested again', () => {
+    renderCards({ presets: [clusterPreset], isError: true, isRetrying: true });
+
+    expect(screen.getByRole('button', { name: /Retry/ })).toBeDisabled();
+  });
+
+  it('still explains the drop when the new namespace offers no presets at all', () => {
+    renderCards({
+      presets: [],
+      droppedPreset: {
+        name: clusterPreset.name,
+        wizardNamespace: TEAM_B,
+        ownerNamespace: TEAM_A,
+      },
+    });
+
+    expect(
+      screen.getByText(/belongs to namespace “team-a”/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Start from scratch/ })
+    ).toBeInTheDocument();
+  });
+
+  it('lets the user dismiss the dropped-preset notice', () => {
+    const dismissDroppedPreset = vi.fn();
+    renderCards({
+      presets: [clusterPreset],
+      droppedPreset: {
+        name: clusterPreset.name,
+        wizardNamespace: TEAM_B,
+        ownerNamespace: TEAM_A,
+      },
+      dismissDroppedPreset,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(dismissDroppedPreset).toHaveBeenCalledTimes(1);
   });
 });

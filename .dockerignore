@@ -13,6 +13,7 @@
 !go.*
 !vendor
 !api
+!contract
 !model
 !public
 !pkg

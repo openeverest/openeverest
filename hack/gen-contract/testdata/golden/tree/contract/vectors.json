@@ -1,0 +1,12 @@
+{
+  "order": ["2.0.0-alpha.1", "2.0.0-alpha.1.next", "2.0.0"],
+  "invalid": ["", "v2.0.0"],
+  "development": [
+    {"version": "2.1.0-alpha.0", "development": true}
+  ],
+  "check": [
+    {"ext": "2.0.0", "min": "2.0.0-alpha.1", "cur": "2.0.0", "status": "True", "reason": "Supported"},
+    {"ext": "", "min": "2.0.0-alpha.1", "cur": "2.0.0", "status": "Unknown", "reason": "Unversioned"}
+  ],
+  "exact": {"number": 1.50, "html": "<a & b>"}
+}

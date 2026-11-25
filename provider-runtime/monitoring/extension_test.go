@@ -28,6 +28,7 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	contractmonitoring "github.com/openeverest/openeverest/v2/contract/monitoring"
 	"github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
 
@@ -59,7 +60,7 @@ func TestClaimKeepsCoreCompatibilityMatrix(t *testing.T) {
 
 	ours := &monitoringv1alpha1.MonitoringClass{}
 	require.NoError(t, c.Get(ctx, client.ObjectKey{Name: testClassName}, ours))
-	require.NoError(t, monitoring.ApplyStatus(ctx, c, ours, monitoring.CompatibilityFieldOwner, map[string]any{
+	require.NoError(t, monitoring.ApplyStatus(ctx, c, ours, contractmonitoring.CompatibilityFieldOwner, map[string]any{
 		"providers": []any{map[string]any{"name": "percona-server-mongodb", "mode": "ExtensionManaged"}},
 	}))
 
@@ -81,7 +82,7 @@ func TestClaimKeepsCoreCompatibilityMatrix(t *testing.T) {
 			appliers = append(appliers, mf.Manager)
 		}
 	}
-	assert.ElementsMatch(t, []string{monitoring.CompatibilityFieldOwner, testFieldOwner}, appliers)
+	assert.ElementsMatch(t, []string{contractmonitoring.CompatibilityFieldOwner, testFieldOwner}, appliers)
 
 	other := &monitoringv1alpha1.MonitoringClass{}
 	require.NoError(t, c.Get(ctx, client.ObjectKey{Name: "pmm"}, other))
@@ -102,7 +103,7 @@ func TestClaimClaimsEveryClassOfTheController(t *testing.T) {
 	for name, want := range map[string]bool{"prometheus-eu": true, "prometheus-us": true, "pmm": false} {
 		class := &monitoringv1alpha1.MonitoringClass{}
 		require.NoError(t, c.Get(ctx, client.ObjectKey{Name: name}, class))
-		assert.Equal(t, want, monitoring.ClassIsAccepted(class), name)
+		assert.Equal(t, want, contractmonitoring.ClassIsAccepted(class), name)
 	}
 }
 
@@ -242,7 +243,7 @@ func TestSetDestinationReadyKeepsServerVersionAndAccepted(t *testing.T) {
 	dst := &monitoringv1alpha1.MonitoringDestination{}
 	require.NoError(t, c.Get(ctx, key, dst))
 	accepted := monitoring.NewCondition(dst, monitoringv1alpha1.MonitoringDestinationConditionAccepted, metav1.ConditionTrue, monitoringv1alpha1.ReasonAccepted, "")
-	require.NoError(t, monitoring.ApplyCondition(ctx, c, dst, dst.Status.Conditions, monitoring.MaterializerFieldOwner, accepted))
+	require.NoError(t, monitoring.ApplyCondition(ctx, c, dst, dst.Status.Conditions, contractmonitoring.MaterializerFieldOwner, accepted))
 
 	require.NoError(t, c.Get(ctx, key, dst))
 	require.NoError(t, ext.SetDestinationReady(ctx, dst, monitoringv1alpha1.ReasonReady, "", "3.8.0"))

@@ -1,0 +1,13 @@
+# OpenEverest release record: data for hack/gen-contract, not a Kubernetes resource.
+apiVersion: contract.openeverest.io/v1
+kind: ReleaseRecord
+version: 2.0.0-alpha.1             # computed
+contractVersion: 2.0.0-alpha.1     # computed
+minContractVersion: 2.0.0-alpha.1  # decided
+type: fresh-install                # decided
+upgradableFrom: []                 # decided
+# No fingerprints: 2.0.0-alpha.1 is the seed, exempt by name. Its tag
+# carries no contract package, which was added before any check decided
+# whether a change touched the contract, so main counts from it with the
+# development value 2.0.0-alpha.1.next until the next release is recorded.
+# See contract/MAINTAINING.md.

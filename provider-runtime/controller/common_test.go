@@ -27,6 +27,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract"
 )
 
 func TestStatusHelpers(t *testing.T) {
@@ -186,9 +187,9 @@ func TestContext_PodLabels(t *testing.T) {
 	assert.Empty(t, c.LabelledComponents())
 
 	want := map[string]string{
-		ProviderLabel:  "psmdb",
-		InstanceLabel:  "db",
-		ComponentLabel: "proxy",
+		contract.ProviderLabel: "psmdb",
+		InstanceLabel:          "db",
+		ComponentLabel:         "proxy",
 	}
 	assert.Equal(t, want, c.PodLabels("proxy"))
 	c.PodLabels("engine")

@@ -1,0 +1,3 @@
+api/core/v1alpha1/instance_types.go
+contract/VERSION
+contract/zz_generated.version.go
