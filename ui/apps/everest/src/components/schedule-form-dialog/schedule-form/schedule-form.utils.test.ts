@@ -22,6 +22,7 @@ import {
 import { FlattenedSchedule } from '../schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { WizardMode } from 'shared-types/wizard.types';
 import { ScheduleFormData } from './schedule-form-schema';
+import { scheduleModalDefaultValues } from '../schedule-form-dialog.utils';
 import {
   AmPM,
   TimeValue,
@@ -281,6 +282,43 @@ describe('getSchedulesPayload', () => {
         schedules: existing,
       });
       expect(result).toHaveLength(1);
+    });
+
+    it('preserves the exact cron when only retention changes', () => {
+      const schedule = makeSchedule({ cron: '0 3 * * 1-5' });
+      const formData = scheduleModalDefaultValues(WizardMode.Edit, schedule);
+      const [result] = getSchedulesPayload({
+        formData: { ...formData, retentionCopies: '8' },
+        mode: WizardMode.Edit,
+        schedules: [schedule],
+      });
+
+      expect(result.cron).toBe('0 3 * * 1-5');
+      expect(result.retention).toEqual({ type: 'count', count: 8 });
+    });
+
+    it('preserves the original cron after returning to the original cadence and time', () => {
+      const schedule = makeSchedule({ cron: '0 3 * * 1-5' });
+      const formData = scheduleModalDefaultValues(WizardMode.Edit, schedule);
+      const [result] = getSchedulesPayload({
+        formData: { ...formData, weekDay: WeekDays.Fr },
+        mode: WizardMode.Edit,
+        schedules: [schedule],
+      });
+
+      expect(result.cron).toBe('0 3 * * 1-5');
+    });
+
+    it('generates a new cron when the selected time changes', () => {
+      const schedule = makeSchedule({ cron: '0 3 * * 1-5' });
+      const formData = scheduleModalDefaultValues(WizardMode.Edit, schedule);
+      const [result] = getSchedulesPayload({
+        formData: { ...formData, hour: 4 },
+        mode: WizardMode.Edit,
+        schedules: [schedule],
+      });
+
+      expect(result.cron).toBe('0 4 * * *');
     });
 
     it('can switch time retention to keep-all', () => {

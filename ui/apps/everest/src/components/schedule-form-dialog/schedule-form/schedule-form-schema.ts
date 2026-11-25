@@ -21,8 +21,8 @@ import { ScheduleFormFields } from './schedule-form.types.ts';
 import { rfc_123_schema } from 'utils/common-validation';
 import { timeSelectionSchemaObject } from '../../time-selection/time-selection-schema.ts';
 import { FlattenedSchedule } from '../schedule-form-dialog-context/schedule-form-dialog-context.types';
-import { getCronExpressionFromFormValues } from '../../time-selection/time-selection.utils';
 import { sameScheduleFunc } from '../schedule-form-dialog.utils';
+import { getScheduleCron } from './schedule-form.utils';
 import { WizardMode } from 'shared-types/wizard.types.ts';
 import {
   MAX_RETENTION_AMOUNT,
@@ -125,16 +125,16 @@ export const schema = (schedules: FlattenedSchedule[], mode: WizardMode) => {
         });
       }
 
-      const { selectedTime, hour, minute, onDay, weekDay, amPm, scheduleName } =
-        data;
-      const currentSchedule = getCronExpressionFromFormValues({
-        selectedTime,
-        amPm,
-        hour,
-        minute,
-        onDay,
-        weekDay,
-      });
+      const { scheduleName } = data;
+      const originalSchedule =
+        mode === WizardMode.Edit
+          ? schedules.find((schedule) => schedule.name === scheduleName)
+          : undefined;
+      const currentSchedule = getScheduleCron(data, originalSchedule?.cron);
+      if (originalSchedule?.cron === currentSchedule) {
+        return;
+      }
+
       const sameSchedule = sameScheduleFunc(
         schedules,
         mode,
