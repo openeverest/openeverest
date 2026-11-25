@@ -24,6 +24,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestMain keeps the git commands of the tests in the repositories the
+// tests create. A variable such as GIT_DIR, which is set when the tests
+// run from git rebase --exec or a hook, would otherwise send them to the
+// repository the tests run in, to commit, tag and reinitialise it.
+func TestMain(m *testing.M) {
+	for _, v := range []string{
+		"GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR",
+		"GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_PREFIX",
+	} {
+		if err := os.Unsetenv(v); err != nil {
+			panic(err)
+		}
+	}
+	os.Exit(m.Run())
+}
+
 const testHeader = "// Header.\n"
 
 const testCRD = `---
