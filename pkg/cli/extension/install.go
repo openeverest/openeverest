@@ -29,8 +29,10 @@ import (
 
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract"
 	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
 // InstallConfig holds configuration for the extension install operation.
@@ -45,6 +47,10 @@ type InstallConfig struct {
 	BackendURL  string
 	BundlePath  string
 	Enabled     bool
+	// AcceptIncompatible installs the extension even when the OpenEverest
+	// in the cluster does not support it, recording the acknowledgement on
+	// its Plugin.
+	AcceptIncompatible bool
 }
 
 // PluginInstaller installs an extension by creating a Plugin CR (when needed)
@@ -73,7 +79,8 @@ func NewPluginInstaller(cfg InstallConfig, l *zap.SugaredLogger) (*PluginInstall
 	return pi, nil
 }
 
-// Run creates the Plugin CR and the matching InstalledExtension.
+// Run creates the Plugin CR and the matching InstalledExtension, unless the
+// OpenEverest in the cluster does not support the Plugin.
 func (pi *PluginInstaller) Run(ctx context.Context) error {
 	var plugin *corev1alpha1.Plugin
 
@@ -114,9 +121,31 @@ func (pi *PluginInstaller) Run(ctx context.Context) error {
 		return fmt.Errorf("backend URL is required (set spec.backend.externalUrl / spec.backend.serviceRef in the manifest or use --backend-url)")
 	}
 
+	return pi.install(ctx, plugin)
+}
+
+// install applies plugin and the matching InstalledExtension, unless the
+// compatibility check refuses plugin.
+func (pi *PluginInstaller) install(ctx context.Context, plugin *corev1alpha1.Plugin) error {
+	c, err := pi.checkCompatibility(ctx, plugin)
+	if err != nil {
+		return err
+	}
+	if c.notice != "" {
+		output.PrintWarn(c.notice, pi.l, pi.cfg.Pretty)
+	}
+	if c.acknowledge != "" {
+		metav1.SetMetaDataAnnotation(&plugin.ObjectMeta, contract.AcknowledgedAnnotation, c.acknowledge)
+	}
+
 	if _, err := pi.kubeClient.CreatePlugin(ctx, plugin); err != nil {
 		if !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("cannot install plugin %q: %w", plugin.Name, err)
+		}
+		if c.acknowledge != "" {
+			output.PrintWarn(fmt.Sprintf("extension %q is already installed, so its Plugin was left unchanged and the acknowledgement was not recorded", plugin.Name),
+				pi.l, pi.cfg.Pretty,
+			)
 		}
 	}
 

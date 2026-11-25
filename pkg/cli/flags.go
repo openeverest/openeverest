@@ -256,6 +256,12 @@ const (
 	// FlagBackupClassContext overrides the active context for this command.
 	FlagBackupClassContext = "context"
 
+	// `extension` flags.
+
+	// FlagExtensionAcceptIncompatible installs an extension the OpenEverest
+	// in the cluster does not support, acknowledging the incompatibility.
+	FlagExtensionAcceptIncompatible = "accept-incompatible"
+
 	// settings flags.
 
 	// FlagOIDCIssuerURL is the name of the issuer-url flag.
