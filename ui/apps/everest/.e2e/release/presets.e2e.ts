@@ -22,7 +22,9 @@ import {
 } from '@e2e/constants';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import { openDbCreationForm } from '@e2e/utils/db-wizard';
-import { waitForInstanceStatus } from '@e2e/utils/table';
+import { prepareTestDB } from '@e2e/utils/db-cmd-line';
+import { clickOnDemandBackup } from '@e2e/pr/db-cluster-details/utils';
+import { waitForInstanceStatus, waitForStatus } from '@e2e/utils/table';
 import {
   applyClusterInstancePreset,
   createInstancePreset,
@@ -47,25 +49,38 @@ const NAMESPACE_PRESET_ANNOTATION = 'openeverest.io/instance-preset';
 
 const INSTANCE_FROM_NAMESPACE_PRESET = 'e2e-from-ns-preset';
 const INSTANCE_FROM_CLUSTER_PRESET = 'e2e-from-cl-preset';
+const INSTANCES = [
+  INSTANCE_FROM_NAMESPACE_PRESET,
+  INSTANCE_FROM_CLUSTER_PRESET,
+];
+
+// What every preset of this spec describes: the smallest instance the provider
+// takes, because both goldens bring it up next to the PITR and restore ones.
+const ENGINE = { replicas: 1, cpu: '1', memoryGi: '1', diskGi: '1' };
+const PROXY = { type: 'haproxy', replicas: 1 };
+// Monthly, so the overview can describe it and it does not run during the test.
+const SCHEDULE = { name: 'monthly', enabled: true, cron: '0 0 1 * *' };
+const SCHEDULE_TEXT = 'Monthly on day 1 at 12:00 AM';
+const DEMAND_BACKUP = 'e2e-preset-backup';
 
 const clusterUrl = `/v1/clusters/${EVEREST_CI_CLUSTER}`;
 const instanceUrl = (name: string) =>
   `${clusterUrl}/namespaces/${NAMESPACE}/instances/${name}`;
 const authHeaders = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-// The smallest instance the provider takes: the two create tests bring it up
-// next to the PITR and restore goldens, which share the node.
 const presetSpec = (version: string, extra: PresetSpec = {}): PresetSpec => ({
   providerRef: { name: PROVIDER },
   version,
   topology: { type: 'cluster' },
   components: {
     engine: {
-      replicas: 1,
-      resources: { limits: { cpu: '1', memory: '1Gi' } },
-      storage: { size: '1Gi' },
+      replicas: ENGINE.replicas,
+      resources: {
+        limits: { cpu: ENGINE.cpu, memory: `${ENGINE.memoryGi}Gi` },
+      },
+      storage: { size: `${ENGINE.diskGi}Gi` },
     },
-    proxy: { type: 'haproxy', replicas: 1 },
+    proxy: PROXY,
   },
   ...extra,
 });
@@ -122,13 +137,28 @@ const openWizard = async (page: Page, namespace = NAMESPACE) => {
 const droppedPresetNotice = (page: Page) =>
   page.getByRole('status').filter({ hasText: `Preset “${PRESET}”` });
 
-const createFromPickedPreset = async (page: Page, name: string) => {
+// A preset is only worth offering if what it describes comes up, so creating
+// from one ends when the instance is Ready.
+const createFromPreset = async (page: Page, scope: Scope, name: string) => {
+  await openWizard(page);
+  await pickPreset(page, scope);
   await page.getByTestId('text-input-db-name').fill(name);
   await page.getByTestId('db-wizard-submit-button').click();
   // The wizard goes to the list once the create request succeeds.
   await page.waitForURL('**/databases', { timeout: TIMEOUTS.ThirtySeconds });
-  // A preset is only worth offering if what it describes comes up.
   await waitForInstanceStatus(page, name, 'Ready', TIMEOUTS.FifteenMinutes);
+};
+
+const getInstance = async (
+  request: APIRequestContext,
+  token: string,
+  name: string
+) => {
+  const response = await request.get(instanceUrl(name), {
+    headers: authHeaders(token),
+  });
+  expect(response.status(), await response.text()).toBe(200);
+  return response.json();
 };
 
 const deleteInstance = async (
@@ -152,20 +182,101 @@ const deleteInstance = async (
     .toBe(404);
 };
 
+const openOverview = async (page: Page, name: string) => {
+  await page.goto(`/databases/${NAMESPACE}/${name}/overview`);
+  await expect(page.getByTestId(`${name}-status`)).toHaveText('Ready');
+};
+
+const escapeRegExp = (text: string) =>
+  text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// A row of the overview reads "<label><value>". Some labels are kept on one
+// line with a non-breaking space, so any white space matches a space.
+const expectOverviewRow = (
+  page: Page,
+  row: string,
+  label: string,
+  value: string | number
+) =>
+  expect(page.getByTestId(`${row}-overview-section-row`)).toHaveText(
+    new RegExp(
+      `^${escapeRegExp(label).replace(/ /g, '\\s')}\\s*${escapeRegExp(String(value))}$`
+    )
+  );
+
+// The overview and the edit dialogs read the instance back from the server, so
+// they show what was really applied, not what the wizard sent.
+const expectPresetOnOverview = async (page: Page, version: string) => {
+  await expectOverviewRow(
+    page,
+    'database-version',
+    'Database Version',
+    version
+  );
+  await expectOverviewRow(
+    page,
+    'number-of-nodes',
+    'Number of nodes',
+    ENGINE.replicas
+  );
+  await expectOverviewRow(page, 'cpu', 'CPU', ENGINE.cpu);
+  await expectOverviewRow(page, 'memory', 'Memory', `${ENGINE.memoryGi} Gi`);
+  await expectOverviewRow(page, 'disk', 'Disk', `${ENGINE.diskGi} Gi`);
+  await expectOverviewRow(page, 'proxy-type', 'Proxy type', PROXY.type);
+  await expectOverviewRow(
+    page,
+    'number-of-proxy-nodes',
+    'Number of proxy nodes',
+    PROXY.replicas
+  );
+};
+
+const expectPresetInEditDialogs = async (page: Page) => {
+  const dialog = page.getByRole('dialog');
+  const field = (path: string) => dialog.getByTestId(`text-input-${path}`);
+
+  await page.getByTestId('resources-edit-button').click();
+  await expect(field('spec.components.engine.replicas')).toHaveValue(
+    String(ENGINE.replicas)
+  );
+  await expect(
+    field('spec.components.engine.resources.limits.cpu')
+  ).toHaveValue(ENGINE.cpu);
+  await expect(
+    field('spec.components.engine.resources.limits.memory')
+  ).toHaveValue(ENGINE.memoryGi);
+  await expect(field('spec.components.engine.storage.size')).toHaveValue(
+    ENGINE.diskGi
+  );
+  await dialog.getByTestId('form-dialog-cancel').click();
+  await expect(dialog).toBeHidden();
+
+  await page.getByTestId('proxy-edit-button').click();
+  await expect(
+    dialog.getByTestId('select-input-spec.components.proxy.type')
+  ).toHaveValue(PROXY.type);
+  await expect(field('spec.components.proxy.replicas')).toHaveValue(
+    String(PROXY.replicas)
+  );
+  await dialog.getByTestId('form-dialog-cancel').click();
+  await expect(dialog).toBeHidden();
+};
+
 test.describe('Instance presets', { tag: '@release' }, () => {
   // One worker, in order: the tests share the presets created below. Unlike
   // serial mode, a failed test does not skip the ones after it.
   test.describe.configure({ mode: 'default' });
-  // Without it a click on a card that is not there waits out the whole test
-  // timeout, which the two create tests set to half an hour.
+  // Without it a click on something that is not there waits out the whole test
+  // timeout, which the goldens set to half an hour.
   test.use({ actionTimeout: TIMEOUTS.ThirtySeconds });
 
   let token: string;
   let clusterPresetSpec: PresetSpec;
   let namespacePresetSpec: PresetSpec;
-  let otherNamespaceVersion: string;
+  let clusterVersion: string;
   let namespaceVersion: string;
-  const backupStorage = getBackupStorage();
+  let otherNamespaceVersion: string;
+  const backupStorage = getBackupStorage()!;
 
   test.beforeAll(async ({ request }) => {
     token = await getCITokenFromLocalStorage();
@@ -178,20 +289,17 @@ test.describe('Instance presets', { tag: '@release' }, () => {
       (item: { metadata: { name: string } }) => item.metadata.name === PROVIDER
     );
     // Three versions tell the three same-named presets apart on their cards.
-    const [clusterVersion, ...namespaceVersions]: string[] =
+    [clusterVersion, namespaceVersion, otherNamespaceVersion] =
       provider.spec.versions.map((version: { name: string }) => version.name);
-    [namespaceVersion, otherNamespaceVersion] = namespaceVersions;
     expect(otherNamespaceVersion, 'three provider versions').toBeTruthy();
 
-    for (const name of [
-      INSTANCE_FROM_NAMESPACE_PRESET,
-      INSTANCE_FROM_CLUSTER_PRESET,
-    ]) {
+    for (const name of INSTANCES) {
       await deleteInstance(request, token, name);
     }
 
     clusterPresetSpec = presetSpec(clusterVersion);
-    // A namespace preset can pin what lives in its namespace: here, a storage.
+    // A namespace preset can pin what lives in its namespace: here, the storage
+    // the backups go to.
     namespacePresetSpec = presetSpec(namespaceVersion, {
       backup: {
         enabled: true,
@@ -199,8 +307,8 @@ test.describe('Instance presets', { tag: '@release' }, () => {
         storages: [
           {
             storageRef: { name: backupStorage },
-            // Once a year: the schedule must exist, not run during the test.
-            schedules: [{ name: 'yearly', enabled: true, cron: '0 0 1 1 *' }],
+            schedules: [SCHEDULE],
+            pitr: { enabled: true },
           },
         ],
       },
@@ -223,15 +331,14 @@ test.describe('Instance presets', { tag: '@release' }, () => {
   });
 
   test.afterAll(async ({ request }) => {
-    for (const name of [
-      INSTANCE_FROM_NAMESPACE_PRESET,
-      INSTANCE_FROM_CLUSTER_PRESET,
-    ]) {
-      await deleteInstance(request, token, name);
+    // The goldens outlive the token taken in beforeAll.
+    const cleanupToken = await getCITokenFromLocalStorage();
+    for (const name of INSTANCES) {
+      await deleteInstance(request, cleanupToken, name);
     }
     deleteClusterInstancePreset(PRESET);
-    await deleteInstancePreset(request, token, NAMESPACE, PRESET);
-    await deleteInstancePreset(request, token, OTHER_NAMESPACE, PRESET);
+    await deleteInstancePreset(request, cleanupToken, NAMESPACE, PRESET);
+    await deleteInstancePreset(request, cleanupToken, OTHER_NAMESPACE, PRESET);
   });
 
   test('offers the cluster-wide presets and the presets of the chosen namespace', async ({
@@ -261,7 +368,10 @@ test.describe('Instance presets', { tag: '@release' }, () => {
     await pickPreset(page, 'Namespace');
 
     await expect(page.getByTestId('section-backups')).toContainText(
-      backupStorage!
+      `${SCHEDULE_TEXT} → ${backupStorage}`
+    );
+    await expect(page.getByTestId('section-backups')).toContainText(
+      `PITR: enabled on ${backupStorage}`
     );
     await expect(page.getByTestId('section-database-version')).toContainText(
       namespaceVersion
@@ -291,7 +401,7 @@ test.describe('Instance presets', { tag: '@release' }, () => {
     );
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('section-backups')).not.toContainText(
-      backupStorage!
+      backupStorage
     );
 
     await droppedPresetNotice(page)
@@ -314,63 +424,6 @@ test.describe('Instance presets', { tag: '@release' }, () => {
       'true'
     );
     await expect(droppedPresetNotice(page)).toHaveCount(0);
-  });
-
-  test.describe('from a preset to a running instance', () => {
-    // Waiting for Ready a second time would not turn a stuck instance green.
-    test.describe.configure({ retries: 0 });
-
-    test('brings up an instance created from a namespace preset', async ({
-      page,
-      request,
-    }) => {
-      test.setTimeout(TIMEOUTS.ThirtyMinutes);
-      await openWizard(page);
-      await pickPreset(page, 'Namespace');
-
-      await createFromPickedPreset(page, INSTANCE_FROM_NAMESPACE_PRESET);
-
-      const instance = await (
-        await request.get(instanceUrl(INSTANCE_FROM_NAMESPACE_PRESET), {
-          headers: authHeaders(token),
-        })
-      ).json();
-      expect(instance.metadata.annotations).toMatchObject({
-        [NAMESPACE_PRESET_ANNOTATION]: PRESET,
-      });
-      expect(instance.metadata.annotations).not.toHaveProperty(
-        CLUSTER_PRESET_ANNOTATION
-      );
-      expect(instance.spec).toMatchObject(namespacePresetSpec);
-
-      await deleteInstance(request, token, INSTANCE_FROM_NAMESPACE_PRESET);
-    });
-
-    test('brings up an instance created from a cluster-wide preset', async ({
-      page,
-      request,
-    }) => {
-      test.setTimeout(TIMEOUTS.ThirtyMinutes);
-      await openWizard(page);
-      await pickPreset(page, 'Cluster-wide');
-
-      await createFromPickedPreset(page, INSTANCE_FROM_CLUSTER_PRESET);
-
-      const instance = await (
-        await request.get(instanceUrl(INSTANCE_FROM_CLUSTER_PRESET), {
-          headers: authHeaders(token),
-        })
-      ).json();
-      expect(instance.metadata.annotations).toMatchObject({
-        [CLUSTER_PRESET_ANNOTATION]: PRESET,
-      });
-      expect(instance.metadata.annotations).not.toHaveProperty(
-        NAMESPACE_PRESET_ANNOTATION
-      );
-      expect(instance.spec).toMatchObject(clusterPresetSpec);
-
-      await deleteInstance(request, token, INSTANCE_FROM_CLUSTER_PRESET);
-    });
   });
 
   test('reports a list that failed to load and loads it on retry', async ({
@@ -409,5 +462,148 @@ test.describe('Instance presets', { tag: '@release' }, () => {
     await expect(
       presetCard(await openPresetList(page), 'Namespace')
     ).toBeVisible();
+  });
+
+  // The golden path of a namespace preset: from the card to a running instance
+  // that is what the preset says, backups included.
+  test.describe('Namespace preset golden', () => {
+    // Each step works on the instance the first one creates. Waiting for an
+    // instance a second time would not turn a stuck one green.
+    test.describe.configure({ mode: 'serial', retries: 0 });
+    test.setTimeout(TIMEOUTS.ThirtyMinutes);
+    const name = INSTANCE_FROM_NAMESPACE_PRESET;
+
+    test('brings up an instance that is a copy of the preset', async ({
+      page,
+      request,
+    }) => {
+      await createFromPreset(page, 'Namespace', name);
+
+      const instance = await getInstance(request, token, name);
+      expect(instance.metadata.annotations).toMatchObject({
+        [NAMESPACE_PRESET_ANNOTATION]: PRESET,
+      });
+      expect(instance.metadata.annotations).not.toHaveProperty(
+        CLUSTER_PRESET_ANNOTATION
+      );
+      expect(instance.spec).toMatchObject(namespacePresetSpec);
+    });
+
+    test('shows what the preset set on the overview and in the edit dialogs', async ({
+      page,
+    }) => {
+      await openOverview(page, name);
+
+      await expectPresetOnOverview(page, namespaceVersion);
+      await expect(
+        page.getByTestId('schedules-overview-section')
+      ).toContainText(SCHEDULE_TEXT);
+      await expectOverviewRow(page, 'pitr-status', 'Status', 'Enabled');
+      await expectOverviewRow(
+        page,
+        'backup-storage',
+        'Backup storage',
+        backupStorage
+      );
+      await expectPresetInEditDialogs(page);
+    });
+
+    test('has the schedule and the PITR of the preset on the Backups tab', async ({
+      page,
+    }) => {
+      await openOverview(page, name);
+      await page.getByTestId('backups').click();
+
+      await page.getByTestId('scheduled-backups').click();
+      const schedule = page.getByTestId(`schedule-${SCHEDULE.name}`);
+      await expect(schedule).toContainText(SCHEDULE_TEXT);
+      await expect(schedule).toContainText(`Storage: ${backupStorage}`);
+
+      await page.getByTestId('storages-toggle').click();
+      await expect(
+        page.getByTestId(`pitr-toggle-${backupStorage}`).getByRole('switch')
+      ).toBeChecked();
+    });
+
+    test('takes a backup to the storage the preset pins', async ({ page }) => {
+      await openOverview(page, name);
+      await page.getByTestId('backups').click();
+
+      await clickOnDemandBackup(page);
+      const dialog = page.getByRole('dialog');
+      await expect(dialog.getByTestId('text-input-storage-name')).toHaveValue(
+        backupStorage
+      );
+      await dialog.getByTestId('text-input-name').fill(DEMAND_BACKUP);
+      await dialog.getByRole('button', { name: /^create$/i }).click();
+
+      await waitForStatus(
+        page,
+        DEMAND_BACKUP,
+        'Succeeded',
+        TIMEOUTS.TenMinutes
+      );
+    });
+
+    test('takes data, and PITR covers it', async ({ request }) => {
+      // Writes three rows through the proxy and reads them back.
+      await prepareTestDB(name, NAMESPACE);
+
+      // PITR is recoverable once the binlogs of a write that follows a full
+      // backup reach the storage.
+      await expect
+        .poll(
+          async () => {
+            const instance = await getInstance(
+              request,
+              await getCITokenFromLocalStorage(),
+              name
+            );
+            return instance.status?.backup?.storages?.find(
+              (storage: { name: string }) => storage.name === backupStorage
+            )?.pitr?.state;
+          },
+          { timeout: TIMEOUTS.TenMinutes, intervals: [5000, 5000, 10000] }
+        )
+        .toBe('Available');
+    });
+  });
+
+  // A cluster-wide preset pins nothing of a namespace, so its golden ends at a
+  // running instance that shows the preset.
+  test.describe('Cluster-wide preset golden', () => {
+    test.describe.configure({ mode: 'serial', retries: 0 });
+    test.setTimeout(TIMEOUTS.ThirtyMinutes);
+    const name = INSTANCE_FROM_CLUSTER_PRESET;
+
+    test('brings up an instance that is a copy of the preset', async ({
+      page,
+      request,
+    }) => {
+      await createFromPreset(page, 'Cluster-wide', name);
+
+      const instance = await getInstance(request, token, name);
+      expect(instance.metadata.annotations).toMatchObject({
+        [CLUSTER_PRESET_ANNOTATION]: PRESET,
+      });
+      expect(instance.metadata.annotations).not.toHaveProperty(
+        NAMESPACE_PRESET_ANNOTATION
+      );
+      expect(instance.spec).toMatchObject(clusterPresetSpec);
+    });
+
+    test('shows what the preset set on the overview and in the edit dialogs', async ({
+      page,
+    }) => {
+      await openOverview(page, name);
+
+      await expectPresetOnOverview(page, clusterVersion);
+      // The preset has no backups, so neither has the instance.
+      await expect(
+        page.getByTestId('schedules-overview-section')
+      ).toContainText('0 active schedules');
+      await expectOverviewRow(page, 'pitr-status', 'Status', 'Disabled');
+      await expectPresetInEditDialogs(page);
+    });
   });
 });
