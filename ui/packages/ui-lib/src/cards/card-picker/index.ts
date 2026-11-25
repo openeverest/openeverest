@@ -16,6 +16,7 @@ export { CardPicker } from './card-picker';
 export { SelectableCard } from './selectable-card';
 export { flattenToSearchText } from './card-picker.utils';
 export type {
+  CardPickerBadge,
   CardPickerItem,
   CardPickerMessages,
   CardPickerStatus,

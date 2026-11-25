@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { CardPickerItem, flattenToSearchText } from '@percona/ui-lib';
+import { PRESET_BADGE_COLOR_BY_SCOPE } from '../preset-selection.constants';
 import { DroppedPreset, SelectablePreset } from '../preset-selection.types';
 import { Messages } from './preset-select-cards.messages';
 
@@ -20,11 +21,7 @@ const toText = (value: number | string | undefined): string | undefined =>
   value === undefined || value === null ? undefined : String(value);
 
 const getMeta = (preset: SelectablePreset): string =>
-  [
-    Messages.scope[preset.scope],
-    preset.spec?.topology?.type,
-    preset.spec?.version,
-  ]
+  [preset.spec?.topology?.type, preset.spec?.version]
     .filter(Boolean)
     .join(' · ');
 
@@ -52,6 +49,10 @@ export const presetToCardItem = (preset: SelectablePreset): CardPickerItem => {
   return {
     id: preset.id,
     title: preset.name,
+    badge: {
+      label: Messages.scope[preset.scope],
+      color: PRESET_BADGE_COLOR_BY_SCOPE[preset.scope],
+    },
     subtitle,
     detail,
     // Search the whole spec (e.g. storageClass) — not just the displayed fields.

@@ -144,7 +144,6 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
             : Messages.pageDescription
         }
       />
-      {mode === FormMode.New && <PresetSelectCards />}
       {importNavigation && importPrefill && (
         <ImportSourceBanner
           importSource={importNavigation.importSource}
@@ -172,6 +171,13 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
             isOptionEqualToValue: (option, value) => option === value,
           }}
         />
+      </FormGroup>
+      {/*
+        Below the namespace, which decides the presets on offer. Kept out of the
+        form groups: their wrapping column layout mis-sizes the card grid.
+      */}
+      {mode === FormMode.New && <PresetSelectCards />}
+      <FormGroup sx={{ mt: 3 }}>
         <TextInput
           name={DbWizardFormFields.dbName}
           label={Messages.labels.dbName}

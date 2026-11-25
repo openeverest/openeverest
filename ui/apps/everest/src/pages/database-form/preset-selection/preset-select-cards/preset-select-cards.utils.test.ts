@@ -19,13 +19,15 @@ import {
 } from './preset-select-cards.utils';
 
 describe('presetToCardItem', () => {
-  it('maps the id/title and the displayed scope, meta + resources', () => {
+  it('maps the id/title and the displayed meta + resources', () => {
     const item = presetToCardItem(teamAPreset);
 
     // The id (not the name) is what the picker selects by: names can repeat.
     expect(item.id).toBe(teamAPreset.id);
     expect(item.title).toBe(PRESET_NAME);
-    expect(item.subtitle).toBe('Namespace · replicaSet · 7.0.18');
+    // Same-named presets of both scopes sit side by side: the badge tells them apart.
+    expect(item.badge?.label).toBe('Namespace');
+    expect(item.subtitle).toBe('replicaSet · 7.0.18');
     expect(item.detail).toBe('3 nodes · 1 CPU · 4Gi RAM · 25Gi disk');
   });
 

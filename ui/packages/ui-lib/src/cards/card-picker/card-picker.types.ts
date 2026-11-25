@@ -12,14 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { SxProps, Theme } from '@mui/material';
+import { ChipProps, SxProps, Theme } from '@mui/material';
+
+// A short category tag on a card, set apart from the descriptive texts so
+// cards of one category can be told from another at a glance.
+export interface CardPickerBadge {
+  label: string;
+  color?: ChipProps['color'];
+}
 
 export interface CardPickerItem {
   id: string;
   title: string;
+  badge?: CardPickerBadge;
   subtitle?: string;
   detail?: string;
-  // Optional precomputed lowercase haystack; defaults to title + subtitle + detail.
+  // Optional precomputed lowercase haystack; defaults to title + badge + subtitle + detail.
   searchText?: string;
 }
 

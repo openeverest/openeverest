@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Card, CardActionArea, CardContent, Typography } from '@mui/material';
+import {
+  Card,
+  CardActionArea,
+  CardContent,
+  Chip,
+  Typography,
+} from '@mui/material';
 import { CardPickerItem } from '../card-picker.types';
 import { Highlight } from '../highlight';
 
@@ -52,6 +58,14 @@ export const SelectableCard = ({
       <Typography variant="sectionHeading">
         <Highlight text={item.title} tokens={tokens} />
       </Typography>
+      {item.badge && (
+        <Chip
+          size="xs"
+          color={item.badge.color}
+          label={<Highlight text={item.badge.label} tokens={tokens} />}
+          sx={{ alignSelf: 'flex-start' }}
+        />
+      )}
       {item.subtitle && (
         <Typography variant="body2" color="text.secondary">
           <Highlight text={item.subtitle} tokens={tokens} />

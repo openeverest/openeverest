@@ -60,7 +60,7 @@ export const PresetSelectCards = () => {
     : undefined;
 
   return (
-    <Box sx={{ mb: 2 }}>
+    <Box sx={{ mt: 3 }}>
       <CardPicker
         items={items}
         selectedId={presetId}
