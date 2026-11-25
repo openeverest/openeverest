@@ -377,4 +377,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-20
+- Last updated: 2026-11-25
