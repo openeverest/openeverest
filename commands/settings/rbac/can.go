@@ -35,20 +35,29 @@ import (
 
 const canCmdExamples = `
 Examples:
-# Check if user 'alice' can get 'cluster-1' in namespace 'my-namespace'
-$ everestctl settings rbac can alice read database-clusters my-namespace/cluster-1
+# Check if user 'alice' can read instance 'my-instance' in namespace 'my-namespace' of cluster 'main'
+$ everestctl settings rbac can alice read instances main/my-namespace/my-instance
 
-# Check if user 'alice' can perform all/any actions on 'cluster-1' in namespace 'my-namespace'
-$ everestctl settings rbac can alice '*' database-clusters my-namespace/cluster-1
+# Check if user 'alice' can perform all/any actions on instance 'my-instance' in namespace 'my-namespace' of cluster 'main'
+$ everestctl settings rbac can alice '*' instances main/my-namespace/my-instance
 
-# Check if role 'role:admin' can update backup 'prod-backup-1' in namespace 'prod-namespace'
-$ everestctl settings rbac can role:admin update database-cluster-backups prod-namespace/prod-backup-1
+# Check if role 'role:admin' can update backup 'prod-backup-1' in namespace 'prod-namespace' of cluster 'main'
+$ everestctl settings rbac can role:admin update backups main/prod-namespace/prod-backup-1
 
-# Check if user 'bob' can delete all/any backups in namespace 'prod-namespace'
-$ everestctl settings rbac can bob delete database-cluster-backups prod-namespace/*
+# Check if user 'bob' can delete all/any backups in namespace 'prod-namespace' of cluster 'main'
+$ everestctl settings rbac can bob delete backups 'main/prod-namespace/*'
 
-# Check if user 'alice' can perform all/any actions on all backups in all namespaces
-$ everestctl settings rbac can alice '*' database-cluster-backups '*'
+# Check if user 'alice' can perform all/any actions on all backups in all namespaces of all clusters
+$ everestctl settings rbac can alice '*' backups '*/*/*'
+
+# Check if user 'alice' can read provider 'my-provider' in cluster 'main'
+$ everestctl settings rbac can alice read providers main/my-provider
+
+The subresource follows the scope of the resource:
+  - namespaced resources (instances, backups, restores, ...): <cluster>/<namespace>/<name>
+  - cluster-scoped resources (providers, backup-classes, namespaces, ...): <cluster>/<name>
+  - clusters: <cluster>
+A wildcard (*) matches a single segment only, so use one per segment, e.g. '*/*/*'.
 
 NOTE: The asterisk character (*) holds a special meaning in the unix shell.
 To prevent misinterpretation, you need to add single quotes around it.
@@ -60,7 +69,7 @@ var (
 		Args:    cobra.ExactArgs(4),
 		Long:    `Test RBAC policy.` + "\n" + canCmdExamples,
 		Short:   "Test RBAC policy",
-		Example: "everestctl settings rbac can alice read database-clusters all",
+		Example: "everestctl settings rbac can alice read instances main/my-namespace/my-instance",
 		PreRunE: settingsRBACCanPreRunE,
 		Run:     settingsRBACCanRun,
 	}
