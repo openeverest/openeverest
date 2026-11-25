@@ -67,7 +67,7 @@ const validatedSchema: TopologyUISchemas = {
               label: 'Annotations',
               helperText: 'Added to the Service',
             },
-            validation: { required: true, maxItems: 1 },
+            validation: { required: true, max: 1 },
             itemTemplate: KEY_VALUE,
           },
         },

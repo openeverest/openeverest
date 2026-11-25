@@ -247,7 +247,8 @@ export type NumberValidation = CommonValidation & {
   safe?: boolean;
 };
 
-// `required` means at least one entry. CEL on the whole map waits for `self`
+// `required` means at least one entry; `min` / `max` count entries, the way a
+// text field's count characters. CEL on the whole map waits for `self`
 // support, so it is forbidden for now, like regex.
 export type MapValidation = Omit<
   CommonValidation,
@@ -255,8 +256,8 @@ export type MapValidation = Omit<
 > & {
   regex?: never;
   celExpressions?: never;
-  minItems?: number;
-  maxItems?: number;
+  min?: number;
+  max?: number;
 };
 
 export type ValidationMap = {

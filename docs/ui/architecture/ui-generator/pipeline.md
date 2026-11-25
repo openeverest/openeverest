@@ -93,7 +93,7 @@ flowchart TD
     A `map` field gets `buildMapFieldSchema` (`utils/map-field/`) even without `validation`: it
     validates the rows the form keeps against the row's own fields (their shape built by this same
     `buildShapeFromComponents`), plus a unique key, a key in every filled row, and `required` /
-    `minItems` / `maxItems` on filled rows. Empty rows pass. A count issue goes to the map's
+    `min` / `max` on filled rows. Empty rows pass. A count issue goes to the map's
     `root`, where RHF keeps an array's own error, so it sits beside the rows' issues instead of
     replacing them. Its output is each filled row as its fields parse it (e.g. a trimmed key), and
     duplicates are found on that key.
@@ -443,4 +443,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-20
+- Last updated: 2026-11-25

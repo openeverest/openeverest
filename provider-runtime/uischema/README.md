@@ -84,7 +84,7 @@ They run on every map field `m` the UI renders (no [map rule](#map-rules) matche
 |------|-----------|
 | `map-ignored-option` | `m` sets an option the UI ignores: `regex` or a non-empty `celExpressions` in `m.validation` or in one of its `modes.<mode>` branches; a non-empty `celExpressions` in `m.itemTemplate.validation.<f>` or its mode branches; or `defaultValue`, `badge` or `badgeToApi` in `m.itemTemplate.fieldParams.<f>`, for `f ∈ {key, value}`. An option counts as set when its key is present. |
 | `map-invalid-default` | `m.fieldParams.defaultValue`, or `m.fieldParams.modes.<mode>.defaultValue`, is present and is not a map whose values are all strings |
-| `map-invalid-limits` | in a form mode's validation, `minItems` or `maxItems` is present and is not a whole number of 0 or more, or both are and `minItems > maxItems`. A mode's validation is `m.validation` without `modes`, with `modes.<mode>` over it unless that branch sets `inheritShared: false`; `m.validation` itself is checked too. |
+| `map-invalid-limits` | in a form mode's validation, `min` or `max` is present and is not a whole number of 0 or more, or both are and `min > max`. A mode's validation is `m.validation` without `modes`, with `modes.<mode>` over it unless that branch sets `inheritShared: false`; `m.validation` itself is checked too. |
 
 **Effect.** The UI renders the field and ignores the option (`map-ignored-option`), starts the field empty (`map-invalid-default`), or applies limits no map meets (`map-invalid-limits`).
 

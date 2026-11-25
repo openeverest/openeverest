@@ -18,9 +18,9 @@ cases:
                   modes: { edit: { defaultValue: {} } }
                 validation:
                   required: true
-                  minItems: 1
-                  maxItems: 5
-                  modes: { edit: { maxItems: 10 } }
+                  min: 1
+                  max: 5
+                  modes: { edit: { max: 10 } }
                 itemTemplate:
                   uiType: widget
                   widgetType: keyValue
@@ -104,7 +104,7 @@ cases:
     issues:
       - { rule: map-invalid-default, topology: replicaSet, field: advanced.labels }
 
-  - name: minItems above maxItems lets no map pass
+  - name: min above max lets no map pass
     uiSchema:
       replicaSet:
         sections:
@@ -114,7 +114,7 @@ cases:
                 uiType: map
                 path: spec.labels
                 fieldParams: { label: Labels }
-                validation: { minItems: 3, maxItems: 2 }
+                validation: { min: 3, max: 2 }
                 itemTemplate: { uiType: widget, widgetType: keyValue }
     issues:
       - { rule: map-invalid-limits, topology: replicaSet, field: advanced.labels }
@@ -129,13 +129,13 @@ cases:
                 uiType: map
                 path: spec.labels
                 fieldParams: { label: Labels }
-                validation: { maxItems: 1.5 }
+                validation: { max: 1.5 }
                 itemTemplate: { uiType: widget, widgetType: keyValue }
               tags:
                 uiType: map
                 path: spec.tags
                 fieldParams: { label: Tags }
-                validation: { minItems: -1 }
+                validation: { min: -1 }
                 itemTemplate: { uiType: widget, widgetType: keyValue }
     issues:
       - { rule: map-invalid-limits, topology: replicaSet, field: advanced.labels }
@@ -152,8 +152,8 @@ cases:
                 path: spec.labels
                 fieldParams: { label: Labels }
                 validation:
-                  maxItems: 1
-                  modes: { edit: { minItems: 2 } }
+                  max: 1
+                  modes: { edit: { min: 2 } }
                 itemTemplate: { uiType: widget, widgetType: keyValue }
     issues:
       - { rule: map-invalid-limits, topology: replicaSet, field: advanced.labels }
@@ -169,8 +169,8 @@ cases:
                 path: spec.labels
                 fieldParams: { label: Labels }
                 validation:
-                  maxItems: 1
-                  modes: { edit: { inheritShared: false, minItems: 2 } }
+                  max: 1
+                  modes: { edit: { inheritShared: false, min: 2 } }
                 itemTemplate: { uiType: widget, widgetType: keyValue }
     issues: []
 
@@ -186,7 +186,7 @@ cases:
                 fieldParams:
                   label: Labels
                   defaultValue: team
-                validation: { regex: { pattern: '^a' }, minItems: 2, maxItems: 1 }
+                validation: { regex: { pattern: '^a' }, min: 2, max: 1 }
                 itemTemplate: { uiType: widget, widgetType: keyValue }
     issues:
       - { rule: map-ignored-option, topology: replicaSet, field: advanced.labels }

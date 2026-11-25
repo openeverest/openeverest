@@ -45,7 +45,7 @@ const TEMPLATE_WIDGET_TYPES: ReadonlySet<string> = new Set(
   Object.values(TemplateWidgetType)
 );
 const ROW_FIELDS: ReadonlyArray<'key' | 'value'> = ['key', 'value'];
-const LIMITS: ReadonlyArray<'minItems' | 'maxItems'> = ['minItems', 'maxItems'];
+const LIMITS: ReadonlyArray<'min' | 'max'> = ['min', 'max'];
 
 const hasCel = (validation: Record<string, unknown>): boolean =>
   Array.isArray(validation.celExpressions) &&
@@ -125,15 +125,15 @@ const isCount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value >= 0;
 
 const describeLimits = ([at, branch]: Branch): string | undefined => {
-  const { minItems, maxItems } = branch;
+  const { min, max } = branch;
   const notCount = LIMITS.find(
     (limit) => branch[limit] !== undefined && !isCount(branch[limit])
   );
   if (notCount) {
     return `${at}.${notCount} is not a whole number of 0 or more`;
   }
-  if (isCount(minItems) && isCount(maxItems) && minItems > maxItems) {
-    return `${at} needs at least ${minItems} entries but allows at most ${maxItems}, so no map passes`;
+  if (isCount(min) && isCount(max) && min > max) {
+    return `${at} needs at least ${min} entries but allows at most ${max}, so no map passes`;
   }
   return undefined;
 };

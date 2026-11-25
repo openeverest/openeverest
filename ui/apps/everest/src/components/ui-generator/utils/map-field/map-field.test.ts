@@ -126,7 +126,7 @@ describe('map field rows validation', () => {
     ).toEqual([{ path: [1, 'key'], message: Messages.duplicateKey('team') }]);
   });
 
-  it('counts only filled rows against required and maxItems', () => {
+  it('counts only filled rows against required, min and max', () => {
     expect(
       issuesOf(annotations({ validation: { required: true } }), [
         { key: '', value: '' },
@@ -134,23 +134,30 @@ describe('map field rows validation', () => {
     ).toEqual([{ path: ['root'], message: Messages.required }]);
 
     expect(
-      issuesOf(annotations({ validation: { maxItems: 1 } }), [
+      issuesOf(annotations({ validation: { min: 2 } }), [
+        { key: 'a', value: '1' },
+        { key: '', value: '' },
+      ])
+    ).toEqual([{ path: ['root'], message: Messages.tooFewEntries(2, 1) }]);
+
+    expect(
+      issuesOf(annotations({ validation: { max: 1 } }), [
         { key: 'a', value: '1' },
         { key: '', value: '' },
         { key: 'b', value: '2' },
       ])
-    ).toEqual([{ path: ['root'], message: Messages.maxItems(1, 1) }]);
+    ).toEqual([{ path: ['root'], message: Messages.tooManyEntries(1, 1) }]);
   });
 
   it("puts the count issue beside the rows' issues, not over them", () => {
     expect(
-      issuesOf(annotations({ validation: { maxItems: 1 } }), [
+      issuesOf(annotations({ validation: { max: 1 } }), [
         { key: 'a', value: '1' },
         { key: 'a', value: '2' },
       ])
     ).toEqual([
       { path: [1, 'key'], message: Messages.duplicateKey('a') },
-      { path: ['root'], message: Messages.maxItems(1, 1) },
+      { path: ['root'], message: Messages.tooManyEntries(1, 1) },
     ]);
   });
 });

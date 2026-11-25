@@ -21,13 +21,13 @@ const getCountIssue = (
   filledRows: number,
   validation: MapValidation | undefined
 ): string | undefined => {
-  const { required, minItems, maxItems } = validation ?? {};
+  const { required, min, max } = validation ?? {};
   if (required && filledRows === 0) return Messages.required;
-  if (minItems !== undefined && filledRows < minItems) {
-    return Messages.minItems(minItems, minItems - filledRows);
+  if (min !== undefined && filledRows < min) {
+    return Messages.tooFewEntries(min, min - filledRows);
   }
-  if (maxItems !== undefined && filledRows > maxItems) {
-    return Messages.maxItems(maxItems, filledRows - maxItems);
+  if (max !== undefined && filledRows > max) {
+    return Messages.tooManyEntries(max, filledRows - max);
   }
   return undefined;
 };

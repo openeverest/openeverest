@@ -170,24 +170,24 @@ func invalidMapDefaults(item map[string]any) []string {
 	return invalid
 }
 
-// describeInvalidLimits returns why `minItems` / `maxItems` can't work in the
+// describeInvalidLimits returns why `min` / `max` can't work in the
 // first validation branch where they don't, or "". A mode branch takes the
 // shared rules unless it sets `inheritShared: false`, as in the UI.
 //
 //	validation:
-//	  minItems: 3
-//	  maxItems: 2      # -> "validation needs at least 3 entries but allows at most 2, ..."
+//	  min: 3
+//	  max: 2      # -> "validation needs at least 3 entries but allows at most 2, ..."
 func describeInvalidLimits(validation any) string {
 	for _, b := range effectiveBranches(validation) {
-		for _, limit := range []string{"minItems", "maxItems"} {
+		for _, limit := range []string{"min", "max"} {
 			if value, ok := b.rules[limit]; ok && !isCount(value) {
 				return fmt.Sprintf("%s.%s is not a whole number of 0 or more", b.at, limit)
 			}
 		}
-		minItems, hasMin := b.rules["minItems"]
-		maxItems, hasMax := b.rules["maxItems"]
-		if hasMin && hasMax && toFloat(minItems) > toFloat(maxItems) {
-			return fmt.Sprintf("%s needs at least %v entries but allows at most %v, so no map passes", b.at, minItems, maxItems)
+		minEntries, hasMin := b.rules["min"]
+		maxEntries, hasMax := b.rules["max"]
+		if hasMin && hasMax && toFloat(minEntries) > toFloat(maxEntries) {
+			return fmt.Sprintf("%s needs at least %v entries but allows at most %v, so no map passes", b.at, minEntries, maxEntries)
 		}
 	}
 	return ""

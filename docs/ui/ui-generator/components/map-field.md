@@ -76,14 +76,18 @@ row as your own group isn't supported yet.
 Rules for the map as a whole:
 
 - `required`: At least one entry
-- `minItems`: At least this many entries
-- `maxItems`: At most this many entries
+- `min`: At least this many entries
+- `max`: At most this many entries
 
-`minItems` and `maxItems` are whole numbers of 0 or more, and `minItems` can't be above
-`maxItems` in any form mode, or no map would pass: `provider-sdk generate` rejects that (rule
-`map-invalid-limits`). Only filled rows count. `regex` and `celExpressions` aren't supported on
-the map yet: the UI ignores them and `provider-sdk generate` rejects them (rule
+On the map, `min` and `max` count entries, the way they count characters on a
+[text field](text-field.md). The map's `min` and `max` are whole numbers of 0 or more, and `min`
+can't be above `max` in any form mode, or no map would pass: `provider-sdk generate` rejects that
+(rule `map-invalid-limits`). Only filled rows count. `regex` and `celExpressions` aren't supported
+on the map yet: the UI ignores them and `provider-sdk generate` rejects them (rule
 `map-ignored-option`).
+
+Under `itemTemplate.validation.key` / `.value`, `min` and `max` are still a text field's: `max: 63`
+there limits the length of a key or a value, not the number of entries.
 
 A count error shows under the rows in place of the helper text and says what to do, e.g.
 `Remove 1 entry (at most 2 allowed)`. It doesn't hide the rows' own errors, which stay under
@@ -130,7 +134,7 @@ podMonitorLabels:
     label: PodMonitor labels
   validation:
     required: true
-    maxItems: 10
+    max: 10
   itemTemplate:
     uiType: widget
     widgetType: keyValue
