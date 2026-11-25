@@ -33,9 +33,9 @@ export const Messages = {
   browseAll: (count: number) => `Browse all ${count} presets`,
   dialogTitle: 'Choose a preset',
   noMatches: (query: string) => `No presets match “${query}”.`,
-  loadErrorTitle: "Presets didn't load",
-  partialLoadErrorTitle: "Some presets didn't load",
-  loadErrorSubtitle: 'Check your connection and try again.',
+  loadError: "Presets didn't load.",
+  partialLoadError: "Some presets didn't load.",
+  retry: 'Retry',
   presetUnavailable: (name: string) =>
     `Preset “${name}” is no longer available.`,
   presetDroppedHint:

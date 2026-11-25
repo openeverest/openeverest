@@ -39,13 +39,6 @@ export interface CardPickerMessages {
   noMatches: (query: string) => string;
 }
 
-// A non-interactive card shown in the grid to communicate a state (e.g. a load
-// failure) beside the selectable cards.
-export interface CardPickerStatus {
-  title: string;
-  subtitle?: string;
-}
-
 export interface CardPickerProps {
   items: CardPickerItem[];
   selectedId: string;
@@ -54,8 +47,6 @@ export interface CardPickerProps {
   // when selectedId === leadCard.id.
   leadCard?: CardPickerItem;
   error?: string;
-  // Disabled card appended to the grid, e.g. to report a failed load in place.
-  statusCard?: CardPickerStatus;
   messages?: Partial<CardPickerMessages>;
   minCardPx?: number;
   sx?: SxProps<Theme>;

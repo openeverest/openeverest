@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useClusterInstancePresets } from 'hooks/api/cluster-instance-presets';
 import { useInstancePresets } from 'hooks/api/instance-presets';
 import {
@@ -88,11 +88,34 @@ export const usePresetSelection = (
         : 'loading';
   }
 
+  const clusterListFailed = clusterPresetsQuery.isError;
+  const namespaceListFailed = namespacePresetsQuery.isError;
+  const refetchClusterList = clusterPresetsQuery.refetch;
+  const refetchNamespaceList = namespacePresetsQuery.refetch;
+  const retryFailedLists = useCallback(() => {
+    if (clusterListFailed) {
+      refetchClusterList();
+    }
+    if (namespaceListFailed) {
+      refetchNamespaceList();
+    }
+  }, [
+    clusterListFailed,
+    namespaceListFailed,
+    refetchClusterList,
+    refetchNamespaceList,
+  ]);
+  const isRetrying =
+    (clusterListFailed && clusterPresetsQuery.isFetching) ||
+    (namespaceListFailed && namespacePresetsQuery.isFetching);
+
   return useMemo<PresetSelection>(
     () => ({
       presets,
       isLoadingPresets,
-      isError: clusterPresetsQuery.isError || namespacePresetsQuery.isError,
+      isError: clusterListFailed || namespaceListFailed,
+      retryFailedLists,
+      isRetrying,
       presetId,
       selectedPreset,
       status,
@@ -100,8 +123,10 @@ export const usePresetSelection = (
     [
       presets,
       isLoadingPresets,
-      clusterPresetsQuery.isError,
-      namespacePresetsQuery.isError,
+      clusterListFailed,
+      namespaceListFailed,
+      retryFailedLists,
+      isRetrying,
       presetId,
       selectedPreset,
       status,

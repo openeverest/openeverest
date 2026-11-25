@@ -42,6 +42,9 @@ export interface PresetSelection {
   isLoadingPresets: boolean;
   // True when either list failed; the other one is still offered.
   isError: boolean;
+  // Requests again only the lists that failed.
+  retryFailedLists: () => void;
+  isRetrying: boolean;
   presetId: string;
   selectedPreset: SelectablePreset | null;
   status: PresetStatus;

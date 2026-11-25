@@ -70,21 +70,3 @@ export const Inline: Story = {
 export const WithOverflow: Story = {
   render: () => <Interactive items={buildItems(12)} />,
 };
-
-// Load failure: a disabled notice card sits beside the lead card in the grid.
-export const LoadError: Story = {
-  render: () => (
-    <Box sx={{ maxWidth: 900 }}>
-      <CardPicker
-        items={[]}
-        leadCard={lead}
-        selectedId=""
-        onSelect={() => {}}
-        statusCard={{
-          title: "Presets didn't load",
-          subtitle: 'Check your connection and try again.',
-        }}
-      />
-    </Box>
-  ),
-};

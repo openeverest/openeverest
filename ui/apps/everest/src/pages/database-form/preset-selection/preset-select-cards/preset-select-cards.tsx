@@ -13,9 +13,10 @@
 // limitations under the License.
 
 import { useMemo } from 'react';
-import { Alert, Box } from '@mui/material';
+import { Alert, Stack } from '@mui/material';
 import { useFormContext } from 'react-hook-form';
 import { CardPicker } from '@percona/ui-lib';
+import ActionableAlert from 'components/actionable-alert';
 import { DbWizardFormFields } from 'consts';
 import { usePresetSelectionContext } from '../preset-selection-context';
 import {
@@ -32,6 +33,8 @@ export const PresetSelectCards = () => {
     presetId,
     isLoadingPresets,
     isError,
+    retryFailedLists,
+    isRetrying,
     droppedPreset,
     dismissDroppedPreset,
   } = usePresetSelectionContext();
@@ -49,18 +52,8 @@ export const PresetSelectCards = () => {
     return null;
   }
 
-  const statusCard = isError
-    ? {
-        title:
-          presets.length > 0
-            ? Messages.partialLoadErrorTitle
-            : Messages.loadErrorTitle,
-        subtitle: Messages.loadErrorSubtitle,
-      }
-    : undefined;
-
   return (
-    <Box sx={{ mt: 3 }}>
+    <Stack spacing={2} sx={{ mt: 3 }}>
       <CardPicker
         items={items}
         selectedId={presetId}
@@ -76,7 +69,6 @@ export const PresetSelectCards = () => {
           title: Messages.scratchTitle,
           subtitle: Messages.scratchCaption,
         }}
-        statusCard={statusCard}
         messages={{
           searchPlaceholder: Messages.searchPlaceholder,
           searchAriaLabel: Messages.searchAriaLabel,
@@ -85,17 +77,23 @@ export const PresetSelectCards = () => {
           noMatches: Messages.noMatches,
         }}
       />
+      {/* One line under the cards: a failed list must not cost a row of them. */}
+      {isError && (
+        <ActionableAlert
+          message={
+            presets.length > 0 ? Messages.partialLoadError : Messages.loadError
+          }
+          buttonMessage={Messages.retry}
+          buttonProps={{ loading: isRetrying }}
+          onClick={retryFailedLists}
+        />
+      )}
       {/* Not an error: the form is valid, the pick just no longer applies. */}
       {droppedPreset && (
-        <Alert
-          severity="info"
-          role="status"
-          onClose={dismissDroppedPreset}
-          sx={{ mt: 2 }}
-        >
+        <Alert severity="info" role="status" onClose={dismissDroppedPreset}>
           {getDroppedPresetMessage(droppedPreset)} {Messages.presetDroppedHint}
         </Alert>
       )}
-    </Box>
+    </Stack>
   );
 };

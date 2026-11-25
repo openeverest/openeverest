@@ -19,6 +19,5 @@ export type {
   CardPickerBadge,
   CardPickerItem,
   CardPickerMessages,
-  CardPickerStatus,
   CardPickerProps,
 } from './card-picker.types';

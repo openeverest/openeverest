@@ -190,4 +190,47 @@ describe('usePresetSelection', () => {
       CLUSTER_ID,
     ]);
   });
+
+  it('retries only the list that failed', () => {
+    const refetchClusterList = vi.fn();
+    const refetchNamespaceList = vi.fn();
+    mockClusterList({ refetch: refetchClusterList });
+    mockNamespaceLists({
+      [TEAM_A]: {
+        data: undefined,
+        ...settled,
+        isError: true,
+        refetch: refetchNamespaceList,
+      },
+    });
+
+    const { result } = setup(TEAM_A, '');
+    result.current.retryFailedLists();
+
+    expect(refetchNamespaceList).toHaveBeenCalledTimes(1);
+    expect(refetchClusterList).not.toHaveBeenCalled();
+  });
+
+  it('is retrying only while a failed list is being requested again', () => {
+    // The healthy cluster list refetching in the background is not a retry.
+    mockClusterList({ isFetching: true });
+    mockNamespaceLists({
+      [TEAM_A]: { data: undefined, ...settled, isError: true },
+    });
+    const { result, rerender } = setup(TEAM_A, '');
+
+    expect(result.current.isRetrying).toBe(false);
+
+    mockNamespaceLists({
+      [TEAM_A]: {
+        data: undefined,
+        ...settled,
+        isError: true,
+        isFetching: true,
+      },
+    });
+    rerender({ namespace: TEAM_A, presetId: '' });
+
+    expect(result.current.isRetrying).toBe(true);
+  });
 });

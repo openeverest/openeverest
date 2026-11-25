@@ -21,20 +21,10 @@ import {
   PresetSelectionContextType,
 } from '../preset-selection-context';
 import { TEAM_A, TEAM_B, clusterPreset } from '../__mocks__/presets';
-
-const baseContext: PresetSelectionContextType = {
-  presets: [],
-  isLoadingPresets: false,
-  isError: false,
-  presetId: '',
-  selectedPreset: null,
-  status: 'none',
-  droppedPreset: null,
-  dismissDroppedPreset: () => {},
-};
+import { noPresetsContext } from '../__mocks__/preset-selection-context';
 
 const renderCards = (overrides: Partial<PresetSelectionContextType>) => {
-  const value = { ...baseContext, ...overrides };
+  const value = { ...noPresetsContext, ...overrides };
   const Harness = () => {
     const methods = useForm({ defaultValues: { presetId: '' } });
     return (
@@ -76,24 +66,38 @@ describe('PresetSelectCards', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows a disabled notice card when the presets fail to load (A3)', () => {
-    renderCards({ presets: [], isError: true });
+  it('reports a failed load under the cards and offers to retry (A3)', () => {
+    const retryFailedLists = vi.fn();
+    renderCards({ presets: [], isError: true, retryFailedLists });
 
-    // Failure is surfaced in-grid as a disabled card beside "start from
-    // scratch", not as an out-of-flow error line.
-    expect(screen.getByText(/Presets didn't load/i)).toBeInTheDocument();
+    // "Presets", not "Some presets": nothing loaded at all.
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Presets didn't load\./
+    );
     expect(
       screen.getByRole('button', { name: /Start from scratch/ })
     ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+    expect(retryFailedLists).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the loaded presets and says only some failed when one list fails', () => {
     renderCards({ presets: [clusterPreset], isError: true });
 
-    expect(screen.getByText(/Some presets didn't load/i)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Some presets didn't load\./
+    );
     expect(
       screen.getByRole('button', { name: /Browse all 1 presets/ })
     ).toBeInTheDocument();
+  });
+
+  it('holds the retry button while the failed list is requested again', () => {
+    renderCards({ presets: [clusterPreset], isError: true, isRetrying: true });
+
+    expect(screen.getByRole('button', { name: /Retry/ })).toBeDisabled();
   });
 
   it('still explains the drop when the new namespace offers no presets at all', () => {

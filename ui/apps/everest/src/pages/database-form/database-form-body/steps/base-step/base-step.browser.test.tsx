@@ -20,10 +20,8 @@ import { TestWrapper } from 'utils/test';
 import { WizardMode } from 'shared-types/wizard.types';
 import { DbWizardFormFields } from 'consts';
 import { DatabaseFormProvider } from 'pages/database-form/database-form-context';
-import {
-  PresetSelectionContext,
-  PresetSelectionContextType,
-} from 'pages/database-form/preset-selection';
+import { PresetSelectionContext } from 'pages/database-form/preset-selection';
+import { noPresetsContext } from 'pages/database-form/preset-selection/__mocks__/preset-selection-context';
 import { BaseInfoStep } from './base-step';
 import { getDBWizardSchema } from 'pages/database-form/database-form-schema';
 import { page, userEvent } from 'vitest/browser';
@@ -74,17 +72,6 @@ const contextValue = {
   hasMonitoringStep: false,
 };
 
-const presetSelectionValue: PresetSelectionContextType = {
-  presets: [],
-  isLoadingPresets: false,
-  isError: false,
-  presetId: '',
-  selectedPreset: null,
-  status: 'none',
-  droppedPreset: null,
-  dismissDroppedPreset: () => {},
-};
-
 const Wrapper = ({ children }: { children: React.ReactNode }) => {
   const methods = useForm({
     mode: 'onChange',
@@ -95,7 +82,7 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => {
   return (
     <TestWrapper>
       <DatabaseFormProvider value={contextValue}>
-        <PresetSelectionContext.Provider value={presetSelectionValue}>
+        <PresetSelectionContext.Provider value={noPresetsContext}>
           <FormProvider {...methods}>
             <form>{children}</form>
           </FormProvider>
