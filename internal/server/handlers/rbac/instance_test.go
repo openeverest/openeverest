@@ -1585,14 +1585,22 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		s.Schedules = []corev1alpha1.InstanceBackupSchedule{{Name: "daily", Enabled: true, Cron: "0 0 * * *"}}
 		return s
 	}
+	// engineOn returns an engine component on the given storage class; "" leaves the class unset.
+	engineOn := func(class string) map[string]corev1alpha1.ComponentSpec {
+		storage := &corev1alpha1.Storage{}
+		if class != "" {
+			storage.StorageClass = &class
+		}
+		return map[string]corev1alpha1.ComponentSpec{"engine": {Type: "mysql", Storage: storage}}
+	}
 	instanceWith := func(spec corev1alpha1.InstanceSpec) *corev1alpha1.Instance {
 		spec.ProviderRef = apicommon.ObjectRef{Name: "mysql"}
 		return &corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "db1", Namespace: "ns1"}, Spec: spec}
 	}
-	// stored is what GetInstance returns: already pointing at storage s1,
-	// which the caller in most cases below cannot read.
+	// stored is what GetInstance returns: already pointing at storage s1 and
+	// storage class gp3, which the caller in most cases below cannot read.
 	stored := func() *corev1alpha1.Instance {
-		return instanceWith(corev1alpha1.InstanceSpec{Version: "8.0", Backup: withStorages(scheduled("s1"))})
+		return instanceWith(corev1alpha1.InstanceSpec{Version: "8.0", Components: engineOn("gp3"), Backup: withStorages(scheduled("s1"))})
 	}
 
 	newHandler := func(t *testing.T, extraPolicy ...string) *rbacHandler {
@@ -1630,6 +1638,8 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		createBackups = "p, role:test, backups, create, prod/ns1/db1"
 		createRestore = "p, role:test, restores, create, prod/ns1/db1"
 		readSource    = "p, role:test, backups, read, prod/ns1/source-db"
+		readGP3       = "p, role:test, storage-classes, read, prod/gp3"
+		readIO2       = "p, role:test, storage-classes, read, prod/io2"
 	)
 
 	createCases := []struct {
@@ -1640,6 +1650,9 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 	}{
 		{desc: "provider readable", policy: []string{readProvider}},
 		{desc: "provider not readable", wantDeny: true},
+		{desc: "storage class readable", spec: corev1alpha1.InstanceSpec{Components: engineOn("gp3")}, policy: []string{readProvider, readGP3}},
+		{desc: "storage class not readable", spec: corev1alpha1.InstanceSpec{Components: engineOn("gp3")}, policy: []string{readProvider}, wantDeny: true},
+		{desc: "unset storage class needs no grant", spec: corev1alpha1.InstanceSpec{Components: engineOn("")}, policy: []string{readProvider}},
 		{desc: "storage readable", spec: corev1alpha1.InstanceSpec{Backup: withStorages(storage("s1"))}, policy: []string{readProvider, readClass, readS1}},
 		{desc: "storage not readable", spec: corev1alpha1.InstanceSpec{Backup: withStorages(storage("s1"))}, policy: []string{readProvider, readClass}, wantDeny: true},
 		{desc: "backup class not readable", spec: corev1alpha1.InstanceSpec{Backup: withStorages(storage("s1"))}, policy: []string{readProvider, readS1}, wantDeny: true},
@@ -1667,7 +1680,19 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		policy   []string
 		wantDeny bool
 	}{
-		{desc: "untouched unreadable storage does not block an unrelated edit", mutate: func(i *corev1alpha1.Instance) { i.Spec.Version = "8.4" }},
+		{desc: "untouched unreadable references do not block an unrelated edit", mutate: func(i *corev1alpha1.Instance) { i.Spec.Version = "8.4" }},
+		{desc: "changing the storage class requires reading the new one", mutate: func(i *corev1alpha1.Instance) {
+			i.Spec.Components = engineOn("io2")
+		}, wantDeny: true},
+		{desc: "changing to a readable storage class", mutate: func(i *corev1alpha1.Instance) {
+			i.Spec.Components = engineOn("io2")
+		}, policy: []string{readIO2}},
+		{desc: "a new component naming the stored class still needs read on it", mutate: func(i *corev1alpha1.Instance) {
+			i.Spec.Components["hidden"] = engineOn("gp3")["engine"]
+		}, wantDeny: true},
+		{desc: "unsetting the storage class needs no grant", mutate: func(i *corev1alpha1.Instance) {
+			i.Spec.Components = engineOn("")
+		}},
 		{desc: "adding a storage requires reading it", mutate: func(i *corev1alpha1.Instance) {
 			i.Spec.Backup.Storages = append(i.Spec.Backup.Storages, storage("s2"))
 		}, wantDeny: true},
@@ -1709,7 +1734,12 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		patch   string
 		wantErr error
 	}{
-		{desc: "untouched unreadable storage does not block an unrelated patch", patch: `{"spec":{"version":"8.4"}}`},
+		{desc: "untouched unreadable references do not block an unrelated patch", patch: `{"spec":{"version":"8.4"}}`},
+		{
+			desc:    "patch changing the storage class",
+			patch:   `{"spec":{"components":{"engine":{"storage":{"storageClass":"io2"}}}}}`,
+			wantErr: ErrInsufficientPermissions,
+		},
 		{
 			desc:    "patch adding an unreadable storage",
 			patch:   `{"spec":{"backup":{"classRef":{"name":"pbm"},"storages":[{"storageRef":{"name":"s1"}},{"storageRef":{"name":"s2"}}]}}}`,
@@ -1787,6 +1817,7 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		t.Parallel()
 		presetSpec := corev1alpha1.InstanceSpec{
 			ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+			Components:  engineOn("gp3"),
 			Backup:      withStorages(scheduled("s1")),
 		}
 		for _, tc := range []struct {
@@ -1795,7 +1826,7 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 			policy   []string
 			wantDeny bool
 		}{
-			{desc: "pinned storage needs no grant"},
+			{desc: "pinned storage and storage class need no grant"},
 			{desc: "user secret still checked", secret: &apicommon.SecretRef{Name: "creds"}, wantDeny: true},
 			{desc: "readable user secret", secret: &apicommon.SecretRef{Name: "creds"}, policy: []string{"p, role:deployer, secrets, read, prod/ns1/creds"}},
 		} {
