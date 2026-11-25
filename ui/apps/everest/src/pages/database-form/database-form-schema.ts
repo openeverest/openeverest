@@ -100,27 +100,28 @@ export const getDBWizardSchema = (
   // Validates fields the static steps render from other schemas, e.g. the
   // monitoring entries' parameters.
   stepsValidationSchema?: z.ZodTypeAny
-) => {
-  let combinedSchema: z.ZodTypeAny = basicInfoSchema(dbInstances);
+): z.ZodTypeAny => {
+  const schemas = [
+    basicInfoSchema(dbInstances),
+    openApiValidationSchema,
+    stepsValidationSchema,
+  ];
 
-  [openApiValidationSchema, stepsValidationSchema].forEach((schema) => {
-    if (!schema) {
-      return;
-    }
-    // Using superRefine instead of .and() / ZodIntersection to avoid
-    // "Intersection results could not be merged" errors caused by transforms
-    // inside the openApiValidationSchema (e.g. z.coerce.number()) producing
-    // a different type than the passthrough base schema, which makes Zod's
-    // deep-merge step fail with invalid_intersection_types.
-    combinedSchema = combinedSchema.superRefine((data, ctx) => {
-      const result = schema.safeParse(data);
+  // These schemas retain other steps' values. Forward parsed output rather than
+  // intersecting raw and transformed values, which cannot merge numeric coercion.
+  return z.unknown().transform((data, ctx) => {
+    let parsed: unknown = data;
+    schemas.forEach((schema) => {
+      if (!schema) return;
+      const result = schema.safeParse(parsed);
       if (!result.success) {
         result.error.issues.forEach((issue) => ctx.addIssue(issue));
+      } else {
+        parsed = result.data;
       }
     });
+    return parsed;
   });
-
-  return combinedSchema;
 };
 
 export type BasicInfoType = z.infer<typeof basicInfoFieldsSchema>;

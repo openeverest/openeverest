@@ -57,6 +57,9 @@ A flexible single-line or multi-line text input field. Suitable for names, descr
 - **Optional fields** (default): Default value is `""` (empty string). An empty value is treated as "no input" and passes all format validators (`email`, `url`, `uuid`, `regex`, etc.). Validation only runs when the user provides a non-empty value.
 - **Required fields**: User must provide a non-empty value. Format/length validators are combined with the required constraint.
 - **Transforms** (`trim`, `toLowerCase`, `toUpperCase`): Applied before form submission. The UI shows the original typed value; the submitted data contains the transformed value.
+  Both instance creation and section editing submit the parsed value. When combined,
+  transforms run in the order `trim`, `toLowerCase`, then `toUpperCase`. For example,
+  `trim: true` with `toLowerCase: true` submits `"eu-west"` for input `" EU-West "`.
 - **Multiline fields**: Setting `multiline: true` renders a `<textarea>`. Use `rows` for a fixed height, or `minRows`/`maxRows` for an auto-growing textarea.
 - **`type: "password"`**: Input is masked. Combined with `min`/`max` validation it provides a password strength constraint.
 
@@ -139,3 +142,8 @@ clusterName:
 ### CEL
 
 > Documentation coming soon.
+
+## Metadata
+
+- Owner: UI
+- Last updated: 2026-11-25

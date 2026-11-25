@@ -80,6 +80,22 @@ flowchart TD
 
 **Principle:** validation is **mode-aware** and **declarative** — providers don't write resolvers by hand.
 
+### Create wizard submission
+
+`pages/database-form/database-form-schema.ts` composes the basic instance fields,
+the generated schema and static-step validation in that order. Each schema parses
+once and passes its successful output to the next schema. The generated object
+schemas use `.passthrough()` at the root and nested containers, retaining values
+owned by other steps. Static-step validators must retain those values too.
+
+Issues keep their original paths and messages. A failed stage contributes its
+issues while later stages check the last successful value; any issue prevents
+submission. Successful parsed values reach `engine.postprocess` and the create
+request, including text transforms and numeric coercion. Intersections are not
+used: raw strings and coerced numbers cannot be merged by Zod intersections.
+No input mutation, output merging or second parse is needed. React Hook Form
+keeps the text as typed; its resolver supplies parsed values to the submit handler.
+
 ## 3. Defaults
 
 **Files:** `utils/default-values/`
@@ -374,4 +390,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-20
+- Last updated: 2026-11-25
