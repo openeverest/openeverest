@@ -53,7 +53,7 @@ func init() {
 
 func settingsOIDCConfigurePreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	settingsOIDCConfigureCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	settingsOIDCConfigureCfg.Pretty = cli.IsPretty(cmd)
 	settingsOIDCConfigureCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 
 	// Check if issuer URL is provided

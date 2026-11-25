@@ -54,6 +54,12 @@ func TestLabelledAndTracked(t *testing.T) {
 			wantTracked: true,
 		},
 		{
+			name:        "backup storage class credentials",
+			labels:      storageClassLabels("s3", "AccessKey"),
+			wantLabel:   true,
+			wantTracked: true,
+		},
+		{
 			name:        "CA bundle",
 			labels:      map[string]string{common.OpenEverestDefinitionLabel: common.OpenEverestCABundleDefinition},
 			wantLabel:   true,
@@ -90,6 +96,14 @@ func TestLabelledAndTracked(t *testing.T) {
 				common.OpenEverestProviderLabel:        "psmdb",
 				common.OpenEverestMonitoringClassLabel: "pmm",
 				common.OpenEverestDefinitionLabel:      "user",
+			},
+		},
+		{
+			name: "a monitoring class and a backup storage class",
+			labels: map[string]string{
+				common.OpenEverestMonitoringClassLabel:    "pmm",
+				common.OpenEverestBackupStorageClassLabel: "s3",
+				common.OpenEverestDefinitionLabel:         "AccessKey",
 			},
 		},
 		{

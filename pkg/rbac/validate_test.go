@@ -111,6 +111,12 @@ func TestCheckResourceNames(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			policies: [][]string{
+				{"role:dev", "storage-classes", "read", "*/*"},
+			},
+			valid: true,
+		},
 	}
 
 	for i, tc := range testcases {

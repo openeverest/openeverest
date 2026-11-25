@@ -37,7 +37,7 @@ var (
 		Long: `List Restore resources for an instance via the Everest API.
 
 Displays a table with NAME, NAMESPACE, INSTANCE, BACKUP, STATE, and AGE. Pass
---json / --verbose to get the raw API response instead of the formatted
+-o json / --verbose to get the raw API response instead of the formatted
 table.
 
 There is currently no API to list restores across an entire namespace, so
@@ -49,7 +49,7 @@ There is currently no API to list restores across an entire namespace, so
   everestctl restore ls --namespace everest --instance my-mongo
 
   # JSON output — check the state of the most recent restore
-  everestctl restore list --namespace everest --instance my-mongo --json \
+  everestctl restore list --namespace everest --instance my-mongo -o json \
     | jq 'last | .status.state'
 
   # Specific cluster and context
@@ -72,7 +72,8 @@ func init() {
 }
 
 func listPreRun(cmd *cobra.Command, _ []string) {
-	listCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	listCfg.Pretty = cli.IsPretty(cmd)
+	listCfg.YAML = cli.IsYAML(cmd)
 }
 
 func listRun(cmd *cobra.Command, _ []string) {

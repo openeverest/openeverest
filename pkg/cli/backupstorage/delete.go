@@ -26,7 +26,9 @@ import (
 
 	"go.uber.org/zap"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/confirm"
@@ -37,15 +39,16 @@ import (
 
 // DeleteOptions configures `backup-storage delete`.
 type DeleteOptions struct {
-	Name           string
-	Namespace      string
-	Cluster        string
-	Context        string        // overrides the active context when set
-	Yes            bool          // skip the confirmation prompt
-	JSON           bool          // --json was passed; forces non-interactive regardless of --verbose
-	IgnoreNotFound bool          // treat "backup storage already gone" (404) as a successful delete
-	Wait           bool          // block until the backup storage is fully deleted
-	Timeout        time.Duration // bounds --wait; must be positive
+	Name            string
+	Namespace       string
+	Cluster         string
+	Context         string        // overrides the active context when set
+	Yes             bool          // skip the confirmation prompt
+	MachineReadable bool          // -o json|yaml was passed; forces non-interactive regardless of --verbose
+	IgnoreNotFound  bool          // treat "backup storage already gone" (404) as a successful delete
+	Wait            bool          // block until the backup storage is fully deleted
+	Timeout         time.Duration // bounds --wait; must be positive
+	DryRun          string        // cli.DryRunClient sends nothing, cli.DryRunServer sends the delete with dryRun=All; neither prompts
 
 	// IsTerminal overrides the TTY check for the prompt. Set in tests.
 	IsTerminal func() bool
@@ -68,11 +71,19 @@ func NewDeleter(cfg Config, l *zap.SugaredLogger) *Deleter {
 
 // Run deletes the backup storage: confirms, deletes, then waits if asked.
 // ctx stays plain here so Ctrl-C during confirm is a decline, not a
-// cancelled wait, see waitForDeletion. The credentials Secret is not
-// handled here, the BackupStorage controller adopts it via an owner
-// reference, so Kubernetes garbage-collects it once the BackupStorage is
-// actually gone.
+// cancelled wait, see waitForDeletion. The Secrets the storage references
+// are left in place.
 func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) error {
+	if err := cli.CheckDryRun(opts.DryRun); err != nil {
+		return err
+	}
+	if cli.IsDryRun(opts.DryRun) && opts.Wait {
+		return fmt.Errorf("--dry-run cannot be combined with --wait")
+	}
+	if opts.DryRun == cli.DryRunClient {
+		return deletion.EmitDryRun(bd.config.Pretty, bd.config.YAML, opts.DryRun, "backup storage", opts.Name, opts.Namespace)
+	}
+
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: bd.config.Pretty}, bd.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
 		return err
@@ -82,13 +93,19 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		return bd.emitAlreadyGone(opts)
 	}
 
-	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
-	msg := fmt.Sprintf("Delete backup storage %q in namespace %q?", opts.Name, opts.Namespace)
-	if err := confirm.YesNo(ctx, confirmOpts, msg); err != nil {
-		return err
+	var params *client.DeleteBackupStorageParams
+	if opts.DryRun == cli.DryRunServer {
+		dryRun := client.DeleteBackupStorageParamsDryRunAll
+		params = &client.DeleteBackupStorageParams{DryRun: &dryRun}
+	} else {
+		confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.MachineReadable, IsTerminal: opts.IsTerminal}
+		msg := fmt.Sprintf("Delete backup storage %q in namespace %q?", opts.Name, opts.Namespace)
+		if err := confirm.YesNo(ctx, confirmOpts, msg); err != nil {
+			return err
+		}
 	}
 
-	resp, err := c.DeleteBackupStorageWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name)
+	resp, err := c.DeleteBackupStorageWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, params)
 	if err != nil {
 		return fmt.Errorf("delete backup storage request failed: %w", err)
 	}
@@ -100,6 +117,9 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 
 	if alreadyGone {
 		return bd.emitAlreadyGone(opts)
+	}
+	if opts.DryRun == cli.DryRunServer {
+		return deletion.EmitDryRun(bd.config.Pretty, bd.config.YAML, opts.DryRun, "backup storage", opts.Name, opts.Namespace)
 	}
 	bd.l.Infof("deleted backup storage %q in namespace %q", opts.Name, opts.Namespace)
 
@@ -141,14 +161,14 @@ func checkDeleteResponse(resp *client.DeleteBackupStorageResponse, opts DeleteOp
 
 // emitDeleted prints success: a line in pretty mode, JSON otherwise.
 func (bd *Deleter) emitDeleted(opts DeleteOptions) error {
-	return deletion.EmitDeleted(bd.config.Pretty, "backup storage", opts.Name, opts.Namespace)
+	return deletion.EmitDeleted(bd.config.Pretty, bd.config.YAML, "backup storage", opts.Name, opts.Namespace)
 }
 
 // emitAlreadyGone reports the --ignore-not-found short-circuit: nothing was
 // deleted, so "deleted" must stay false, it should only mean this run
 // actually deleted something.
 func (bd *Deleter) emitAlreadyGone(opts DeleteOptions) error {
-	return deletion.EmitAlreadyGone(bd.config.Pretty, "backup storage", opts.Name, opts.Namespace)
+	return deletion.EmitAlreadyGone(bd.config.Pretty, bd.config.YAML, "backup storage", opts.Name, opts.Namespace)
 }
 
 // waitForDeletion blocks until the backup storage is gone, like instance
@@ -177,7 +197,7 @@ func (bd *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		return err
 	}
 
-	return deletion.EmitWaitSucceeded(bd.config.Pretty, "backup storage", opts.Name, opts.Namespace)
+	return deletion.EmitWaitSucceeded(bd.config.Pretty, bd.config.YAML, "backup storage", opts.Name, opts.Namespace)
 }
 
 // newBackupStorageDeletePoll checks if the backup storage still exists. A 404
@@ -200,7 +220,18 @@ func newBackupStorageDeletePoll(
 }
 
 func deleteCondition(bs *client.BackupStorage) (wait.Outcome, string) {
-	return deletion.GoneCondition("backup storage deleted", func(*client.BackupStorage) string {
-		return "backup storage still exists — likely referenced by an Instance or Backup"
-	})(bs)
+	return deletion.GoneCondition("backup storage deleted", deletionPendingMessage)(bs)
+}
+
+// deletionPendingMessage reports what a deleted storage waits for: its
+// Deleting condition names the referrers.
+func deletionPendingMessage(bs *client.BackupStorage) string {
+	if bs.Status != nil && bs.Status.Conditions != nil {
+		for _, cond := range *bs.Status.Conditions {
+			if cond.Type == backupv1alpha1.BackupStorageConditionDeleting && cond.Status == client.BackupStorageStatusConditionsStatusTrue {
+				return fmt.Sprintf("%s: %s", cond.Reason, cond.Message)
+			}
+		}
+	}
+	return "backup storage still exists — likely referenced by an Instance or Backup"
 }

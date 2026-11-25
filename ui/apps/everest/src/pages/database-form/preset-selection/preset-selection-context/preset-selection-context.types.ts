@@ -12,16 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ClusterInstancePreset } from 'shared-types/api.types';
+import {
+  DroppedPresetNotice,
+  PresetSelection,
+} from '../preset-selection.types';
 
-export interface PresetSelectionContextType {
-  presets: ClusterInstancePreset[];
-  isLoadingPresets: boolean;
-  isError: boolean;
-  presetName: string;
-  selectedPreset: ClusterInstancePreset | null;
-  presetSelected: boolean;
-  // True while a preset is picked but its spec is not yet available:
-  // the one-click create must stay blocked until we have a spec to submit.
-  presetPending: boolean;
-}
+export type PresetSelectionContextType = PresetSelection & DroppedPresetNotice;

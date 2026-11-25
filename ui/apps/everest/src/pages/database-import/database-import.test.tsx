@@ -16,14 +16,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TestWrapper } from 'utils/test';
 import { buildImportNavigationRouteState } from 'pages/database-form/import-navigation-state';
-import { CreateEditModalStorageProps } from 'pages/settings/storage-locations/createEditModal/create-edit-modal.types';
 import { Provider } from 'shared-types/api.types';
 import { Backup, BackupClass, BackupImport } from 'shared-types/backups.types';
-import {
-  BackupStorageCRD,
-  BackupStorageFormValues,
-  StorageType,
-} from 'shared-types/backupStorages.types';
+import { BackupStorageCRD } from 'shared-types/backupStorages.types';
+import { Messages as StorageInputMessages } from 'components/backup-storages-input/backup-storages-input.messages';
 import { DatabaseImportPage } from './database-import';
 import { Messages } from './database-import.messages';
 
@@ -33,12 +29,26 @@ const mocks = vi.hoisted(() => ({
 }));
 
 const PROVIDERS: Provider[] = [{ metadata: { name: 'psmdb' }, spec: {} }];
+// A backup class that can use none of the namespaces' storages.
+const CLASS_WITHOUT_STORAGES = 'psmdb-pbm-logical';
+const NO_STORAGES: BackupStorageCRD[] = [];
 const CLASSES: BackupClass[] = [
   {
     metadata: { name: 'psmdb-pbm' },
     spec: {
       executionMode: 'ProviderManaged',
-      supportedProviders: ['psmdb'],
+      providerManaged: { providerRef: { name: 'psmdb' } },
+      backupStorageClasses: [],
+      supportsImport: true,
+    },
+  },
+  {
+    metadata: { name: CLASS_WITHOUT_STORAGES },
+    spec: {
+      displayName: 'PBM logical',
+      executionMode: 'ProviderManaged',
+      providerManaged: { providerRef: { name: 'psmdb' } },
+      backupStorageClasses: [],
       supportsImport: true,
     },
   },
@@ -46,31 +56,29 @@ const CLASSES: BackupClass[] = [
 const storage = (name: string): BackupStorageCRD => ({
   metadata: { name },
   spec: {
-    type: 's3',
-    s3: {
-      bucket: name,
-      region: 'us-east-1',
-      endpointURL: 'https://s3.example.com',
+    backupStorageClassRef: { name: 's3' },
+    authentication: {
+      mode: 'AccessKey',
       credentialsSecretRef: { name: 'creds' },
     },
+    location: { objectStore: { bucket: name } },
+  },
+  status: {
+    conditions: [
+      {
+        type: 'Accepted',
+        status: 'True',
+        reason: 'Accepted',
+        message: '',
+        lastTransitionTime: '2026-11-01T00:00:00Z',
+      },
+    ],
   },
 });
 const STORAGES_BY_NAMESPACE: Record<string, BackupStorageCRD[]> = {
   'ns-a': [storage('s3-old')],
   'ns-b': [storage('s3-new')],
   'ns-empty': [],
-};
-const ADDED_STORAGE: BackupStorageFormValues = {
-  name: 's3-added',
-  namespace: 'ns-a',
-  type: StorageType.S3,
-  bucketName: 's3-added',
-  url: 'https://s3.example.com',
-  region: 'us-east-1',
-  accessKey: 'key',
-  secretKey: 'secret',
-  verifyTLS: true,
-  forcePathStyle: false,
 };
 const SOURCE_METADATA = {
   engineVersion: '8.0.12-4',
@@ -105,9 +113,14 @@ vi.mock('react-router-dom', async (importOriginal) => ({
   useLocation: () => mocks.location,
 }));
 vi.mock('hooks/api/useClusterName', () => ({ useClusterName: () => 'main' }));
-vi.mock('hooks/rbac', () => ({
-  useRBACPermissions: () => ({ canCreate: true }),
-}));
+vi.mock('hooks/rbac', () => {
+  const permissions = { canCreate: true };
+  const namespacePermissions = { canCreate: [] };
+  return {
+    useRBACPermissions: () => permissions,
+    useNamespacePermissionsForResource: () => namespacePermissions,
+  };
+});
 vi.mock('hooks/api/providers/useProviders', () => ({
   useProviders: () => ({ data: PROVIDERS }),
 }));
@@ -119,34 +132,19 @@ vi.mock('hooks/api/backup-classes/useBackupClasses', () => ({
 }));
 vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
   BACKUP_STORAGES_QUERY_KEY: 'backupStorages',
-  useBackupStoragesByNamespace: (namespace: string) => ({
-    data: STORAGES_BY_NAMESPACE[namespace],
+  useBackupStoragesByNamespace: (
+    namespace: string,
+    filter?: { backupClass?: string }
+  ) => ({
+    data:
+      filter?.backupClass === CLASS_WITHOUT_STORAGES
+        ? NO_STORAGES
+        : STORAGES_BY_NAMESPACE[namespace],
     isLoading: false,
     isFetching: false,
-  }),
-  useCreateBackupStorage: () => ({
-    mutate: (
-      data: BackupStorageFormValues,
-      { onSuccess }: { onSuccess: () => void }
-    ) => {
-      STORAGES_BY_NAMESPACE[data.namespace].push(storage(data.name));
-      onSuccess();
-    },
-    isPending: false,
+    isSuccess: true,
   }),
 }));
-vi.mock(
-  'pages/settings/storage-locations/createEditModal/create-edit-modal',
-  () => ({
-    CreateEditModalStorage: ({
-      handleSubmitModal,
-    }: CreateEditModalStorageProps) => (
-      <button onClick={() => handleSubmitModal(false, ADDED_STORAGE)}>
-        Save storage
-      </button>
-    ),
-  })
-);
 vi.mock('hooks/api/backups/useBackups', () => ({
   getNamespaceBackupsKeyPrefix: () => ['backups'],
   useNamespaceBackups: () => ({ data: namespaceBackups, isLoading: false }),
@@ -247,18 +245,23 @@ describe('DatabaseImportPage', () => {
     expect(getContinueButton()).toBeDisabled();
   });
 
-  it('selects a storage added from the page', async () => {
+  it("drops the storage once the backup class can't use it", async () => {
     render(page());
     await waitFor(() =>
       expect(screen.getByTestId('text-input-storage')).toHaveValue('s3-old')
     );
+    expect(await screen.findByText('prod/2026-10-01')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId('add-storage-button'));
-    fireEvent.click(screen.getByText('Save storage'));
+    fireEvent.mouseDown(screen.getByLabelText(Messages.labels.backupClass));
+    fireEvent.click(await screen.findByRole('option', { name: 'PBM logical' }));
 
     await waitFor(() =>
-      expect(screen.getByTestId('text-input-storage')).toHaveValue('s3-added')
+      expect(screen.getByTestId('text-input-storage')).toHaveValue('')
     );
+    expect(
+      screen.getByText(StorageInputMessages.noCompatibleStorages)
+    ).toBeInTheDocument();
+    expect(screen.queryByText('prod/2026-10-01')).not.toBeInTheDocument();
   });
 
   it('restores the previous choice when coming back from the wizard', async () => {

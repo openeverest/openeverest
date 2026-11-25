@@ -46,7 +46,7 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   // here would write a value nobody chose into the spec on save.
   const shouldAutoSelect = formMode !== FormMode.Edit;
 
-  const { options, isLoading, error, isEmpty } = useProviderOptions(
+  const { options, isLoading, error, isEmpty, emptyHint } = useProviderOptions(
     dataSource.provider,
     {
       namespace: namespace ?? '',
@@ -105,13 +105,16 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
       baseComponent.fieldParams as Record<string, unknown>
     )?.helperText;
 
+    // An empty list doesn't change what the spec holds, so in edit the stored
+    // value's hint wins over the text explaining why there are no options.
     const helperText = isLoading
       ? Messages.loading
       : error
         ? Messages.loadFailed
-        : isEmpty
-          ? (originalHelperText ?? Messages.noOptions)
-          : (storedValueHint ?? originalHelperText);
+        : (storedValueHint ??
+          (isEmpty
+            ? (emptyHint ?? originalHelperText ?? Messages.noOptions)
+            : originalHelperText));
 
     return {
       ...baseComponent,
@@ -131,6 +134,7 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     isLoading,
     error,
     isEmpty,
+    emptyHint,
     storedValueHint,
   ]);
 

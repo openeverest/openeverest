@@ -13,10 +13,12 @@
 // limitations under the License.
 
 import ActionableAlert from '..';
+import {
+  BackupStorageModal,
+  useAddBackupStorage,
+} from 'components/backup-storage-modal';
 import { Messages } from './BackupsActionableAlert.messages';
 import { BackupsActionableAlertProps } from './BackupsActionableAlert.types';
-import { CreateEditModalStorage } from 'pages/settings/storage-locations/createEditModal/create-edit-modal';
-import { useAddBackupStorage } from 'hooks/api/backup-storages/useAddBackupStorage';
 
 const BackupsActionableAlert = ({
   namespace,
@@ -33,7 +35,7 @@ const BackupsActionableAlert = ({
         onClick={open}
         {...(!canAdd && { action: undefined })}
       />
-      {isOpen && <CreateEditModalStorage {...modalProps} />}
+      {isOpen && <BackupStorageModal {...modalProps} />}
     </>
   );
 };

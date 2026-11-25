@@ -60,6 +60,10 @@ type EverestConfig struct {
 	// SSOTokenExchangeRateLimit is the maximum number of SSO token exchange requests per second per IP.
 	// It is looser than LoginRateLimit: every open tab renews its SSO session, and users behind one NAT share an IP.
 	SSOTokenExchangeRateLimit int `default:"10" envconfig:"SSO_TOKEN_EXCHANGE_RATE_LIMIT"`
+	// TrustedProxies lists, comma separated, the CIDRs of proxies with public addresses whose
+	// X-Forwarded-For and X-Forwarded-Proto headers are trusted. Proxies on loopback, link-local
+	// and private addresses, such as an in-cluster ingress controller, are always trusted.
+	TrustedProxies []string `envconfig:"TRUSTED_PROXIES"`
 	// AccessTokenTTL is the lifetime of access JWTs.
 	AccessTokenTTL time.Duration `default:"15m" envconfig:"ACCESS_TOKEN_TTL"`
 	// RefreshTokenTTL is the lifetime of refresh tokens.
@@ -73,12 +77,6 @@ type EverestConfig struct {
 	// Namespace is the namespace where OpenEverest is installed.
 	// Must be provided via the NAMESPACE env var (set by the Helm chart).
 	Namespace string `envconfig:"NAMESPACE" required:"true"`
-	// EventBufferMaxEvents bounds the /v1/events replay buffer by entry
-	// count. Whichever of this and EventBufferMaxAge is hit first evicts
-	// the oldest event. See openeverest#2582.
-	EventBufferMaxEvents int `default:"4096" envconfig:"EVENT_BUFFER_MAX_EVENTS"`
-	// EventBufferMaxAge bounds the /v1/events replay buffer by age.
-	EventBufferMaxAge time.Duration `default:"5m" envconfig:"EVENT_BUFFER_MAX_AGE"`
 }
 
 // ParseConfig parses env vars and fills EverestConfig.

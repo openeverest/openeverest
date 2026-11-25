@@ -7,17 +7,25 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
   - get
   - list
   - patch
-  - update
   - watch
 - apiGroups:
   - backup.openeverest.io
   resources:
   - backupclasses
+  - backupstorageclasses
   verbs:
   - get
   - list
@@ -25,9 +33,20 @@ rules:
 - apiGroups:
   - backup.openeverest.io
   resources:
+  - backupclasses/status
+  - backupimports/status
+  - backups/status
+  - backupstorages/status
+  - restores/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - backup.openeverest.io
+  resources:
   - backupimports
   - backups
-  - backupstorages
   - restores
   verbs:
   - create
@@ -40,14 +59,13 @@ rules:
 - apiGroups:
   - backup.openeverest.io
   resources:
-  - backupimports/status
-  - backups/status
-  - backupstorages/status
-  - restores/status
+  - backupstorages
   verbs:
   - get
+  - list
   - patch
   - update
+  - watch
 - apiGroups:
   - backup.openeverest.io
   resources:
@@ -69,6 +87,12 @@ rules:
   - instances/finalizers
   verbs:
   - update
+- apiGroups:
+  - core.openeverest.io
+  resources:
+  - instances/status
+  verbs:
+  - patch
 - apiGroups:
   - events.k8s.io
   resources:

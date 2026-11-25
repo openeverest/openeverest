@@ -20,10 +20,12 @@ import {
 } from '@percona/ui-lib';
 import { useFormContext } from 'react-hook-form';
 import BackupsActionableAlert from 'components/actionable-alert/backups-actionable-alert';
+import {
+  BackupStorageModal,
+  useAddBackupStorage,
+} from 'components/backup-storage-modal';
 import BackupStoragesInput from 'components/backup-storages-input';
-import { useAddBackupStorage } from 'hooks/api/backup-storages/useAddBackupStorage';
 import { useExtensionCatalog } from 'hooks/api/extension-catalog';
-import { CreateEditModalStorage } from 'pages/settings/storage-locations/createEditModal/create-edit-modal';
 import { Provider } from 'shared-types/api.types';
 import { BackupClass } from 'shared-types/backups.types';
 import { BackupStorageCRD } from 'shared-types/backupStorages.types';
@@ -42,7 +44,6 @@ interface ImportSourceFieldsProps {
   importClasses: BackupClass[];
   selectedClass?: BackupClass;
   classProviders: Provider[];
-  onStorageAdded: (storageName: string) => void;
 }
 
 export const ImportSourceFields = ({
@@ -54,11 +55,10 @@ export const ImportSourceFields = ({
   importClasses,
   selectedClass,
   classProviders,
-  onStorageAdded,
 }: ImportSourceFieldsProps) => {
   const { setValue } = useFormContext<DatabaseImportFormValues>();
   const { getProviderMeta } = useExtensionCatalog();
-  const addStorage = useAddBackupStorage(namespace, onStorageAdded);
+  const addStorage = useAddBackupStorage(namespace);
   const hasNoStorages =
     !!namespace && !isStoragesLoading && storages.length === 0;
 
@@ -99,14 +99,13 @@ export const ImportSourceFields = ({
             <BackupStoragesInput
               name={DatabaseImportFields.storage}
               namespace={namespace}
+              backupClass={selectedClass?.metadata?.name}
               schedules={[]}
             />
           </ActionableLabeledContent>
         )
       )}
-      {addStorage.isOpen && (
-        <CreateEditModalStorage {...addStorage.modalProps} />
-      )}
+      {addStorage.isOpen && <BackupStorageModal {...addStorage.modalProps} />}
       <SelectInput
         name={DatabaseImportFields.backupClassName}
         label={Messages.labels.backupClass}

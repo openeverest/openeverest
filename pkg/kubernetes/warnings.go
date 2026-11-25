@@ -59,8 +59,16 @@ type CollectingWarningHandler struct {
 
 // HandleWarningHeaderWithContext implements rest.WarningHandlerWithContext.
 func (h CollectingWarningHandler) HandleWarningHeaderWithContext(ctx context.Context, code int, agent, text string) {
-	if c, ok := ctx.Value(warningCollectorKey{}).(*WarningCollector); ok && code == 299 && text != "" {
-		c.add(text)
+	if code == 299 {
+		AddWarning(ctx, text)
 	}
 	h.Next.HandleWarningHeaderWithContext(ctx, code, agent, text)
+}
+
+// AddWarning adds text to the WarningCollector of ctx, if any, as if the Kubernetes API had returned it, for a warning
+// the caller raises itself. A text the Kubernetes API returns too is reported once.
+func AddWarning(ctx context.Context, text string) {
+	if c, ok := ctx.Value(warningCollectorKey{}).(*WarningCollector); ok && text != "" {
+		c.add(text)
+	}
 }

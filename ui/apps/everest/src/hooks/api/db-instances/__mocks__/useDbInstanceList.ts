@@ -45,7 +45,7 @@ export const mockInstances: Instance[] = [
       },
     },
     status: {
-      phase: 'Ready',
+      phase: 'Provisioned',
       components: [
         {
           name: 'psmdb',
@@ -62,6 +62,20 @@ export const mockInstances: Instance[] = [
           reason: 'Ready',
           status: 'True',
           type: 'Ready',
+        },
+        {
+          lastTransitionTime: '2026-03-20T10:00:00Z',
+          message: '',
+          reason: 'Available',
+          status: 'True',
+          type: 'Available',
+        },
+        {
+          lastTransitionTime: '2026-03-20T10:00:00Z',
+          message: '',
+          reason: 'Available',
+          status: 'True',
+          type: 'ConnectionDetailsReady',
         },
       ],
       connectionSecretRef: { name: 'psmdb-primary-connection' },
@@ -94,9 +108,17 @@ export const mockInstances: Instance[] = [
       },
     },
     status: {
-      phase: 'Initializing',
+      phase: 'Pending',
       components: [],
-      conditions: [],
+      conditions: [
+        {
+          lastTransitionTime: '2026-03-20T10:00:00Z',
+          message: 'Waiting for the operator to apply the latest configuration',
+          reason: 'Creating',
+          status: 'False',
+          type: 'Ready',
+        },
+      ],
     },
   },
 ];

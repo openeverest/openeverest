@@ -40,7 +40,7 @@ var (
 )
 
 func pluginListPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
-	pluginListCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	pluginListCfg.Pretty = cli.IsPretty(cmd)
 	pluginListCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 }
 

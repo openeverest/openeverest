@@ -43,16 +43,16 @@ const (
 
 // DeleteOptions configures `backup delete`.
 type DeleteOptions struct {
-	Name           string
-	Namespace      string
-	Cluster        string
-	Context        string        // overrides the active context when set
-	Yes            bool          // skip the confirmation prompt
-	JSON           bool          // --json was passed; forces non-interactive regardless of --verbose
-	Force          bool          // override the in-flight (Pending/Running/Error/no status yet) guard; orthogonal to Yes
-	IgnoreNotFound bool          // treat "backup already gone" (404) as a successful delete
-	Wait           bool          // block until the backup is fully deleted
-	Timeout        time.Duration // bounds --wait; must be positive
+	Name            string
+	Namespace       string
+	Cluster         string
+	Context         string        // overrides the active context when set
+	Yes             bool          // skip the confirmation prompt
+	MachineReadable bool          // -o json|yaml was passed; forces non-interactive regardless of --verbose
+	Force           bool          // override the in-flight (Pending/Running/Error/no status yet) guard; orthogonal to Yes
+	IgnoreNotFound  bool          // treat "backup already gone" (404) as a successful delete
+	Wait            bool          // block until the backup is fully deleted
+	Timeout         time.Duration // bounds --wait; must be positive
 
 	// IsTerminal overrides the TTY check for the prompt. Set in tests.
 	IsTerminal func() bool
@@ -103,7 +103,7 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		}
 	}
 
-	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
+	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.MachineReadable, IsTerminal: opts.IsTerminal}
 	if err := bd.confirmDeletion(ctx, confirmOpts, opts, backup); err != nil {
 		return err
 	}
@@ -236,13 +236,13 @@ func deleteConfirmMessage(name, namespace, storage string, verified bool) string
 
 // emitDeleted prints success: a line in pretty mode, JSON otherwise.
 func (bd *Deleter) emitDeleted(opts DeleteOptions) error {
-	return deletion.EmitDeleted(bd.config.Pretty, "backup", opts.Name, opts.Namespace)
+	return deletion.EmitDeleted(bd.config.Pretty, bd.config.YAML, "backup", opts.Name, opts.Namespace)
 }
 
 // emitAlreadyGone reports the --ignore-not-found short-circuit: "deleted"
 // stays false since this run didn't actually delete anything.
 func (bd *Deleter) emitAlreadyGone(opts DeleteOptions) error {
-	return deletion.EmitAlreadyGone(bd.config.Pretty, "backup", opts.Name, opts.Namespace)
+	return deletion.EmitAlreadyGone(bd.config.Pretty, bd.config.YAML, "backup", opts.Name, opts.Namespace)
 }
 
 // waitForDeletion blocks until the backup is gone. The cancellable context
@@ -269,5 +269,5 @@ func (bd *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		return err
 	}
 
-	return deletion.EmitWaitSucceeded(bd.config.Pretty, "backup", opts.Name, opts.Namespace)
+	return deletion.EmitWaitSucceeded(bd.config.Pretty, bd.config.YAML, "backup", opts.Name, opts.Namespace)
 }

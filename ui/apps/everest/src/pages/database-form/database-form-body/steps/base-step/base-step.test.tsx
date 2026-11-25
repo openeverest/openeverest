@@ -20,10 +20,8 @@ import { TestWrapper } from 'utils/test';
 import { WizardMode } from 'shared-types/wizard.types';
 import { DbWizardFormFields } from 'consts';
 import { DatabaseFormProvider } from 'pages/database-form/database-form-context';
-import {
-  PresetSelectionContext,
-  PresetSelectionContextType,
-} from 'pages/database-form/preset-selection';
+import { PresetSelectionContext } from 'pages/database-form/preset-selection';
+import { noPresetsContext } from 'pages/database-form/preset-selection/__mocks__/preset-selection-context';
 import { BaseInfoStep } from './base-step';
 import { useDatabasePageMode } from '../../../hooks/use-database-page-mode';
 import { useImportNavigationState } from 'pages/database-form/hooks/use-import-navigation-state';
@@ -77,16 +75,6 @@ const makeContextValue = (topologies: string[] = ['replica']) => ({
   hasMonitoringStep: false,
 });
 
-const presetSelectionValue: PresetSelectionContextType = {
-  presets: [],
-  isLoadingPresets: false,
-  isError: false,
-  presetName: '',
-  selectedPreset: null,
-  presetSelected: false,
-  presetPending: false,
-};
-
 interface WrapperProps {
   children: React.ReactNode;
   defaultValues?: ReturnType<typeof makeDefaultValues>;
@@ -109,7 +97,7 @@ const Wrapper = ({
   return (
     <TestWrapper>
       <DatabaseFormProvider value={makeContextValue(topologies)}>
-        <PresetSelectionContext.Provider value={presetSelectionValue}>
+        <PresetSelectionContext.Provider value={noPresetsContext}>
           <FormProvider {...methods}>
             <form>{children}</form>
           </FormProvider>

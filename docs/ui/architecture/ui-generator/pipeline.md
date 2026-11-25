@@ -165,6 +165,10 @@ schema, where `dataSource` fields have no static `options`. Once the options hav
 helper text explains an unavailable stored value (without claiming a cause) or an empty one (via the
 registry entry's `unsetValueHint`); it reads the current value with `useWatch`, so it clears as soon
 as the user picks another option.
+When the options are empty, the provider's `emptyHint` (e.g. no `storage-classes` read), if any,
+replaces the generic empty helper text. The edit-mode explanation above takes precedence over both:
+an empty list doesn't change what the spec holds, so the field keeps saying that the stored value
+is kept (or what an unset one means) instead of why the list is empty.
 A resource created from the provider's `emptyStateFallback` is a separate path: the fallback calls
 `onCreated(value)` once the refetched options include it, and `DataSourceField` sets it as a user
 change (`shouldDirty`) in every mode — the user picked it, so the edit rule doesn't apply. The
@@ -236,6 +240,66 @@ The update replaces the whole instance and `deepMerge` keeps keys missing from t
 `mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
 left empty.
 
+## Section forms
+
+**Files:** `utils/section-form/`
+
+A section form is one section rendered on its own rather than as a step of a provider topology,
+such as a monitoring class's destination or credentials form. It runs the same stages on the
+section wrapped as a one-topology schema.
+
+- **`toSectionForm(sectionKey, section, { formMode, overrides, contract })`**: preprocess for the
+  mode, then `applyFieldOverrides` (see Field overrides), so a consumer override wins over the
+  schema's `modes`. The form keeps its mode; the zod schema is built for it.
+- **`getSectionFormDefaults(form)`**: the values of a new object.
+- **`getSectionFormValues(form, saved)`**: the values to edit a saved object with. The saved values
+  are read by `extractInstanceValues`, the way the fields show them: a badge stripped, a quantity in
+  the field's unit, a toggleable group on when it holds a value. They are laid over the defaults.
+- **`getSectionFormZodSchema(form)`**: `buildSectionZodSchema` plus the contract check below.
+- **`postprocessSectionForm(form, values, saved?)`**: `postprocessSchemaData` for the section. With
+  `saved`, a quantity left as saved is sent the way it was saved.
+- **`getSectionFormUpdate(form, values, saved)`**: what an edit sends. It starts from the saved
+  object. The fields the form owns get the form's values; one left empty, or in a switched-off
+  group, is removed. Everything else stays as saved, empty values included.
+
+### Contract
+
+The API checks one object of the form against an OpenAPI v3 schema. For example, a class's
+parameters schema checks the object at `parameters`. A `contract: { path, schema }` makes the form
+check it before saving. Each field writing under `path` is checked against what the schema asks at
+its path (`utils/openapi-constraints/`):
+
+| Keyword                   | Checked                                                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `required`                | when every object on the way requires the next key                                                                              |
+| `pattern`                 | in JavaScript's Unicode mode, an escaped punctuation character read as itself (`\_` is `_`), as the server's Go regexp reads it |
+| `minLength` / `maxLength` | in characters (code points), as the API counts them                                                                             |
+| `enum`                    | the value is one of the listed                                                                                                  |
+
+Map entries are reached through `additionalProperties`. The check runs on the value the API gets.
+A field showing `30` beside an `s` badge is checked as `30s`, and the issue is reported on the
+field.
+
+Left to the server:
+
+- `anyOf` / `oneOf` / `allOf` and other keywords;
+- a `pattern` only Go reads, such as one with `\z` or `[[:alpha:]]`;
+- disabled and read-only fields and widgets, which the user can't fix in the form;
+- fields in a switched-off group, which send nothing and aren't shown;
+- what the schema requires that the form has no field for.
+
+### Field overrides
+
+**Files:** `utils/field-overrides/`
+
+Runtime field behaviour comes from what the consumer knows, not from the schema. For example, the
+disk size can't change when the storage class doesn't expand volumes. The consumer computes
+`FieldOverrides` (`{ [path]: { disabled?, tooltip? } }`, keyed by the field's path, by the first one
+when a field writes several). **`applyFieldOverrides(sections, overrides)`** merges them into the
+fields' `fieldParams` of the preprocessed sections. Render internals never check paths
+themselves. The section edit modal (`applyRuntimeOverrides`) and section forms (`overrides`) both
+use it.
+
 ## Cross-cutting principles
 
 1. **Single path pass** — `_normalized` is computed in preprocess and reused by validation / render /
@@ -244,7 +308,8 @@ left empty.
 3. **Mode-aware everywhere** — a single `FormMode` drives component / fieldParams / validation overrides.
 4. **The schema is a public contract** (third-party provider schemas) → prop names are frozen pre-GA.
 5. **Error isolation** — `ComponentErrorBoundary` around every render.
-6. **Engine reuse** — the section edit modal uses the same UIGenerator + `buildSectionZodSchema`.
+6. **Engine reuse** — the section edit modal and section forms use the same UIGenerator +
+   `buildSectionZodSchema`.
 
 ## Modes — override matrix
 
@@ -274,39 +339,42 @@ components:
 
 ## Key files
 
-| Area                       | File                                                       |
-| -------------------------- | ---------------------------------------------------------- |
-| Types                      | `ui-generator.types.ts`                                    |
-| Main component             | `ui-generator.tsx`                                         |
-| Context                    | `ui-generator-context.tsx`                                 |
-| Preprocess                 | `utils/preprocess/preprocess-schema.ts`                    |
-| Mode overrides             | `utils/preprocess/apply-mode-overrides.ts`                 |
-| Zod builder                | `utils/schema-builder/build-zod-schema.ts`                 |
-| Section Zod                | `utils/schema-builder/build-section-zod-schema.ts`         |
-| CEL validation             | `utils/schema-builder/cel-validation/`                     |
-| Defaults                   | `utils/default-values/`                                    |
-| Instance values            | `utils/default-values/extract-instance-values.ts`          |
-| Quantity codec             | `utils/quantity/`                                          |
-| Section editability        | `utils/section-editable/is-section-editable.ts`            |
-| Renderer                   | `utils/component-renderer/render-component.tsx`            |
-| UI component mapper        | `ui-component/`                                            |
-| Postprocess                | `utils/postprocess/postprocess-schema.ts`                  |
-| Schema walker              | `utils/schema-walker/schema-walker.ts`                     |
-| Toggleable groups          | `utils/toggleable/toggleable.ts`                           |
-| Toggleable validation      | `utils/schema-builder/apply-toggleable-validation.ts`      |
-| Section edit merge         | `utils/postprocess/merge-section-edit.ts`                  |
-| Topology scope             | `utils/topology-scope/topology-scope.ts`                   |
-| Object path                | `utils/object-path/object-path.ts`                         |
-| API provider registry      | `api-providers/registry.ts`                                |
-| API provider registrations | `api-providers/providers.ts`                               |
-| DataSourceField            | `api-providers/data-source-field/data-source-field.tsx`    |
-| DataSourcePrefetcher       | `api-providers/data-source-prefetcher.tsx`                 |
-| SecretNamespaceSync        | `secret-field/secret-namespace-sync.tsx`                   |
-| Error boundary             | `component-error-boundary/component-error-boundary.tsx`    |
-| Storage classes hook       | `hooks/api/kubernetesClusters/useStorageClassesOptions.ts` |
+| Area                       | File                                                        |
+| -------------------------- | ----------------------------------------------------------- |
+| Types                      | `ui-generator.types.ts`                                     |
+| Main component             | `ui-generator.tsx`                                          |
+| Context                    | `ui-generator-context.tsx`                                  |
+| Preprocess                 | `utils/preprocess/preprocess-schema.ts`                     |
+| Mode overrides             | `utils/preprocess/apply-mode-overrides.ts`                  |
+| Zod builder                | `utils/schema-builder/build-zod-schema.ts`                  |
+| Section Zod                | `utils/schema-builder/build-section-zod-schema.ts`          |
+| CEL validation             | `utils/schema-builder/cel-validation/`                      |
+| Defaults                   | `utils/default-values/`                                     |
+| Instance values            | `utils/default-values/extract-instance-values.ts`           |
+| Quantity codec             | `utils/quantity/`                                           |
+| Section editability        | `utils/section-editable/is-section-editable.ts`             |
+| Renderer                   | `utils/component-renderer/render-component.tsx`             |
+| UI component mapper        | `ui-component/`                                             |
+| Postprocess                | `utils/postprocess/postprocess-schema.ts`                   |
+| Schema walker              | `utils/schema-walker/schema-walker.ts`                      |
+| Toggleable groups          | `utils/toggleable/toggleable.ts`                            |
+| Toggleable validation      | `utils/schema-builder/apply-toggleable-validation.ts`       |
+| Section edit merge         | `utils/postprocess/merge-section-edit.ts`                   |
+| Section forms              | `utils/section-form/section-form.ts`                        |
+| Field overrides            | `utils/field-overrides/field-overrides.ts`                  |
+| OpenAPI constraints        | `utils/openapi-constraints/openapi-constraints.ts`          |
+| Topology scope             | `utils/topology-scope/topology-scope.ts`                    |
+| Object path                | `utils/object-path/object-path.ts`                          |
+| API provider registry      | `api-providers/registry.ts`                                 |
+| API provider registrations | `api-providers/providers.ts`                                |
+| DataSourceField            | `api-providers/data-source-field/data-source-field.tsx`     |
+| DataSourcePrefetcher       | `api-providers/data-source-prefetcher.tsx`                  |
+| SecretNamespaceSync        | `secret-field/secret-namespace-sync.tsx`                    |
+| Error boundary             | `component-error-boundary/component-error-boundary.tsx`     |
+| Storage classes provider   | `api-providers/storage-classes/useStorageClassesOptions.ts` |
 
 ## Metadata
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-16
+- Last updated: 2026-11-20

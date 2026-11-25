@@ -11,6 +11,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +26,7 @@ import (
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
 // KubernetesConnector ...
@@ -74,6 +76,10 @@ type KubernetesConnector interface {
 	ListBackupClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupClassList, error)
 	// GetBackupClass returns backup class that matches the criteria.
 	GetBackupClass(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupClass, error)
+	// ListBackupStorageClasses returns the backup storage classes that match the criteria.
+	ListBackupStorageClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupStorageClassList, error)
+	// GetBackupStorageClass returns the backup storage class with the given key.
+	GetBackupStorageClass(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupStorageClass, error)
 	// GetBackupImport returns backup import that matches the criteria.
 	GetBackupImport(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupImport, error)
 	// ListBackupImports returns a list of backup imports in a given namespace.
@@ -226,8 +232,8 @@ type KubernetesConnector interface {
 	DeleteMonitoringDestination(ctx context.Context, obj *monitoringv1alpha1.MonitoringDestination) error
 	// DeleteUnusedMonitoringDestinations deletes the monitoring destinations that
 	// match the criteria and that no Instance lists. The API server refuses
-	// deleting the others while they are in use (spec 015 §4.5): they go with
-	// their namespace, or stay with the Instances that use them.
+	// deleting the others while they are in use: they go with their namespace,
+	// or stay with the Instances that use them.
 	DeleteUnusedMonitoringDestinations(ctx context.Context, opts ...ctrlclient.ListOption) error
 	// ListMonitoringBindings returns list of monitoring bindings that match the criteria.
 	ListMonitoringBindings(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringBindingList, error)
@@ -332,6 +338,8 @@ type KubernetesConnector interface {
 	// ListStorageClasses returns list of storage classes that match the criteria.
 	// This method returns a list of full objects (meta and spec).
 	ListStorageClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*storagev1.StorageClassList, error)
+	// GetStorageClass returns the storage class with the given key.
+	GetStorageClass(ctx context.Context, key ctrlclient.ObjectKey) (*storagev1.StorageClass, error)
 	// CreateSplitHorizonDNSConfig creates a SplitHorizonDNSConfig resource in Kubernetes.
 	CreateSplitHorizonDNSConfig(ctx context.Context, shdc *enginefeaturesv1alpha1.SplitHorizonDNSConfig) (*enginefeaturesv1alpha1.SplitHorizonDNSConfig, error)
 	// UpdateSplitHorizonDNSConfig updates an existing SplitHorizonDNSConfig resource in Kubernetes.
@@ -383,28 +391,15 @@ type KubernetesConnector interface {
 	UpdateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) (*v1alpha1.InstancePreset, error)
 	// DeleteInstancePreset deletes a namespace-scoped instance preset.
 	DeleteInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) error
-	// WatchBackups returns a watch.Interface that streams
-	// Backup events across all namespaces.
-	WatchBackups(ctx context.Context) (watch.Interface, error)
-	// WatchRestores returns a watch.Interface that streams
-	// Restore events across all namespaces.
-	WatchRestores(ctx context.Context) (watch.Interface, error)
-	// WatchInstances returns a watch.Interface that streams
-	// Instance events across all namespaces.
-	WatchInstances(ctx context.Context) (watch.Interface, error)
-	// WatchPlugins returns a watch.Interface that streams Plugin CR events.
-	// Plugin is cluster-scoped.
-	WatchPlugins(ctx context.Context) (watch.Interface, error)
-	// WatchInstalledExtensions returns a watch.Interface that streams
-	// InstalledExtension events across all namespaces.
-	WatchInstalledExtensions(ctx context.Context) (watch.Interface, error)
-	// WatchEverestManagedNamespaces returns a watch.Interface that streams
-	// events for Namespaces carrying the Everest managed-by label.
-	WatchEverestManagedNamespaces(ctx context.Context) (watch.Interface, error)
-	// WatchEverestSettings returns a watch.Interface that streams ConfigMap
-	// events for the Everest settings ConfigMap in the system namespace.
-	// Callers must filter results by name (the watch returns all ConfigMaps in
-	// the namespace; field-selector watches are not portable across the
-	// controller-runtime client).
-	WatchEverestSettings(ctx context.Context) (watch.Interface, error)
+	// RecordLifecycleEvent records r as a lifecycle event.
+	RecordLifecycleEvent(ctx context.Context, r events.Record) error
+	// ListLifecycleEvents lists the lifecycle events (see pkg/events) in namespace, or in
+	// all namespaces when namespace is empty.
+	ListLifecycleEvents(ctx context.Context, namespace string, limit int64, continueToken string) (*eventsv1.EventList, error)
+	// WatchLifecycleEvents watches lifecycle events recorded after resourceVersion, or from
+	// now on when it is empty. The caller reconnects from its last received resourceVersion
+	// if the watch closes.
+	//
+	//nolint:ireturn // watch.Interface is the client-go streaming contract
+	WatchLifecycleEvents(ctx context.Context, namespace, resourceVersion string) (watch.Interface, error)
 }

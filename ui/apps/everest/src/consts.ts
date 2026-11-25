@@ -44,13 +44,11 @@ export enum DbWizardForm {
   provider = 'provider',
   k8sNamespace = 'k8sNamespace',
   topology = 'topology.type',
-  presetName = 'presetName',
+  presetId = 'presetId',
 }
 
 export const DbWizardFormFields = {
   ...DbWizardForm,
 };
-
-export const EKS_DEFAULT_LOAD_BALANCER_CONFIG = 'eks-default';
 
 export const EMPTY_LOAD_BALANCER_CONFIGURATION = '- No configuration -';
