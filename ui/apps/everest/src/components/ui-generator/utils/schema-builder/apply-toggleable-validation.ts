@@ -13,7 +13,10 @@
 // limitations under the License.
 
 import { z } from 'zod';
-import { getByPath, parsePath } from 'components/ui-generator/utils/object-path';
+import {
+  getByPath,
+  parsePath,
+} from 'components/ui-generator/utils/object-path';
 import { isToggleableOn } from '../toggleable/toggleable';
 import type { ToggleableFieldRule } from './schema-builder.types';
 
