@@ -73,6 +73,14 @@ func ValidatePolicy(
 ) error {
 	enforcer, err := newKubeOrFileEnforcer(ctx, k, filepath)
 	if err != nil {
+		// newEnforcer already runs validatePolicy and wraps any syntax
+		// error it detects with errPolicySyntax, so re-wrapping here would
+		// prefix "policy syntax error" twice in the final message.
+		// Casbin adapter/loader errors (e.g. malformed CSV) arrive
+		// unwrapped, so still mark them as syntax errors.
+		if errors.Is(err, errPolicySyntax) {
+			return err
+		}
 		return errors.Join(errPolicySyntax, err)
 	}
 	return validatePolicy(enforcer)
