@@ -609,6 +609,15 @@ func TestRBAC_InstancePresetReferences(t *testing.T) {
 			Name: name,
 		}
 	}
+	engineOn := func(class string) map[string]corev1alpha1.ComponentSpec {
+		return map[string]corev1alpha1.ComponentSpec{
+			"engine": {
+				Storage: &corev1alpha1.Storage{
+					StorageClass: &class,
+				},
+			},
+		}
+	}
 	// stored is what GetInstancePreset returns: already pointing at references
 	// the caller in most cases below cannot read.
 	stored := func() *corev1alpha1.InstancePreset {
@@ -685,6 +694,7 @@ func TestRBAC_InstancePresetReferences(t *testing.T) {
 		readPMM1     = "p, role:test, monitoring-destinations, read, prod/ns1/pmm1"
 		readPMM2     = "p, role:test, monitoring-destinations, read, prod/ns1/pmm2"
 		readBackup   = "p, role:test, backups, read, prod/ns1/source-db"
+		readGP3      = "p, role:test, storage-classes, read, prod/gp3"
 	)
 
 	t.Run("CreateInstancePreset", func(t *testing.T) {
@@ -702,6 +712,21 @@ func TestRBAC_InstancePresetReferences(t *testing.T) {
 			},
 			{
 				name:    "provider not readable",
+				wantErr: true,
+			},
+			{
+				name:   "storage class readable",
+				policy: []string{readProvider, readGP3},
+				spec: corev1alpha1.InstanceSpec{
+					Components: engineOn("gp3"),
+				},
+			},
+			{
+				name:   "storage class not readable",
+				policy: []string{readProvider},
+				spec: corev1alpha1.InstanceSpec{
+					Components: engineOn("gp3"),
+				},
 				wantErr: true,
 			},
 			{

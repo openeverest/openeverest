@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 
@@ -299,6 +300,9 @@ func (h *rbacHandler) ensureInstanceReferencesAuthorized(
 			return err
 		}
 	}
+	if err := h.ensureStorageClassesReadable(ctx, cluster, current.Components, spec.Components); err != nil {
+		return err
+	}
 	if err := h.ensureUserSecretReadable(ctx, cluster, namespace, current, spec); err != nil {
 		return err
 	}
@@ -317,6 +321,30 @@ func (h *rbacHandler) ensureInstanceReferencesAuthorized(
 		}
 	}
 	return nil
+}
+
+// ensureStorageClassesReadable checks the caller may read every storage class
+// a component newly names, or names instead of the one stored for it. A
+// component without a class names nothing: Kubernetes gives each of its
+// volumes the cluster's default class when the volume is created.
+func (h *rbacHandler) ensureStorageClassesReadable(ctx context.Context, cluster string, current, components map[string]corev1alpha1.ComponentSpec) error {
+	for _, name := range slices.Sorted(maps.Keys(components)) {
+		class := storageClassOf(components[name])
+		if class == "" || class == storageClassOf(current[name]) {
+			continue
+		}
+		if err := h.enforce(ctx, rbac.ResourceStorageClasses, rbac.ActionRead, rbac.ClusterObjectName(cluster, class)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func storageClassOf(component corev1alpha1.ComponentSpec) string {
+	if component.Storage == nil || component.Storage.StorageClass == nil {
+		return ""
+	}
+	return *component.Storage.StorageClass
 }
 
 // ensureUserSecretReadable checks the caller may read a user secret the

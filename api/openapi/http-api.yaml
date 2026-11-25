@@ -1102,6 +1102,7 @@ paths:
       description: |
         This API creates a new database instance in the specified namespace and cluster.
         Every monitoring destination listed in `spec.monitoring.destinations` requires `read` on it; otherwise the request fails with 403.
+        Every storage class named in `spec.components.*.storage.storageClass` requires `read` on it; otherwise the request fails with 403. A component without a class gets the cluster's default and needs no `read`.
 
         `instances:create` allows any instance. Without it, `instances:create-from-preset` allows an instance only as an exact copy of the preset named by its `openeverest.io/instance-preset` or `openeverest.io/cluster-instance-preset` annotation, which also requires `read` on the preset: the preset's `spec`, and no metadata besides `name`, `generateName`, `namespace` and that annotation.
         Any other difference fails with 403 and reason `PresetMismatch`, with a cause naming every field that differs; a 403 for a missing permission has no reason.
@@ -1240,6 +1241,7 @@ paths:
         This API updates the database instance specified by the `instance` name in the specified `namespace` and `cluster`, replacing the entire resource with the new one.
         To change only specific fields, use PATCH instead.
         Every monitoring destination added to `spec.monitoring.destinations` requires `read` on it; otherwise the request fails with 403. Destinations the instance already lists need no `read`.
+        A storage class a component names in `spec.components.*.storage.storageClass` requires `read` on it unless the component already uses that class; otherwise the request fails with 403. A component without a class needs no `read`.
       operationId: updateInstance
       parameters:
         - name: cluster
@@ -1320,6 +1322,7 @@ paths:
         Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the Instance is
         rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the instance has changed.
         A patch setting `spec.monitoring.destinations` replaces the whole list, and every monitoring destination it adds requires `read` on it; otherwise the request fails with 403. Destinations the instance already lists need no `read`.
+        A storage class a component names in `spec.components.*.storage.storageClass` after the patch requires `read` on it unless the component already uses that class; otherwise the request fails with 403. A component without a class needs no `read`.
       operationId: patchInstance
       parameters:
         - name: cluster
