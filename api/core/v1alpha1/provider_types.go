@@ -213,6 +213,22 @@ type ProviderStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ContractVersion is the contract version of the provider build that
+	// last started: the OpenEverest release that build was made against.
+	// The provider's runtime writes it from the version it links, once it
+	// is allowed to start. It is metadata for the compatibility checks,
+	// not something to set by hand.
+	//
+	// It states what actually runs, which the openeverest.io/contract-version
+	// annotation, written by the chart, cannot do when an image is
+	// overridden. It also tells a restart from a new rollout: a build with
+	// this version starts without a check, so a pod restart or a node drain
+	// never stops a provider that already runs, while a build with another
+	// version waits, unready, until the installed OpenEverest supports it.
+	// +kubebuilder:validation:MaxLength=256
+	// +optional
+	ContractVersion string `json:"contractVersion,omitempty"`
 }
 
 // +kubebuilder:object:root=true

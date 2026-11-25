@@ -94,6 +94,7 @@ type ProviderReconciler struct {
 	legacyFieldManager string
 
 	tracker          tracker
+	startupGate      startupGateOptions
 	problemDeadline  time.Duration
 	progressDeadline time.Duration
 	clock            func() time.Time         // time.Now unless a test sets it
@@ -132,6 +133,7 @@ type reconcilerOptions struct {
 	admissionCertDir   string // set by WithAdmission
 	problemDeadline    time.Duration
 	progressDeadline   time.Duration
+	startupGate        startupGateOptions
 }
 
 // WithProblemDeadline sets how long a problem that may clear by itself, such
@@ -314,6 +316,7 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		legacyFieldManager: defaultFieldManager(mgr.GetConfig().UserAgent),
 		problemDeadline:    options.problemDeadline,
 		progressDeadline:   options.progressDeadline,
+		startupGate:        options.startupGate,
 		Client:             mgr.GetClient(),
 	}
 
@@ -366,20 +369,27 @@ func (r *ProviderReconciler) GetManager() ctrl.Manager {
 }
 
 // Start starts the reconciler and server (blocking).
+//
+// The server starts first. A build of the provider that the installed
+// OpenEverest does not support then waits, alive and unready, until it does,
+// before the manager starts the controllers and the webhook and metrics
+// servers; a build with the contract version that last started is not
+// held, so a restart never waits. Start returns nil when ctx is done while
+// the build waits, as it does when ctx is done after the manager started.
 func (r *ProviderReconciler) Start(ctx context.Context) error {
 	if err := r.startServer(ctx); err != nil {
 		return err
 	}
+	if !r.awaitCompatibleCore(ctx) {
+		return nil
+	}
 	return r.manager.Start(ctx)
 }
 
-// StartWithSignalHandler starts the reconciler and server with OS signal handling.
+// StartWithSignalHandler starts the reconciler and server with OS signal
+// handling, as Start does.
 func (r *ProviderReconciler) StartWithSignalHandler() error {
-	ctx := ctrl.SetupSignalHandler()
-	if err := r.startServer(ctx); err != nil {
-		return err
-	}
-	return r.manager.Start(ctx)
+	return r.Start(ctrl.SetupSignalHandler())
 }
 
 func (r *ProviderReconciler) setup() error {
