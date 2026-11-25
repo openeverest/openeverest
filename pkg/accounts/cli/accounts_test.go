@@ -27,8 +27,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/openeverest/openeverest/v2/pkg/accounts"
-	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/percona/everest/pkg/accounts"
+	"github.com/percona/everest/pkg/common"
 )
 
 // memoryAccounts is a small in-memory accounts.Interface for outcome-based tests.
