@@ -22,10 +22,15 @@ export const releaseProject: PlaywrightTestProject[] = [
   {
     name: 'release',
     testMatch: /.^/,
-    // Release lane runs the PITR golden plus restore-to-new-cluster for now.
+    // Release lane runs the PITR golden, restore-to-new-cluster and the
+    // instance presets for now.
     // Restore the rest incrementally: 'pr', 'release:session:rate-limiting',
     // ...sessionProject.
-    dependencies: ['release:pitr', 'release:restore-new-cluster'],
+    dependencies: [
+      'release:pitr',
+      'release:restore-new-cluster',
+      'release:presets',
+    ],
   },
   {
     // Live PITR / restore-from-PITR golden (PXC). Auth is provided by the shared
@@ -48,6 +53,17 @@ export const releaseProject: PlaywrightTestProject[] = [
     name: 'release:restore-new-cluster',
     testDir: './release',
     testMatch: /restore-new-cluster\.e2e\.ts/,
+    dependencies: ['global:auth:ci:setup', 'global:backup-storage:setup'],
+    use: {
+      storageState: CI_USER_STORAGE_STATE_FILE,
+    },
+  },
+  {
+    // Instance presets in the create wizard (PXC). The namespace preset pins
+    // the backup storage of the global setup project.
+    name: 'release:presets',
+    testDir: './release',
+    testMatch: /presets\.e2e\.ts/,
     dependencies: ['global:auth:ci:setup', 'global:backup-storage:setup'],
     use: {
       storageState: CI_USER_STORAGE_STATE_FILE,
