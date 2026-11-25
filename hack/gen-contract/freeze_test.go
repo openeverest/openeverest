@@ -131,6 +131,7 @@ func TestCheckRecords(t *testing.T) {
 		},
 		{name: "type changed", record: tagged, changes: []string{"T\t" + recordPath("2.1.0")}, wantErr: "its type changed"},
 		{name: "not a record", record: tagged, changes: []string{"A\tcontract/releases/README.md"}, wantErr: "contract/releases holds only release records"},
+		{name: "a Go file", record: tagged, changes: []string{"A\tcontract/releases/x.go"}, wantErr: "contract/releases holds only release records"},
 		{name: "outside the records", record: tagged, changes: []string{"M\tcontract/VERSION", "D\tcontract/CHANGES"}},
 	}
 	for _, tt := range tests {

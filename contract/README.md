@@ -76,6 +76,8 @@ go run ./hack/gen-contract rebaseline -version 2.1.0
 
 A record is a file per release, `releases/<version>.yaml`, much as Cluster API providers declare the contract of each release series in `metadata.yaml` and Go records the API of each release in `api/go1.N.txt`: the decided facts of a release belong next to the code, in review, readable from any ref. A release adds its record on its release branch before it is tagged, so the tag carries it.
 
+The paths of these files, `contract/VERSION`, `contract/MIN_VERSION`, `contract/CHANGES` and `contract/releases/<version>.yaml`, are permanent from 2.0.0-alpha.2, the first release whose tag carries them: workflows and tests read them from any branch or tag with `git show <ref>:<path>`, so a move would break every reader of an older ref. `contract/releases` holds only records; `check-records` refuses anything else there, a Go file included.
+
 ```yaml
 # OpenEverest release record: data for hack/gen-contract, not a Kubernetes resource.
 apiVersion: contract.openeverest.io/v1
