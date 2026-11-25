@@ -29,7 +29,9 @@ Nobody bumps the version by hand. `make gen-contract`, part of `make gen`, works
 | `MIN_VERSION` | `MinVersion` |
 | `zz_generated.version.go` | `Version`, `MinVersion`, `FingerprintScheme`, `Fingerprints`, `UpgradableFrom` |
 
-It does so in two steps.
+A workflow that needs a fact whose reading takes a rule or parsing asks the generator rather than repeat them: `go run ./hack/gen-contract show version|min-version|scheme|development|record-schemes [-version V] [-ref R]` prints the version or the minimum of the working tree or of a ref, the fingerprint scheme the generator computes, whether a version is a development value, or the schemes a release record holds, read from the objects of a ref as `rebaseline` reads a tag. Only on a v1 ref (`v1.x`, `release-1.Y`, a `v1` tag) does a missing file print nothing; on any other it fails, saying how the branch gets the contract (see [Branches without the contract](#branches-without-the-contract)). Reading `VERSION` takes neither, so tests and workflows that only need it read it from a ref with `git show <ref>:contract/VERSION`, one reason the paths are permanent.
+
+`make gen-contract` works the version out in two steps.
 
 **1. Fingerprint the contract.** [`hack/gen-contract`](../hack/gen-contract) hashes the contract artifacts, which its `inputs` declare once, grouped into logical inputs. An input is named after what it is, not where it lives:
 

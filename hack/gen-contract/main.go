@@ -83,6 +83,7 @@ const usage = `usage: gen-contract [-root dir]
        gen-contract [-root dir] verify [-tag vX.Y.Z]
        gen-contract [-root dir] check-records -changes file | -all
        gen-contract [-root dir] latest
+       gen-contract [-root dir] show version|min-version|scheme|development|record-schemes [-version V] [-ref R]
 
 `
 
@@ -192,6 +193,8 @@ func runCommand(root, name string, args []string, stdout, notices io.Writer) (st
 		return runVerify(root, args, notices)
 	case "check-records":
 		return runCheckRecords(root, args, notices)
+	case "show":
+		return runShow(root, args, notices)
 	case "latest":
 		if len(args) > 0 {
 			return "", fmt.Errorf("latest: unexpected argument %q", args[0])

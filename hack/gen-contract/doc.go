@@ -39,6 +39,9 @@
 //	               generator computes from the tag of its release
 //	check-records  check that release records are frozen
 //	latest         print the latest release recorded
+//	show           print a fact of the contract, such as its version, the
+//	               scheme or whether a version is a development value,
+//	               for tools that do not build Go (see runShow)
 //
 // Commands that read a tag use git, and none fetches: make gen never needs
 // the network. It imports nothing from this module, so it runs whatever
