@@ -160,6 +160,9 @@ podMonitorLabels:
   dialog, where each row can be copied as `key=value`. A row field with `type: password` is shown
   masked, in the table too.
 - **New row**: starts empty, and its key input gets the focus.
+- **Long keys and values**: one too long for its input ends in an ellipsis, and hovering the input
+  shows it in full. Not for a field with `type: password`, and not for a field with its own
+  `tooltip`, which is shown instead.
 - **Screen readers**: a row's inputs are named by their label, or `Key` / `Value`, and the row
   number, e.g. `Key 2`.
 - **Not rendered**: a map whose `itemTemplate` isn't the `keyValue` widget, a map with several

@@ -285,6 +285,8 @@ export interface RenderOverrides {
   accessibleName?: string;
   disabled?: boolean;
   autoFocus?: boolean;
+  // A value too long for its input is shown in full on hover.
+  showFullValueOnHover?: boolean;
 }
 
 export type ModeAwareValidation<T extends CommonValidation> = T & {

@@ -17,7 +17,8 @@ import { Messages } from './map-field.messages';
 import type { RowState } from './map-field.types';
 
 // One row's fields: each named for the row ("Key 2"), disabled with the map,
-// and the first one focused when the row was just added.
+// showing a cut-off value on hover, and the first one focused when the row was
+// just added.
 export const toRowAtIndex = (
   row: ComponentGroup,
   index: number,
@@ -35,6 +36,7 @@ export const toRowAtIndex = (
               accessibleName: `${item.fieldParams?.label || Messages.fieldName(key)} ${index + 1}`,
               disabled,
               autoFocus: focus && position === 0,
+              showFullValueOnHover: true,
             },
           },
     ])

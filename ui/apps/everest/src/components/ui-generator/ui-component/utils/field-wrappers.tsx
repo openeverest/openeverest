@@ -18,11 +18,13 @@ import {
   Component,
   FieldType,
 } from 'components/ui-generator/ui-generator.types';
+import { TruncatedValueTooltip } from 'components/ui-generator/ui-component/truncated-value-tooltip';
 import { isNumberLikeField } from './is-number-like-field';
 
 type FieldWrapper = (
   element: React.ReactElement,
-  item: Component
+  item: Component,
+  name: string
 ) => React.ReactElement;
 
 const shouldCompensateTooltipMargin = (item: Component): boolean => {
@@ -73,10 +75,26 @@ const tooltipWrapper: FieldWrapper = (element, item) => {
   );
 };
 
-const fieldWrappers: FieldWrapper[] = [tooltipWrapper];
+const isMasked = (item: Component): boolean =>
+  item.uiType === FieldType.Text && item.fieldParams.type === 'password';
+
+const truncatedValueWrapper: FieldWrapper = (element, item, name) => {
+  // A tooltip the provider wrote takes the hover, and a masked value stays
+  // masked.
+  const showsValue =
+    item._renderOverrides?.showFullValueOnHover &&
+    !item.fieldParams?.tooltip &&
+    !isMasked(item);
+  if (!showsValue) return element;
+
+  return <TruncatedValueTooltip name={name}>{element}</TruncatedValueTooltip>;
+};
+
+const fieldWrappers: FieldWrapper[] = [truncatedValueWrapper, tooltipWrapper];
 
 export const applyFieldWrappers = (
   element: React.ReactElement,
-  item: Component
+  item: Component,
+  name: string
 ): React.ReactElement =>
-  fieldWrappers.reduce((el, wrapper) => wrapper(el, item), element);
+  fieldWrappers.reduce((el, wrapper) => wrapper(el, item, name), element);

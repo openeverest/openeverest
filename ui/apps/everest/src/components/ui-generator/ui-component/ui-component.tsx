@@ -97,7 +97,7 @@ const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
     children
   );
 
-  return <>{applyFieldWrappers(fieldElement, item)}</>;
+  return <>{applyFieldWrappers(fieldElement, item, name)}</>;
 };
 
 export default UIComponent;

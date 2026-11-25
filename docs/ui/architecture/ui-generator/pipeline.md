@@ -153,7 +153,8 @@ flowchart TD
   - leaf → `generateFieldId(item, name)` joined with `root` (form field name) →
     - `secret` → `SecretField`; `map` → `MapField`: `useFieldArray` rows, each rendered by
       `renderComponent` from the row group under `root` `<path>.<index>` (so row fields are
-      ordinary fields, named `Key 2` etc. via `_renderOverrides`), with add / remove buttons, the
+      ordinary fields; `_renderOverrides` names them `Key 2` etc. and has a value its input cuts
+      off shown on hover, see `TruncatedValueTooltip`), with add / remove buttons, the
       map's own error (`root`), and re-validation of the whole map (`useRevalidateMap`) when a key
       changes or a row fills or empties, since a duplicate, the count and a value without a key
       span rows;
