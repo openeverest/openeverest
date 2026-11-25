@@ -12,8 +12,6 @@
 /hack/gen-contract/                        @openeverest/maintainers
 /api/                                      @openeverest/maintainers
 /config/crd/                               @openeverest/maintainers
-/backupstorageclasses/                     @openeverest/maintainers
-/config/backupstorageclasses/              @openeverest/maintainers
 # The SDK extensions link, and the schema generator they run.
 /provider-runtime/                         @openeverest/maintainers
 /pkg/classgen/                             @openeverest/maintainers
