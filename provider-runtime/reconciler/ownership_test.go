@@ -25,6 +25,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
@@ -116,7 +117,7 @@ func TestOwnership_ReconcileIgnoresInstanceOfAnotherProvider(t *testing.T) {
 
 	foreign := func(in *v1alpha1.Instance) {
 		in.Spec.ProviderRef = common.ObjectRef{Name: "other-provider"}
-		in.Labels = map[string]string{controller.ProviderLabel: "other-provider"}
+		in.Labels = map[string]string{contract.ProviderLabel: "other-provider"}
 		in.Status.ObservedGeneration = 1
 	}
 	tests := []struct {
@@ -141,7 +142,7 @@ func TestOwnership_ReconcileIgnoresInstanceOfAnotherProvider(t *testing.T) {
 			got, res, err := st.reconcile()
 			require.NoError(t, err)
 			assert.Equal(t, in.ResourceVersion, got.ResourceVersion, "the Instance is not written")
-			assert.Equal(t, "other-provider", got.Labels[controller.ProviderLabel])
+			assert.Equal(t, "other-provider", got.Labels[contract.ProviderLabel])
 			assert.Equal(t, []string{finalizerName}, got.Finalizers)
 			assert.Zero(t, st.writes, "no status write")
 			assert.Zero(t, p.syncs, "no Sync")

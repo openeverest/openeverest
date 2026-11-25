@@ -30,7 +30,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 )
 
 // Reader reads the objects a decision depends on. A missing object is a
@@ -48,11 +48,11 @@ type Reader interface {
 type Decision struct {
 	// Denied is why the operation cannot run until an object it references
 	// changes: an Incompatible verdict or a terminal reference problem. It
-	// satisfies errors.Is(err, controller.ErrInvalidReference). Nil when the
+	// satisfies errors.Is(err, referents.ErrInvalidReference). Nil when the
 	// operation is admitted.
 	Denied error
 	// Missing are the objects the operation references that do not exist,
-	// each satisfying errors.Is(err, controller.ErrInvalidReference).
+	// each satisfying errors.Is(err, referents.ErrInvalidReference).
 	// Reconcilers hold the operation until they appear, so admission accepts
 	// it with a warning.
 	Missing []error
@@ -148,7 +148,7 @@ func Restore(ctx context.Context, r Reader, rs *backupv1alpha1.Restore) (Decisio
 		}
 	}
 
-	if err := controller.ValidateRestorePITR(rs, class); err != nil {
+	if err := referents.ValidateRestorePITR(rs, class); err != nil {
 		j.deny(err)
 	}
 	if class == nil {
@@ -183,7 +183,7 @@ func Import(ctx context.Context, r Reader, imp *backupv1alpha1.BackupImport) (De
 		return j.d, nil
 	}
 
-	if err := controller.ValidateBackupImportSupported(class); err != nil {
+	if err := referents.ValidateBackupImportSupported(class); err != nil {
 		j.deny(err)
 	}
 	if provider := class.Spec.ExecutorProvider(); provider != "" {
@@ -230,7 +230,7 @@ func (j *judge) restoreSource(ctx context.Context, rs *backupv1alpha1.Restore) (
 	switch ds.Type {
 	case backupv1alpha1.DataSourceTypeBackup:
 		if ds.Backup == nil {
-			j.deny(fmt.Errorf("%w: spec.dataSource.backup is required when type is 'Backup'", controller.ErrInvalidReference))
+			j.deny(fmt.Errorf("%w: spec.dataSource.backup is required when type is 'Backup'", referents.ErrInvalidReference))
 			return "", nil
 		}
 		source, err := j.backup(ctx, ds.Backup.BackupRef.Name)
@@ -239,17 +239,17 @@ func (j *judge) restoreSource(ctx context.Context, rs *backupv1alpha1.Restore) (
 		}
 		// Nothing holds a Restore until its source Backup succeeds: its
 		// executor would run it at once and fail.
-		if err := controller.ValidateBackupSucceeded(source); err != nil {
+		if err := referents.ValidateBackupSucceeded(source); err != nil {
 			j.deny(err)
 		}
 		return source.Spec.ClassRef.Name, nil
 
 	case backupv1alpha1.DataSourceTypePointInTime:
 		if ds.PointInTime == nil {
-			j.deny(fmt.Errorf("%w: spec.dataSource.pointInTime is required when type is 'PointInTime'", controller.ErrInvalidReference))
+			j.deny(fmt.Errorf("%w: spec.dataSource.pointInTime is required when type is 'PointInTime'", referents.ErrInvalidReference))
 			return "", nil
 		}
-		name := controller.RestoreStreamInstanceName(rs)
+		name := referents.RestoreStreamInstanceName(rs)
 		in, err := j.instance(ctx, name)
 		if err != nil || in == nil {
 			return "", err
@@ -257,16 +257,16 @@ func (j *judge) restoreSource(ctx context.Context, rs *backupv1alpha1.Restore) (
 		if in.Spec.Backup == nil || in.Spec.Backup.ClassRef.Name == "" {
 			j.deny(fmt.Errorf(
 				"%w: instance '%s' has no backup class configured, so it has no stream to recover from",
-				controller.ErrInvalidReference, name,
+				referents.ErrInvalidReference, name,
 			))
 			return "", nil
 		}
-		if err := controller.ValidatePITRStorage(ds.PointInTime, in); err != nil {
+		if err := referents.ValidatePITRStorage(ds.PointInTime, in); err != nil {
 			j.deny(err)
 		}
 		return in.Spec.Backup.ClassRef.Name, nil
 	}
-	j.deny(fmt.Errorf("%w: unsupported dataSource type '%s'", controller.ErrInvalidReference, ds.Type))
+	j.deny(fmt.Errorf("%w: unsupported dataSource type '%s'", referents.ErrInvalidReference, ds.Type))
 	return "", nil
 }
 
@@ -279,7 +279,7 @@ func (j *judge) classFor(class *backupv1alpha1.BackupClass, provider string) {
 		return
 	case backupv1alpha1.CompatibilityIncompatible:
 		j.deny(fmt.Errorf("%w: BackupClass %q is Incompatible with Provider %q (%s): %s",
-			controller.ErrBackupClassIncompatible, class.Name, provider, v.Reason, v.Message,
+			referents.ErrBackupClassIncompatible, class.Name, provider, v.Reason, v.Message,
 		))
 		return
 	case backupv1alpha1.CompatibilityPending:
@@ -307,7 +307,7 @@ func (j *judge) storageFor(ctx context.Context, storage *backupv1alpha1.BackupSt
 		return nil
 	case backupv1alpha1.CompatibilityIncompatible:
 		j.deny(fmt.Errorf("%w: BackupStorage %q is Incompatible with BackupClass %q (%s): %s",
-			controller.ErrBackupStorageIncompatible, storage.Name, class.Name, v.Reason, v.Message,
+			referents.ErrBackupStorageIncompatible, storage.Name, class.Name, v.Reason, v.Message,
 		))
 		return nil
 	case backupv1alpha1.CompatibilityPending:
@@ -324,7 +324,7 @@ func (j *judge) instance(ctx context.Context, name string) (*corev1alpha1.Instan
 	}
 	in, err := j.r.GetInstance(ctx, client.ObjectKey{Namespace: j.namespace, Name: name})
 	in, err = found(j, in, err, fmt.Sprintf("instance '%s'", name),
-		fmt.Errorf("%w: instance '%s' does not exist", controller.ErrInstanceNotFound, name),
+		fmt.Errorf("%w: instance '%s' does not exist", referents.ErrInstanceNotFound, name),
 	)
 	if err != nil {
 		return nil, err
@@ -336,21 +336,21 @@ func (j *judge) instance(ctx context.Context, name string) (*corev1alpha1.Instan
 func (j *judge) backup(ctx context.Context, name string) (*backupv1alpha1.Backup, error) {
 	b, err := j.r.GetBackup(ctx, client.ObjectKey{Namespace: j.namespace, Name: name})
 	return found(j, b, err, fmt.Sprintf("backup '%s'", name),
-		fmt.Errorf("%w: '%s' in namespace '%s'", controller.ErrBackupNotFound, name, j.namespace),
+		fmt.Errorf("%w: '%s' in namespace '%s'", referents.ErrBackupNotFound, name, j.namespace),
 	)
 }
 
 func (j *judge) class(ctx context.Context, name string) (*backupv1alpha1.BackupClass, error) {
 	class, err := j.r.GetBackupClass(ctx, client.ObjectKey{Name: name})
 	return found(j, class, err, fmt.Sprintf("backup class '%s'", name),
-		fmt.Errorf("%w: '%s'", controller.ErrBackupClassNotFound, name),
+		fmt.Errorf("%w: '%s'", referents.ErrBackupClassNotFound, name),
 	)
 }
 
 func (j *judge) storage(ctx context.Context, name string) (*backupv1alpha1.BackupStorage, error) {
 	storage, err := j.r.GetBackupStorage(ctx, client.ObjectKey{Namespace: j.namespace, Name: name})
 	return found(j, storage, err, fmt.Sprintf("backup storage '%s'", name),
-		fmt.Errorf("%w: backup storage '%s' does not exist", controller.ErrBackupStorageNotFound, name),
+		fmt.Errorf("%w: backup storage '%s' does not exist", referents.ErrBackupStorageNotFound, name),
 	)
 }
 

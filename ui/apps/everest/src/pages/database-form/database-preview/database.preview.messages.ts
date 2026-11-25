@@ -25,6 +25,7 @@ export const Messages = {
   title: 'Summary',
   monitoring: 'Monitoring',
   noMonitoring: 'Not configured',
+  noBackupSchedules: 'No backup schedules',
 };
 
 export const getTimeSelectionPreviewMessage = ({

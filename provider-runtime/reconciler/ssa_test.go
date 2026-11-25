@@ -44,6 +44,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/config/crd/bases"
+	"github.com/openeverest/openeverest/v2/contract"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 	"github.com/openeverest/openeverest/v2/provider-runtime/summary"
@@ -188,7 +189,7 @@ func TestBackupClassClaim(t *testing.T) {
 			assert.Equal(t, tc.wantReason, cond.Reason)
 			assert.Equal(t, int64(3), cond.ObservedGeneration)
 			assert.Equal(t, class.Status.Providers, got.Status.Providers, "core's field is left alone")
-			assert.Contains(t, statusOwners(got), controller.StatusFieldOwner("test-provider")+"/Apply")
+			assert.Contains(t, statusOwners(got), contract.ProviderStatusFieldOwner("test-provider")+"/Apply")
 		})
 	}
 }
@@ -288,7 +289,7 @@ func TestReconcile_KeepsStatusOfOtherWriters(t *testing.T) {
 		require.NotNil(t, ready)
 		assert.Equal(t, metav1.ConditionTrue, ready.Status)
 		assert.Equal(t, v1alpha1.InstancePhaseProvisioned, got.Status.Phase)
-		wantOwners := []string{coreFieldOwner + "/Apply", controller.StatusFieldOwner("test-provider") + "/Apply"}
+		wantOwners := []string{coreFieldOwner + "/Apply", contract.ProviderStatusFieldOwner("test-provider") + "/Apply"}
 		assert.Equal(t, wantOwners, statusOwners(got))
 	}
 

@@ -34,6 +34,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
@@ -151,7 +152,7 @@ func TestAPIServer_ClaimRoundTrip(t *testing.T) {
 	assert.Equal(t, metav1.ConditionTrue, cond.Status, cond.Message)
 	assert.Equal(t, backupv1alpha1.ReasonAccepted, cond.Reason)
 	assert.Equal(t, got.Generation, cond.ObservedGeneration)
-	assert.Contains(t, statusOwners(got), controller.StatusFieldOwner("envtest-provider")+"/Apply")
+	assert.Contains(t, statusOwners(got), contract.ProviderStatusFieldOwner("envtest-provider")+"/Apply")
 
 	got.Spec.DisplayName = "Nightly"
 	require.NoError(t, c.Update(t.Context(), got))
@@ -188,7 +189,7 @@ func TestAPIServer_InstanceStatus(t *testing.T) {
 		in.Spec.ProviderRef.Name = provider.Name
 		in.Spec.Version = "7.0"
 		in.Spec.Components = map[string]v1alpha1.ComponentSpec{"engine": {Replicas: new(int32(3))}}
-		in.Labels[controller.ProviderLabel] = provider.Name
+		in.Labels[contract.ProviderLabel] = provider.Name
 	})
 	require.NoError(t, c.Create(t.Context(), in))
 	key := client.ObjectKeyFromObject(in)
@@ -220,7 +221,7 @@ func TestAPIServer_InstanceStatus(t *testing.T) {
 	core := meta.FindStatusCondition(got.Status.Conditions, coreCondition().Type)
 	require.NotNil(t, core, "core's condition survives")
 	assert.Equal(t, "set by core", core.Message)
-	wantOwners := []string{coreFieldOwner + "/Apply", controller.StatusFieldOwner(provider.Name) + "/Apply"}
+	wantOwners := []string{coreFieldOwner + "/Apply", contract.ProviderStatusFieldOwner(provider.Name) + "/Apply"}
 	assert.Equal(t, wantOwners, statusOwners(got))
 
 	// A write from a stale read loses, as Update did.

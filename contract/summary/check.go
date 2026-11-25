@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package summary holds the rules the summary conditions of an Instance
+// keep: Ready, Reconciling, Stalled and NeedsAttention. The provider runtime
+// writes them by these rules, and every reader of an Instance's status, such
+// as the UI, everestctl or a GitOps tool, relies on them to tell a converged
+// Instance from one that is being worked on or needs help.
 package summary
 
 import (

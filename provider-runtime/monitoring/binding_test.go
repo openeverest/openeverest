@@ -19,7 +19,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -31,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/managedfields"
-	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -40,6 +38,7 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	contractmonitoring "github.com/openeverest/openeverest/v2/contract/monitoring"
 	"github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
 
@@ -106,76 +105,6 @@ func newBinding() *monitoringv1alpha1.MonitoringBinding {
 	}
 }
 
-func TestBindingName(t *testing.T) {
-	t.Parallel()
-
-	t.Run("short names keep instance and entry", func(t *testing.T) {
-		t.Parallel()
-		name := monitoring.BindingName("orders", "pmm")
-		assert.Equal(t, name, monitoring.BindingName("orders", "pmm"))
-		assert.Regexp(t, `^orders-pmm-[0-9a-f]{8}$`, name)
-	})
-
-	t.Run("differs per entry", func(t *testing.T) {
-		t.Parallel()
-		assert.NotEqual(t, monitoring.BindingName("orders", "pmm"), monitoring.BindingName("orders", "prometheus"))
-	})
-
-	t.Run("long names fit a label value and stay distinct", func(t *testing.T) {
-		t.Parallel()
-		instance := strings.Repeat("a", 63)
-		first := monitoring.BindingName(instance, strings.Repeat("b", 62)+"1")
-		second := monitoring.BindingName(instance, strings.Repeat("b", 62)+"2")
-		assert.LessOrEqual(t, len(first), 63)
-		assert.Empty(t, validation.IsDNS1123Label(first))
-		assert.NotEqual(t, first, second)
-	})
-
-	t.Run("truncation never leaves a separator before the hash", func(t *testing.T) {
-		t.Parallel()
-		name := monitoring.BindingName(strings.Repeat("a", 53)+".b", "pmm")
-		assert.LessOrEqual(t, len(name), 63)
-		assert.Empty(t, validation.IsDNS1123Subdomain(name))
-		assert.Regexp(t, `^a{53}-[0-9a-f]{8}$`, name)
-	})
-}
-
-func TestBindingLabels(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		class string
-		want  map[string]string
-	}{
-		{
-			name:  "resolved class",
-			class: "pmm",
-			want: map[string]string{
-				monitoringv1alpha1.BindingInstanceLabel:    "orders",
-				monitoringv1alpha1.BindingEntryLabel:       "metrics",
-				monitoringv1alpha1.BindingDestinationLabel: "pmm-prod",
-				monitoringv1alpha1.BindingClassLabel:       "pmm",
-			},
-		},
-		{
-			name:  "unresolved class",
-			class: "",
-			want: map[string]string{
-				monitoringv1alpha1.BindingInstanceLabel:    "orders",
-				monitoringv1alpha1.BindingEntryLabel:       "metrics",
-				monitoringv1alpha1.BindingDestinationLabel: "pmm-prod",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			assert.Equal(t, tt.want, monitoring.BindingLabels("orders", "metrics", "pmm-prod", tt.class))
-		})
-	}
-}
-
 func TestListBindingsForInstance(t *testing.T) {
 	t.Parallel()
 	in := &corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "orders", Namespace: testNamespace, UID: "uid-current"}}
@@ -215,74 +144,6 @@ func TestListBindingsForInstance(t *testing.T) {
 	assert.Equal(t, []string{"current"}, names)
 }
 
-func TestIsAccepted(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		conditions []metav1.Condition
-		want       bool
-	}{
-		{name: "no condition", want: false},
-		{
-			name:       "accepted for the current generation",
-			conditions: []metav1.Condition{{Type: "Accepted", Status: metav1.ConditionTrue, ObservedGeneration: 2}},
-			want:       true,
-		},
-		{
-			name:       "accepted for an older generation",
-			conditions: []metav1.Condition{{Type: "Accepted", Status: metav1.ConditionTrue, ObservedGeneration: 1}},
-			want:       false,
-		},
-		{
-			name:       "not accepted",
-			conditions: []metav1.Condition{{Type: "Accepted", Status: metav1.ConditionFalse, ObservedGeneration: 2}},
-			want:       false,
-		},
-		{
-			name:       "only configured",
-			conditions: []metav1.Condition{{Type: "Configured", Status: metav1.ConditionTrue, ObservedGeneration: 2}},
-			want:       false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			b := newBinding()
-			b.Status.Conditions = tt.conditions
-			assert.Equal(t, tt.want, monitoring.IsAccepted(b))
-		})
-	}
-}
-
-func TestClassIsAccepted(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name               string
-		status             metav1.ConditionStatus
-		observedGeneration int64
-		want               bool
-	}{
-		{name: "claimed", status: metav1.ConditionTrue, observedGeneration: 3, want: true},
-		{name: "claimed at an older generation", status: metav1.ConditionTrue, observedGeneration: 2, want: false},
-		{name: "claimed without an observed generation", status: metav1.ConditionTrue, want: false},
-		{name: "rejected", status: metav1.ConditionFalse, observedGeneration: 3, want: false},
-		{name: "waiting for controller", status: metav1.ConditionUnknown, want: false},
-		{name: "no condition", want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			class := &monitoringv1alpha1.MonitoringClass{ObjectMeta: metav1.ObjectMeta{Generation: 3}}
-			if tt.status != "" {
-				class.Status.Conditions = []metav1.Condition{{Type: "Accepted", Status: tt.status, ObservedGeneration: tt.observedGeneration}}
-			}
-			assert.Equal(t, tt.want, monitoring.ClassIsAccepted(class))
-		})
-	}
-}
-
 func TestApplyConditionKeepsOtherWritersConditions(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
@@ -291,7 +152,7 @@ func TestApplyConditionKeepsOtherWritersConditions(t *testing.T) {
 	b := &monitoringv1alpha1.MonitoringBinding{}
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(newBinding()), b))
 	accepted := monitoring.NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionAccepted, metav1.ConditionTrue, monitoringv1alpha1.ReasonAccepted, "")
-	require.NoError(t, monitoring.ApplyCondition(ctx, c, b, b.Status.Conditions, monitoring.MaterializerFieldOwner, accepted))
+	require.NoError(t, monitoring.ApplyCondition(ctx, c, b, b.Status.Conditions, contractmonitoring.MaterializerFieldOwner, accepted))
 
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(b), b))
 	ext := monitoring.ClassController{Client: c, FieldOwner: "openeverest.io/monitoring-test"}
@@ -319,11 +180,11 @@ func TestApplyConditionLastTransitionTime(t *testing.T) {
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(newBinding()), b))
 	first := monitoring.NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionAccepted, metav1.ConditionFalse, monitoringv1alpha1.ReasonDestinationNotFound, "")
 	first.LastTransitionTime = since
-	require.NoError(t, monitoring.ApplyCondition(ctx, c, b, b.Status.Conditions, monitoring.MaterializerFieldOwner, first))
+	require.NoError(t, monitoring.ApplyCondition(ctx, c, b, b.Status.Conditions, contractmonitoring.MaterializerFieldOwner, first))
 
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(b), b))
 	sameStatus := monitoring.NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionAccepted, metav1.ConditionFalse, monitoringv1alpha1.ReasonClassNotFound, "")
-	require.NoError(t, monitoring.ApplyCondition(ctx, c, b, b.Status.Conditions, monitoring.MaterializerFieldOwner, sameStatus))
+	require.NoError(t, monitoring.ApplyCondition(ctx, c, b, b.Status.Conditions, contractmonitoring.MaterializerFieldOwner, sameStatus))
 
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(b), b))
 	got := meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionAccepted)
@@ -332,7 +193,7 @@ func TestApplyConditionLastTransitionTime(t *testing.T) {
 	assert.True(t, since.Equal(&got.LastTransitionTime), "unchanged status keeps lastTransitionTime, got %s", got.LastTransitionTime)
 
 	flipped := monitoring.NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionAccepted, metav1.ConditionTrue, monitoringv1alpha1.ReasonAccepted, "")
-	require.NoError(t, monitoring.ApplyCondition(ctx, c, b, b.Status.Conditions, monitoring.MaterializerFieldOwner, flipped))
+	require.NoError(t, monitoring.ApplyCondition(ctx, c, b, b.Status.Conditions, contractmonitoring.MaterializerFieldOwner, flipped))
 
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(b), b))
 	got = meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionAccepted)
