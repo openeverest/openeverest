@@ -245,6 +245,28 @@ describe('getSchedulesPayload', () => {
   });
 
   describe('Edit mode', () => {
+    it('keeps a disabled schedule disabled when changing its retention', () => {
+      const disabledSchedule = makeSchedule({
+        name: 'target',
+        enabled: false,
+        cron: '30 2 * * *',
+        storageName: 'storage-b',
+        retention: { type: 'count', count: 7 },
+      });
+      const result = getSchedulesPayload({
+        formData: makeFormData({
+          scheduleName: 'target',
+          retentionCopies: '8',
+        }),
+        mode: WizardMode.Edit,
+        schedules: [disabledSchedule],
+      });
+
+      expect(result).toEqual([
+        { ...disabledSchedule, retention: { type: 'count', count: 8 } },
+      ]);
+    });
+
     it('replaces existing schedule by name', () => {
       const existing = [
         makeSchedule({ name: 'target', storageName: 'old-storage' }),
