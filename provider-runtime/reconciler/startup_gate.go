@@ -34,10 +34,11 @@ import (
 
 // The startup gate reads the CRD core publishes its window on and the
 // provider's own Provider, writes the contract version that starts on the
-// Provider's status, and records Events on the Provider. Besides the base
-// rules every provider declares, it needs these, with the provider's name in
-// place of <provider>, in the provider's own RBAC markers (controller-gen
-// does not read the markers of a module's dependencies):
+// Provider's status, and records Events on the Provider. It needs these
+// rules, with the provider's name in place of <provider>, in the provider's
+// own RBAC markers, as controller-gen does not read the markers of a
+// module's dependencies; the last one is among the base rules every
+// provider declares already:
 //
 //	// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,resourceNames=providers.core.openeverest.io,verbs=get
 //	// +kubebuilder:rbac:groups=core.openeverest.io,resources=providers/status,resourceNames=<provider>,verbs=patch
