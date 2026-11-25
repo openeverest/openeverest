@@ -28,9 +28,13 @@ const buildItems = (count: number): CardPickerItem[] =>
   Array.from({ length: count }, (_, i) => ({
     id: `preset-${i + 1}`,
     title: `Preset ${i + 1}`,
+    badge:
+      i % 3 === 0
+        ? { label: 'Team', color: 'info' }
+        : { label: 'Shared', color: 'default' },
     subtitle: i % 2 === 0 ? 'replicaSet' : 'sharded',
     detail: `${3 + (i % 3) * 2} nodes`,
-    searchText: `preset ${i + 1} ${i % 2 === 0 ? 'replicaset' : 'sharded'} storageclass local-path`,
+    searchText: `preset ${i + 1} ${i % 2 === 0 ? 'replicaset' : 'sharded'} ${i % 3 === 0 ? 'team' : 'shared'} storageclass local-path`,
   }));
 
 const meta = {
@@ -65,22 +69,4 @@ export const Inline: Story = {
 // Overflow: the last slot becomes a Browse tile that opens the searchable modal.
 export const WithOverflow: Story = {
   render: () => <Interactive items={buildItems(12)} />,
-};
-
-// Load failure: a disabled notice card sits beside the lead card in the grid.
-export const LoadError: Story = {
-  render: () => (
-    <Box sx={{ maxWidth: 900 }}>
-      <CardPicker
-        items={[]}
-        leadCard={lead}
-        selectedId=""
-        onSelect={() => {}}
-        statusCard={{
-          title: "Presets didn't load",
-          subtitle: 'Check your connection and try again.',
-        }}
-      />
-    </Box>
-  ),
 };

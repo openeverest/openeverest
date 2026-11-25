@@ -28,6 +28,7 @@ import (
 	kstatus "sigs.k8s.io/cli-utils/pkg/kstatus/status"
 
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	contractsummary "github.com/openeverest/openeverest/v2/contract/summary"
 )
 
 // t0 is when the stories below begin.
@@ -148,12 +149,13 @@ func (in *instance) kstatus(deleting bool) kstatus.Status {
 
 // requireInvariants checks what must hold for every result: the summary
 // conditions are all there, describe the current generation and keep the
-// rules CheckConditions holds them to, a False one carries no message, and
+// rules contractsummary.CheckConditions holds them to, a False one carries
+// no message, and
 // NeedsAttention is True exactly while something is wrong.
 func requireInvariants(t *testing.T, o *Observation, res Result) {
 	t.Helper()
 
-	require.NoError(t, CheckConditions(res.Conditions))
+	require.NoError(t, contractsummary.CheckConditions(res.Conditions))
 	status := make(map[string]metav1.ConditionStatus, len(res.Conditions))
 	for _, c := range res.Conditions {
 		status[c.Type] = c.Status

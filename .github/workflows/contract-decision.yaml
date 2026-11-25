@@ -1,0 +1,195 @@
+---
+# While the contract between core and its extensions is unchanged since the
+# last release, asks every pull request that touches code next to it whether
+# it changes it. The contract version moves by itself when a contract
+# artifact changes (hack/gen-contract), but code such as API middleware can
+# impose a new requirement on extensions without changing any artifact. The
+# paths are listed once, in the contract-adjacent block of
+# .github/CODEOWNERS; the logic is hack/contract-decision, which runs
+# locally too. See contract/MAINTAINING.md.
+#
+# Label events re-run it, so adding the label updates the check. It reads
+# only the event, the pull request's file list, and contract/VERSION and
+# whether contract/releases exists on both sides, so a run takes seconds.
+# Only a v1 base branch predates the contract: a v2 one without it fails,
+# unless the pull request brings it there, as merging main into a release
+# branch cut before the contract does.
+#
+# The records job keeps release records frozen: a record says what a release
+# was cut with, so a change to contract/releases may only add a record as the
+# tag of its release carries it, or add fingerprints of a new scheme
+# computed from that tag (hack/gen-contract check-records). Pull requests
+# list their changes with the files API; pushes to main and release-* diff
+# the push, which detects an edit that reached the branch without a pull
+# request but cannot prevent it.
+name: Contract decision
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    branches:
+      - main
+      - 'release-*'
+  push:
+    branches:
+      - main
+      - 'release-*'
+    paths:
+      - 'contract/releases/**'
+
+concurrency:
+  # A push run checks only what that push changed, so none is cancelled.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  decide:
+    name: Contract decision
+    if: github.event_name == 'pull_request'
+    runs-on: cncf-ubuntu-8-32-x86
+    timeout-minutes: 10
+    steps:
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Set up Go release
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          # The check imports only the standard library: nothing to cache.
+          cache: false
+
+      - name: Check the decision
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+        run: |
+          set -euo pipefail
+
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          # Empty or false when a side lacks them: contract-decision says
+          # whether that is right for the base branch.
+          base_version=$(git show "$BASE_SHA:contract/VERSION" 2>/dev/null || true)
+          head_version=$(cat contract/VERSION 2>/dev/null || true)
+          base_records=false
+          head_records=false
+          if git cat-file -e "$BASE_SHA:contract/releases" 2>/dev/null; then
+            base_records=true
+          fi
+          if [ -d contract/releases ]; then
+            head_records=true
+          fi
+
+          args=(-base-ref "$BASE_REF"
+            -base-version "$base_version" -base-records="$base_records"
+            -head-version "$head_version" -head-records="$head_records")
+          while IFS= read -r label; do
+            args+=(-label "$label")
+          done < <(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
+
+          # The files API lists at most 3000 files. Beyond that the list would
+          # be incomplete, so every path counts as contract-adjacent.
+          if [ "$CHANGED_FILES" -gt 3000 ]; then
+            go run ./hack/contract-decision "${args[@]}" -all-adjacent
+          else
+            gh api "repos/$REPO/pulls/$PR_NUMBER/files" --paginate \
+              --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed-files.txt"
+            go run ./hack/contract-decision "${args[@]}" -files "$RUNNER_TEMP/changed-files.txt"
+          fi
+
+  records:
+    name: Release records
+    runs-on: cncf-ubuntu-8-32-x86
+    timeout-minutes: 15
+    steps:
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: List the changes to release records
+        id: changes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          changes="$RUNNER_TEMP/record-changes.txt"
+          diff_from() {
+            git fetch --no-tags --depth=1 origin "$1" \
+              && git diff --name-status -M "$1" HEAD -- contract/releases/ > "$changes"
+          }
+          if [ "$EVENT" = pull_request ] && [ "$CHANGED_FILES" -le 3000 ]; then
+            gh api "repos/$REPO/pulls/$PR_NUMBER/files" --paginate --jq '.[]
+              | select((.filename | startswith("contract/releases/")) or ((.previous_filename // "") | startswith("contract/releases/")))
+              | [.status, (.previous_filename // empty), .filename] | @tsv' > "$changes"
+          elif [ "$EVENT" = pull_request ]; then
+            # The files API lists at most 3000 files: diff against the base.
+            diff_from "$BASE_SHA"
+          elif [[ ! $BEFORE =~ ^0+$ ]] && diff_from "$BEFORE"; then
+            :
+          else
+            # A new branch, or a push whose previous head is gone: check every
+            # record as it is, which catches edits but no deletion.
+            echo "::notice title=Release records::No previous head to diff against: checking every record as it is."
+            echo "all=true" >> "$GITHUB_OUTPUT"
+            : > "$changes"
+            for f in contract/releases/*; do
+              [ -e "$f" ] && printf '=\t%s\n' "$f" >> "$changes"
+            done
+          fi
+          echo "file=$changes" >> "$GITHUB_OUTPUT"
+          if [ -s "$changes" ]; then
+            echo "check=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No release record changed."
+          fi
+
+      - name: Set up Go release
+        if: steps.changes.outputs.check == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      # A record must equal the one the tag of its release carries, so the
+      # tag of every changed record is fetched alone, at depth 1. A missing
+      # tag fails the check.
+      - name: Check that release records are frozen
+        if: steps.changes.outputs.check == 'true'
+        env:
+          RECORD_CHANGES: ${{ steps.changes.outputs.file }}
+          ALL: ${{ steps.changes.outputs.all }}
+        run: |
+          set -euo pipefail
+
+          cut -f2- "$RECORD_CHANGES" | tr '\t' '\n' | sort -u | while IFS= read -r path; do
+            if [[ $path =~ ^contract/releases/([^/]+)\.yaml$ ]]; then
+              tag="v${BASH_REMATCH[1]}"
+              git fetch --no-tags --depth=1 origin "refs/tags/$tag:refs/tags/$tag" 2>/dev/null || true
+            fi
+          done
+          if [ "$ALL" = true ]; then
+            go run ./hack/gen-contract check-records -all
+          else
+            go run ./hack/gen-contract check-records -changes "$RECORD_CHANGES"
+          fi

@@ -16,6 +16,7 @@ COPY commands/ commands/
 COPY internal/ internal/
 COPY pkg/ pkg/
 COPY api/ api/
+COPY contract/ contract/
 COPY client/ client/
 COPY data/ data/
 

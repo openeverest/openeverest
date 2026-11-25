@@ -24,10 +24,11 @@ import (
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
-// FuzzCompute holds every result of Compute to CheckConditions and the other
-// invariants, whatever was observed and whatever the status held before.
-// Compute runs on what the arguments describe, and again a little later on
-// what it wrote, so a deadline may pass in between.
+// FuzzCompute holds every result of Compute to
+// contractsummary.CheckConditions and the other invariants, whatever was
+// observed and whatever the status held before. Compute runs on what the
+// arguments describe, and again a little later on what it wrote, so a
+// deadline may pass in between.
 func FuzzCompute(f *testing.F) {
 	for _, seed := range fuzzSeeds() {
 		in := seed.in

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UseFormGetValues, UseFormReset } from 'react-hook-form';
 import {
   FormMode,
@@ -20,59 +20,97 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
-import { ClusterInstancePreset } from 'shared-types/api.types';
 import { DbWizardType } from '../../database-form-schema';
+import {
+  DroppedPreset,
+  DroppedPresetNotice,
+  PresetStatus,
+  SelectablePreset,
+} from '../preset-selection.types';
+import {
+  getPresetBackupFormValues,
+  toDroppedPreset,
+} from '../preset-selection.utils';
 
 interface UsePresetFormSyncArgs {
   mode: FormMode;
   uiSchema: TopologyUISchemas;
   defaultValues: Record<string, unknown>;
   defaultTopology: string;
-  selectedPreset: ClusterInstancePreset | null;
-  presetName: string;
+  selectedPreset: SelectablePreset | null;
+  presetId: string;
+  status: PresetStatus;
+  namespace: string;
   reset: UseFormReset<DbWizardType>;
   getValues: UseFormGetValues<DbWizardType>;
 }
 
 // Populates the wizard form from the picked preset (so preview/fields reflect
-// it) and reverts to defaults when the preset is cleared. New mode only, and
-// idempotent per preset so it never clobbers the user's dbName /
-// namespace or edits made outside preset mode.
+// it) and reverts to defaults when the preset is cleared or can no longer be
+// used. Nothing else drops a pick, so the notice telling the user which preset
+// was dropped is kept here too, next to the drop itself. New mode only, and
+// idempotent per preset so it never clobbers the user's dbName / namespace or
+// edits made outside preset mode.
 export const usePresetFormSync = ({
   mode,
   uiSchema,
   defaultValues,
   defaultTopology,
   selectedPreset,
-  presetName,
+  presetId,
+  status,
+  namespace,
   reset,
   getValues,
-}: UsePresetFormSyncArgs) => {
+}: UsePresetFormSyncArgs): DroppedPresetNotice => {
   const appliedRef = useRef<string | null>(null);
+  const [droppedPreset, setDroppedPreset] = useState<DroppedPreset | null>(
+    null
+  );
 
   useEffect(() => {
     if (mode !== FormMode.New) return;
 
-    // Preset cleared → revert once to the pristine defaults.
-    if (!presetName) {
-      if (appliedRef.current) {
-        const { dbName, k8sNamespace, provider } = getValues();
+    // The notice is about the namespace the pick was dropped in.
+    setDroppedPreset((current) =>
+      current && current.wizardNamespace !== namespace ? null : current
+    );
+
+    // Preset cleared or gone → revert once to the pristine defaults.
+    if (status === 'none' || status === 'unavailable') {
+      const {
+        dbName,
+        k8sNamespace,
+        provider,
+        presetId: presetIdInForm,
+      } = getValues();
+      // Checked against the form, not the prop, so the revert runs once.
+      if (appliedRef.current || presetIdInForm) {
         reset({
           ...defaultValues,
           provider,
           dbName,
           k8sNamespace,
-          presetName: '',
+          presetId: '',
         } as DbWizardType);
         appliedRef.current = null;
+        // Dropping an unavailable pick keeps the create from staying blocked
+        // on a spec that will never arrive. Recorded with the drop, once, so
+        // the user is told which preset it was.
+        if (status === 'unavailable') {
+          setDroppedPreset(toDroppedPreset(presetId, namespace));
+        }
       }
       return;
     }
 
+    // A new pick ends the notice about the previous one.
+    setDroppedPreset(null);
+
     // Wait until the picked preset is present in the loaded list.
     if (!selectedPreset) return;
 
-    if (appliedRef.current === presetName) return;
+    if (appliedRef.current === presetId) return;
 
     const presetTopology =
       selectedPreset.spec?.topology?.type ?? defaultTopology;
@@ -92,23 +130,38 @@ export const usePresetFormSync = ({
     reset({
       ...baseDefaults,
       ...specValues,
-      backup: defaultValues.backup,
+      // Backups and monitoring are not ui-generator sections, so they are
+      // mapped onto the wizard's own form shape for the preview to show what
+      // the preset will actually deploy.
+      backup: getPresetBackupFormValues(selectedPreset.spec),
+      monitoring: {
+        destinations: selectedPreset.spec?.monitoring?.destinations ?? [],
+      },
       topology: { type: presetTopology },
       provider,
       dbName,
       k8sNamespace,
-      presetName,
+      presetId,
     } as unknown as DbWizardType);
 
-    appliedRef.current = presetName;
+    appliedRef.current = presetId;
   }, [
     mode,
     uiSchema,
     defaultValues,
     defaultTopology,
     selectedPreset,
-    presetName,
+    presetId,
+    status,
+    namespace,
     reset,
     getValues,
   ]);
+
+  const dismissDroppedPreset = useCallback(() => setDroppedPreset(null), []);
+
+  return useMemo(
+    () => ({ droppedPreset, dismissDroppedPreset }),
+    [droppedPreset, dismissDroppedPreset]
+  );
 };

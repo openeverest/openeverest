@@ -15,6 +15,7 @@
 import { Box, Button } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { resolveProviderDisplay } from 'components/provider-identity';
+import { usePrefetchPresets } from 'hooks/api/instance-presets';
 import type { ProviderPickerProps } from '../provider-picker.types';
 import { buttonSx, rowSx } from './provider-buttons.constants';
 
@@ -25,6 +26,8 @@ export const ProviderButtons = ({
   providers,
   getProviderMeta,
 }: ProviderPickerProps) => {
+  const prefetchPresets = usePrefetchPresets();
+
   return (
     <Box sx={rowSx}>
       {providers.map((provider) => {
@@ -39,6 +42,8 @@ export const ProviderButtons = ({
             component={Link}
             to="/databases/new"
             state={{ selectedDbProvider: provider }}
+            onMouseEnter={() => prefetchPresets(provider)}
+            onFocus={() => prefetchPresets(provider)}
             variant="outlined"
             sx={buttonSx}
           >

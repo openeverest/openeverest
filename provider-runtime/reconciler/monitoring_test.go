@@ -48,8 +48,8 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	contractmonitoring "github.com/openeverest/openeverest/v2/contract/monitoring"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
-	"github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
 
 const (
@@ -220,10 +220,10 @@ func monInstance(entries ...string) *v1alpha1.Instance {
 func monBinding(entry string, mode v1alpha1.MonitoringExecutionMode, conditions ...metav1.Condition) *monitoringv1alpha1.MonitoringBinding {
 	return &monitoringv1alpha1.MonitoringBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       monitoring.BindingName("orders", entry),
+			Name:       contractmonitoring.BindingName("orders", entry),
 			Namespace:  "team-a",
 			Generation: 2,
-			Labels:     monitoring.BindingLabels("orders", entry, entry+"-dest", entry),
+			Labels:     contractmonitoring.BindingLabels("orders", entry, entry+"-dest", entry),
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion: "core.openeverest.io/v1alpha1", Kind: "Instance", Name: "orders", UID: monTestInstanceUID, Controller: new(true),
 			}},
@@ -334,7 +334,7 @@ func reconcileMonitoringOf(t *testing.T, r *ProviderReconciler, in *v1alpha1.Ins
 func storedConfigured(t *testing.T, r *ProviderReconciler, entry string) *metav1.Condition {
 	t.Helper()
 	b := &monitoringv1alpha1.MonitoringBinding{}
-	require.NoError(t, r.Get(t.Context(), client.ObjectKey{Namespace: "team-a", Name: monitoring.BindingName("orders", entry)}, b))
+	require.NoError(t, r.Get(t.Context(), client.ObjectKey{Namespace: "team-a", Name: contractmonitoring.BindingName("orders", entry)}, b))
 	return meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured)
 }
 
@@ -547,7 +547,7 @@ func TestReconcileMonitoring_ConfiguredWriteFails(t *testing.T) {
 	assert.Equal(t, []entryView{{
 		Name: "pmm", Mode: v1alpha1.MonitoringExecutionModeProviderManaged, Conditions: []entryCond{
 			configuredCond(metav1.ConditionUnknown, "Pending", "failed to write the Configured condition: apply status of MonitoringBinding team-a/"+
-				monitoring.BindingName("orders", "pmm")+": injected",
+				contractmonitoring.BindingName("orders", "pmm")+": injected",
 			),
 			readyCond(metav1.ConditionUnknown, "Pending", "Waiting for the binding to be Configured"),
 		},
@@ -774,7 +774,7 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 			name:    "ProviderManaged with a staged failure",
 			binding: monBinding("pmm", pm, accepted()),
 			stage: func(c *controller.Context) {
-				c.SetMonitoringBindingResult(monitoring.BindingName("orders", "pmm"), monitoringv1alpha1.ReasonRenderFailed, "destination has no url")
+				c.SetMonitoringBindingResult(contractmonitoring.BindingName("orders", "pmm"), monitoringv1alpha1.ReasonRenderFailed, "destination has no url")
 			},
 			entry:      want{metav1.ConditionFalse, "RenderFailed", "destination has no url"},
 			ready:      want{metav1.ConditionFalse, "NotConfigured", "Binding is not Configured (RenderFailed)"},
@@ -809,7 +809,7 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 			binding:  monBinding("pmm", pm, accepted()),
 			provider: &sourcesOnlyProvider{},
 			stage: func(c *controller.Context) {
-				c.SetMonitoringBindingResult(monitoring.BindingName("orders", "pmm"), monitoringv1alpha1.ReasonConfigured, "rendered")
+				c.SetMonitoringBindingResult(contractmonitoring.BindingName("orders", "pmm"), monitoringv1alpha1.ReasonConfigured, "rendered")
 			},
 			entry:      want{metav1.ConditionFalse, "RenderFailed", "provider test-provider does not render integration pmm"},
 			ready:      want{metav1.ConditionFalse, "NotConfigured", "Binding is not Configured (RenderFailed)"},
@@ -1204,7 +1204,7 @@ func TestMonitoringCredentialsSecretWatch(t *testing.T) {
 	payments.Name, payments.Spec.ProviderRef.Name = "payments", "other-provider"
 	bindingOf := func(instance, entry string) *monitoringv1alpha1.MonitoringBinding {
 		b := monBinding(entry, v1alpha1.MonitoringExecutionModeProviderManaged)
-		b.Name, b.Labels = monitoring.BindingName(instance, entry), monitoring.BindingLabels(instance, entry, entry+"-dest", entry)
+		b.Name, b.Labels = contractmonitoring.BindingName(instance, entry), contractmonitoring.BindingLabels(instance, entry, entry+"-dest", entry)
 		b.Spec.InstanceRef.Name = instance
 		return b
 	}
