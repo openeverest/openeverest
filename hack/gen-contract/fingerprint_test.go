@@ -29,6 +29,7 @@ const (
 	httpAPIPath  = "api/openapi/http-api.yaml"
 	crdsGenPath  = "api/openapi/crds.gen.yaml"
 	classPath    = "config/backupstorageclasses/s3.yaml"
+	classGoPath  = "backupstorageclasses/s3/s3.go"
 	contractPath = "contract/keys.go"
 )
 
@@ -168,31 +169,14 @@ func TestFingerprintNormalisation(t *testing.T) {
 			replace(t, f, crdsGenPath, "type: integer", "type: string")
 		}},
 
-		// Built-in BackupStorageClasses.
-		{name: "class presentation", mutate: func(t *testing.T, f map[string]string) {
-			t.Helper()
-			replace(t, f, classPath, "displayName: S3", "displayName: Amazon S3")
-			replace(t, f, classPath, "description: Amazon S3.", "description: Object storage.")
-			replace(t, f, classPath, "description: Region of the bucket.", "description: The region.")
-			replace(t, f, classPath, "components: {}", "components: {region: {uiType: text}}")
-			replace(t, f, classPath, "message: parameters are required", "message: set the parameters")
-			replace(t, f, classPath, "  name: s3\n", "  name: s3\n  annotations:\n    openeverest.io/contract-version: 2.0.0\n")
-		}},
-		{name: "class parameter", input: "storage-classes", mutate: func(t *testing.T, f map[string]string) {
+		// A storage class this repository ships is an extension, which no
+		// input covers.
+		{name: "storage class", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			replace(t, f, classPath, "          type: string\n", "          type: string\n          maxLength: 63\n")
-		}},
-		{name: "class validation", input: "storage-classes", mutate: func(t *testing.T, f map[string]string) {
-			t.Helper()
 			replace(t, f, classPath, "expression: has(self.parameters)", "expression: has(self.parameters.region)")
-		}},
-		{name: "class credentials", input: "storage-classes", mutate: func(t *testing.T, f map[string]string) {
-			t.Helper()
 			replace(t, f, classPath, "      - AWS_ACCESS_KEY_ID\n", "      - AWS_ACCESS_KEY_ID\n      - AWS_SESSION_TOKEN\n")
-		}},
-		{name: "class kustomization", mutate: func(t *testing.T, f map[string]string) {
-			t.Helper()
-			f["config/backupstorageclasses/kustomization.yaml"] = "resources: [s3.yaml]\n"
+			replace(t, f, classGoPath, `"s3"`, `"s3v2"`)
 		}},
 
 		// Go identifiers.
@@ -252,10 +236,6 @@ func TestFingerprintNormalisation(t *testing.T) {
 		{name: "Go subpackage", input: "go-api", mutate: func(t *testing.T, f map[string]string) {
 			t.Helper()
 			f["contract/references/errors.go"] = "package references\n\nimport \"errors\"\n\nvar ErrNotFound = errors.New(\"not found\")\n"
-		}},
-		{name: "Go class package", input: "go-api", mutate: func(t *testing.T, f map[string]string) {
-			t.Helper()
-			replace(t, f, "backupstorageclasses/s3/s3.go", `"s3"`, `"s3v2"`)
 		}},
 
 		// The log of contract changes.
@@ -319,9 +299,6 @@ func TestFingerprintErrors(t *testing.T) {
 		{name: "not OpenAPI", wantErr: "not an OpenAPI document", mutate: func(f map[string]string) {
 			f[httpAPIPath] = "swagger: '2.0'\n"
 		}},
-		{name: "not a class", wantErr: "kind BackupClass is not BackupStorageClass", mutate: func(f map[string]string) {
-			f[classPath] = strings.Replace(testBackupStorageClass, "kind: BackupStorageClass", "kind: BackupClass", 1)
-		}},
 		{name: "invalid Go", wantErr: "contract/keys.go:3:6: expected 'IDENT'", mutate: func(f map[string]string) {
 			f[contractPath] = "package contract\n\nfunc {\n"
 		}},
@@ -355,8 +332,7 @@ func TestAbsentInputs(t *testing.T) {
 	}{
 		{name: "CRDs", delete: []string{crdPath}, wantAbsent: "crds"},
 		{name: "HTTP API", delete: []string{httpAPIPath, crdsGenPath}, wantAbsent: "http-api"},
-		{name: "classes", delete: []string{classPath}, wantAbsent: "storage-classes"},
-		{name: "Go API", delete: []string{contractPath, "backupstorageclasses/s3/s3.go"}, wantAbsent: "go-api"},
+		{name: "Go API", delete: []string{contractPath}, wantAbsent: "go-api"},
 		{name: "CHANGES", delete: []string{changesFile}},
 	}
 	for _, tt := range tests {
@@ -381,10 +357,10 @@ func TestAbsentInputs(t *testing.T) {
 
 	// One part of an input is enough for it to be present.
 	files := cloneRepo(testRepo())
-	delete(files, contractPath)
+	delete(files, httpAPIPath)
 	got := testFingerprints(t, files)
-	assert.Contains(t, got, "go-api")
-	assert.NotEqual(t, base["go-api"], got["go-api"])
+	assert.Contains(t, got, "http-api")
+	assert.NotEqual(t, base["http-api"], got["http-api"])
 }
 
 func TestParseChanges(t *testing.T) {

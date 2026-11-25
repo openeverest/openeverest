@@ -148,7 +148,7 @@ func TestRebaseline(t *testing.T) {
 
 	msg, err := execute([]string{"-root", root, "rebaseline", "-version", "2.1.0"}, io.Discard, io.Discard)
 	require.NoError(t, err)
-	assert.Equal(t, "added the fingerprints of v2.1.0 under scheme "+scheme+" to contract/releases/2.1.0.yaml: crds, http-api, storage-classes, go-api, changes", msg)
+	assert.Equal(t, "added the fingerprints of v2.1.0 under scheme "+scheme+" to contract/releases/2.1.0.yaml: crds, http-api, go-api, changes", msg)
 
 	fps := testFingerprints(t, testRepo())
 	var block strings.Builder
@@ -179,7 +179,7 @@ func TestRebaselineAbsentInputs(t *testing.T) {
 	t.Parallel()
 
 	files := testRepo()
-	for _, f := range []string{contractPath, "contract/check_test.go", "contract/testdata/order.json", "backupstorageclasses/s3/s3.go", changesFile} {
+	for _, f := range []string{contractPath, "contract/check_test.go", "contract/testdata/order.json", changesFile} {
 		delete(files, f)
 	}
 	files[recordPath("2.1.0")] = olderRecord()
@@ -196,7 +196,7 @@ func TestRebaselineAbsentInputs(t *testing.T) {
 
 	// The tree grows the Go API and the log after the release: the Go API
 	// is not compared, and the message says so; the log is.
-	for _, f := range []string{contractPath, "backupstorageclasses/s3/s3.go", changesFile} {
+	for _, f := range []string{contractPath, changesFile} {
 		writeFile(t, root, f, testRepo()[f])
 	}
 	var notices bytes.Buffer
@@ -267,7 +267,7 @@ func TestVerify(t *testing.T) {
 	msg, err = execute([]string{"-root", root, "verify"}, io.Discard, io.Discard)
 	require.NoError(t, err)
 	assert.Equal(t, "the record of release 2.1.0 holds what this generator computes from v2.1.0 under scheme "+scheme+
-		" (crds, http-api, storage-classes, go-api, changes)", msg,
+		" (crds, http-api, go-api, changes)", msg,
 	)
 
 	// A record whose digests this generator no longer computes from the

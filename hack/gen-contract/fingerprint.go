@@ -75,6 +75,12 @@ type part struct {
 // change that adds an input also adds its paths to the contract-adjacent
 // block of .github/CODEOWNERS.
 //
+// The BackupStorageClasses this repository ships, such as s3, are not
+// inputs: a class is an extension that only ships here for convenience,
+// and covering it would raise every extension's minimum OpenEverest
+// whenever the class changed. The BackupStorageClass and BackupStorage
+// kinds are core contract, which crds covers.
+//
 //nolint:gochecknoglobals // immutable list, the one place the inputs are declared
 var inputs = []input{
 	// The CRDs, which the API server serves to every client.
@@ -84,14 +90,8 @@ var inputs = []input{
 		{pattern: "api/openapi/http-api.yaml", entries: yamlEntries(canonicalOpenAPI)},
 		{pattern: "api/openapi/crds.gen.yaml", entries: yamlEntries(canonicalOpenAPI)},
 	}},
-	// The built-in BackupStorageClasses, whose storages every backup
-	// executor writes to.
-	{name: "storage-classes", parts: []part{{pattern: "config/backupstorageclasses/*.yaml", entries: yamlEntries(canonicalBackupStorageClass)}}},
 	// The Go identifiers and rules both sides link.
-	{name: "go-api", parts: []part{
-		{pattern: "contract/...", entries: goAPIEntries},
-		{pattern: "backupstorageclasses/...", entries: goAPIEntries},
-	}},
+	{name: "go-api", parts: []part{{pattern: "contract/...", entries: goAPIEntries}}},
 	// The changes no artifact shows. It is never absent: a tree without
 	// the log has the empty one.
 	{name: "changes", parts: []part{{pattern: changesFile, entries: changesEntries}}},
@@ -262,8 +262,8 @@ func glob(root, pattern string) ([]string, error) {
 }
 
 // canonicalObject returns the key and the canonical content of a YAML
-// object, or skip when the file holds no artifact of the input.
-type canonicalObject func(file string, obj map[string]any) (key string, content any, skip bool, err error)
+// object.
+type canonicalObject func(file string, obj map[string]any) (key string, content any, err error)
 
 // yamlEntries returns the entries of the YAML files matching a pattern, each
 // a single object made canonical by canonical and encoded as JSON with
@@ -280,12 +280,9 @@ func yamlEntries(canonical canonicalObject) func(root, pattern string) ([]entry,
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", file, err)
 			}
-			key, content, skip, err := canonical(file, obj)
+			key, content, err := canonical(file, obj)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", file, err)
-			}
-			if skip {
-				continue
 			}
 			data, err := json.Marshal(content)
 			if err != nil {
@@ -341,19 +338,19 @@ func readYAMLObject(file string) (map[string]any, error) {
 // canonicalCRD returns the spec of a CustomResourceDefinition without what
 // does not change how it is served: metadata, which holds controller-gen's
 // version and the window tools stamp, printer columns, and documentation.
-func canonicalCRD(_ string, obj map[string]any) (string, any, bool, error) {
+func canonicalCRD(_ string, obj map[string]any) (string, any, error) {
 	if obj["kind"] != "CustomResourceDefinition" {
-		return "", nil, false, fmt.Errorf("kind %v is not CustomResourceDefinition", obj["kind"])
+		return "", nil, fmt.Errorf("kind %v is not CustomResourceDefinition", obj["kind"])
 	}
 	spec, ok := obj["spec"].(map[string]any)
 	if !ok {
-		return "", nil, false, errors.New("no spec")
+		return "", nil, errors.New("no spec")
 	}
 	names, _ := spec["names"].(map[string]any)
 	plural, _ := names["plural"].(string)
 	group, _ := spec["group"].(string)
 	if plural == "" || group == "" {
-		return "", nil, false, errors.New("no spec.group or spec.names.plural")
+		return "", nil, errors.New("no spec.group or spec.names.plural")
 	}
 	versions, _ := spec["versions"].([]any)
 	for _, v := range versions {
@@ -367,33 +364,7 @@ func canonicalCRD(_ string, obj map[string]any) (string, any, bool, error) {
 			stripSchema(schema["openAPIV3Schema"])
 		}
 	}
-	return plural + "." + group, spec, false, nil
-}
-
-// canonicalBackupStorageClass returns the spec of a built-in
-// BackupStorageClass without its presentation: display name, description
-// and the uiSchema core's UI renders it with.
-func canonicalBackupStorageClass(file string, obj map[string]any) (string, any, bool, error) {
-	if filepath.Base(file) == "kustomization.yaml" {
-		return "", nil, true, nil
-	}
-	if obj["kind"] != "BackupStorageClass" {
-		return "", nil, false, fmt.Errorf("kind %v is not BackupStorageClass", obj["kind"])
-	}
-	metadata, _ := obj["metadata"].(map[string]any)
-	name, _ := metadata["name"].(string)
-	spec, ok := obj["spec"].(map[string]any)
-	if name == "" || !ok {
-		return "", nil, false, errors.New("no metadata.name or spec")
-	}
-	delete(spec, "displayName")
-	delete(spec, "description")
-	delete(spec, "uiSchema")
-	if params, ok := spec["parametersSchema"].(map[string]any); ok {
-		stripSchema(params["openAPIV3Schema"])
-	}
-	stripValidationMessages(spec["validations"])
-	return name, spec, false, nil
+	return plural + "." + group, spec, nil
 }
 
 // Keywords of a JSON schema whose value holds schemas: a map of them, a
@@ -469,12 +440,12 @@ var (
 
 // canonicalOpenAPI returns an OpenAPI document without documentation:
 // descriptions, summaries and examples, wherever they are keywords.
-func canonicalOpenAPI(file string, obj map[string]any) (string, any, bool, error) {
+func canonicalOpenAPI(file string, obj map[string]any) (string, any, error) {
 	if _, ok := obj["openapi"]; !ok {
-		return "", nil, false, errors.New("not an OpenAPI document")
+		return "", nil, errors.New("not an OpenAPI document")
 	}
 	stripOpenAPI(obj, false)
-	return file, obj, false, nil
+	return file, obj, nil
 }
 
 func stripOpenAPI(node any, names bool) {

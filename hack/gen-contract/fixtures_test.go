@@ -211,7 +211,8 @@ const testChanges = `# Changes no artifact shows.
 `
 
 // testRepo returns the files of a minimal repository holding one artifact
-// of every input, by path relative to its root.
+// of every input, and a storage class, which no input covers, by path
+// relative to its root.
 func testRepo() map[string]string {
 	return map[string]string{
 		headerFile: testHeader,
@@ -224,7 +225,7 @@ func testRepo() map[string]string {
 		"contract/keys.go":                                  testContractGo,
 		"contract/check_test.go":                            "package contract\n\nfunc TestX() {}\n",
 		"contract/testdata/order.json":                      "{}\n",
-		"backupstorageclasses/s3/s3.go":                     "package s3\n\n// ClassName is the name of the class.\nconst ClassName = \"s3\"\n",
+		classGoPath:                                         "package s3\n\n// ClassName is the name of the class.\nconst ClassName = \"s3\"\n",
 		changesFile:                                         testChanges,
 		releasesDir + "/2.0.0-alpha.1.yaml":                 testSeedRelease,
 	}

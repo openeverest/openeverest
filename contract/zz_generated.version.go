@@ -39,11 +39,10 @@ const (
 // contract count. Version is the contract version of the latest release
 // while every digest its record holds under FingerprintScheme is equal.
 var Fingerprints = map[string]string{
-	"crds":            "sha256:f6e7f5a375306c1abb2cffa868a5ba13b02c6a240b2c890813b54b06efdab269",
-	"http-api":        "sha256:07cebfdeda1826d93b030421488679e41a2d42e8abc70b0f17b7095da5db3d44",
-	"storage-classes": "sha256:dd3bb292e9ef577445ff04d53febcd82bb117c5314046118f6321c94cc3e1c87",
-	"go-api":          "sha256:a9879fc006563ed9c8127e340a92dbbffdf164f7a321edc051ae633c81c33b84",
-	"changes":         "sha256:5b07caf521cd1c1bcafc9d2682568ac1fafcc508d80f5757d54e77f0a501c12f",
+	"crds":     "sha256:f6e7f5a375306c1abb2cffa868a5ba13b02c6a240b2c890813b54b06efdab269",
+	"http-api": "sha256:07cebfdeda1826d93b030421488679e41a2d42e8abc70b0f17b7095da5db3d44",
+	"go-api":   "sha256:4ba597d48ef6a13031de370c1eff907f24f6414b37021a94141e176b303a46a9",
+	"changes":  "sha256:5b07caf521cd1c1bcafc9d2682568ac1fafcc508d80f5757d54e77f0a501c12f",
 }
 
 // UpgradableFrom lists the core releases this core can be upgraded from in

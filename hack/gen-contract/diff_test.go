@@ -160,14 +160,15 @@ func TestDiffRaw(t *testing.T) {
 	assert.True(t, strings.HasPrefix(out.String(), "### crds: "+fps["crds"]+", "))
 	assert.True(t, strings.HasSuffix(out.String(), "### changes: "+fps["changes"]+", 20 bytes\ncontract/CHANGES 0\n\n"))
 
-	delete(files, classPath)
+	delete(files, httpAPIPath)
+	delete(files, crdsGenPath)
 	root = writeRepo(t, files)
 	out.Reset()
 	_, err = execute([]string{"-root", root, "diff", "-raw"}, &out, io.Discard)
 	require.NoError(t, err)
-	assert.Contains(t, out.String(), "### storage-classes: absent\n")
-	_, err = execute([]string{"-root", root, "diff", "-raw", "-input", "storage-classes"}, io.Discard, io.Discard)
-	require.ErrorContains(t, err, "storage-classes is absent from the working tree")
+	assert.Contains(t, out.String(), "### http-api: absent\n")
+	_, err = execute([]string{"-root", root, "diff", "-raw", "-input", "http-api"}, io.Discard, io.Discard)
+	require.ErrorContains(t, err, "http-api is absent from the working tree")
 }
 
 // TestCheckReleasePrintsTheDiff checks that a release branch that changed

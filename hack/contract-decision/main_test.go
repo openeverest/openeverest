@@ -398,12 +398,9 @@ func TestRepositoryBlock(t *testing.T) {
 			"config/crd/bases/core.openeverest.io_instances.yaml",
 			"api/openapi/http-api.yaml",
 			"api/openapi/crds.gen.yaml",
-			"config/backupstorageclasses/s3.yaml",
-			"backupstorageclasses/s3/s3.go",
 			"hack/gen-contract/fingerprint.go",
 		},
 	})
 	assert.Contains(t, d.failure, "(contract/CHANGES, contract/releases/2.0.0.yaml, config/crd/bases/core.openeverest.io_instances.yaml, "+
-		"api/openapi/http-api.yaml, api/openapi/crds.gen.yaml, config/backupstorageclasses/s3.yaml, backupstorageclasses/s3/s3.go, "+
-		"hack/gen-contract/fingerprint.go)")
+		"api/openapi/http-api.yaml, api/openapi/crds.gen.yaml, hack/gen-contract/fingerprint.go)")
 }

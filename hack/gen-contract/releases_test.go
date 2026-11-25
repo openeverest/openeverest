@@ -232,10 +232,10 @@ func TestDecide(t *testing.T) {
 			records: map[string]string{
 				"2.0.0-alpha.2.yaml": record("2.0.0-alpha.2", "2.0.0-alpha.2", "2.0.0-alpha.2", "fresh-install", "[]", digests(fpA)),
 			},
-			fps:            with(digests(fpA), "storage-classes", ""),
+			fps:            with(digests(fpA), "http-api", ""),
 			wantVersion:    "2.0.0-alpha.2.next",
 			wantMinVersion: "2.0.0-alpha.2",
-			wantDiffer:     []string{"storage-classes"},
+			wantDiffer:     []string{"http-api"},
 		},
 		{
 			name: "schemes other than the current one are ignored",
@@ -373,7 +373,7 @@ func TestComparisonMessages(t *testing.T) {
 	c, err = compareWith(r, with(digests(fpA), "go-api", ""))
 	require.NoError(t, err)
 	assert.Empty(t, c.skippedNotice())
-	assert.Equal(t, "the contract is the one release 2.1.0 was cut with (crds, http-api, storage-classes, changes equal under fingerprint scheme "+scheme+")", c.summary())
+	assert.Equal(t, "the contract is the one release 2.1.0 was cut with (crds, http-api, changes equal under fingerprint scheme "+scheme+")", c.summary())
 }
 
 func TestReadReleasesErrors(t *testing.T) {

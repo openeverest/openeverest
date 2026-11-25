@@ -37,18 +37,18 @@ It does so in two steps.
 |---|---|
 | `crds` | every CRD in `config/crd/bases` |
 | `http-api` | `api/openapi/http-api.yaml` and the CRD schemas it refers to, `api/openapi/crds.gen.yaml` |
-| `storage-classes` | the built-in BackupStorageClasses in `config/backupstorageclasses` |
-| `go-api` | the exported Go API of `contract/...` and `backupstorageclasses/...` |
+| `go-api` | the exported Go API of `contract/...` |
 | `changes` | the entries of [`CHANGES`](CHANGES) |
 
 When the JSON Schema of the `uiSchema` lands, it joins the inputs under a new scheme.
+
+The BackupStorageClasses this repository ships, such as `s3`, are not inputs: a class is an extension that only ships here for convenience, and covering it would raise every extension's minimum OpenEverest whenever the class changed. The `BackupStorageClass` and `BackupStorage` kinds are core contract, and `crds` covers them.
 
 It first strips what does not change the contract, so a digest changes when its part of the contract does and only then:
 
 - documentation: every `description`, `summary` and `example`, and the `message` of CEL rules, whose `rule` stays; a property *named* `description` stays;
 - the printer columns of CRDs, which only `kubectl get` uses;
 - the `metadata` of manifests, which holds controller-gen's version and the annotations tools stamp;
-- the display name, description and `uiSchema` of built-in classes;
 - in Go: comments, layout, parameter names, function bodies, unexported identifiers and test files;
 - in `CHANGES`: comments and blank lines.
 
@@ -89,7 +89,6 @@ fingerprints:                  # computed; add-only; key = fingerprint scheme
   c1:
     crds: sha256:<hex>
     http-api: sha256:<hex>
-    storage-classes: sha256:<hex>
     go-api: sha256:<hex>
     changes: sha256:<hex>
 ```

@@ -1,2 +1,0 @@
-s3 293
-{"authModes":[{"credentials":{"required":["AWS_ACCESS_KEY_ID"]},"name":"AccessKey"}],"parametersSchema":{"openAPIV3Schema":{"properties":{"region":{"type":"string"}},"type":"object"}},"validations":[{"expression":"has(self.parameters)","fieldPath":".parameters","reason":"InvalidParameters"}]}
