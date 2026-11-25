@@ -22,6 +22,7 @@ import {
 } from '@e2e/constants';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import { openDbCreationForm } from '@e2e/utils/db-wizard';
+import { waitForInstanceStatus } from '@e2e/utils/table';
 import {
   applyClusterInstancePreset,
   createInstancePreset,
@@ -52,8 +53,8 @@ const instanceUrl = (name: string) =>
   `${clusterUrl}/namespaces/${NAMESPACE}/instances/${name}`;
 const authHeaders = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-// The smallest instance the provider takes: these tests are about presets, and
-// the lane shares one node with the PITR and restore goldens.
+// The smallest instance the provider takes: the two create tests bring it up
+// next to the PITR and restore goldens, which share the node.
 const presetSpec = (version: string, extra: PresetSpec = {}): PresetSpec => ({
   providerRef: { name: PROVIDER },
   version,
@@ -126,9 +127,8 @@ const createFromPickedPreset = async (page: Page, name: string) => {
   await page.getByTestId('db-wizard-submit-button').click();
   // The wizard goes to the list once the create request succeeds.
   await page.waitForURL('**/databases', { timeout: TIMEOUTS.ThirtySeconds });
-  await expect(page.getByRole('row').filter({ hasText: name })).toBeVisible({
-    timeout: TIMEOUTS.ThirtySeconds,
-  });
+  // A preset is only worth offering if what it describes comes up.
+  await waitForInstanceStatus(page, name, 'Ready', TIMEOUTS.FifteenMinutes);
 };
 
 const deleteInstance = async (
@@ -157,7 +157,7 @@ test.describe('Instance presets', { tag: '@release' }, () => {
   // serial mode, a failed test does not skip the ones after it.
   test.describe.configure({ mode: 'default' });
   // Without it a click on a card that is not there waits out the whole test
-  // timeout, which the two create tests set to minutes for the clean-up.
+  // timeout, which the two create tests set to half an hour.
   test.use({ actionTimeout: TIMEOUTS.ThirtySeconds });
 
   let token: string;
@@ -316,56 +316,61 @@ test.describe('Instance presets', { tag: '@release' }, () => {
     await expect(droppedPresetNotice(page)).toHaveCount(0);
   });
 
-  test('creates an instance from a namespace preset', async ({
-    page,
-    request,
-  }) => {
-    test.setTimeout(TIMEOUTS.FifteenMinutes);
-    await openWizard(page);
-    await pickPreset(page, 'Namespace');
+  test.describe('from a preset to a running instance', () => {
+    // Waiting for Ready a second time would not turn a stuck instance green.
+    test.describe.configure({ retries: 0 });
 
-    await createFromPickedPreset(page, INSTANCE_FROM_NAMESPACE_PRESET);
+    test('brings up an instance created from a namespace preset', async ({
+      page,
+      request,
+    }) => {
+      test.setTimeout(TIMEOUTS.ThirtyMinutes);
+      await openWizard(page);
+      await pickPreset(page, 'Namespace');
 
-    const instance = await (
-      await request.get(instanceUrl(INSTANCE_FROM_NAMESPACE_PRESET), {
-        headers: authHeaders(token),
-      })
-    ).json();
-    expect(instance.metadata.annotations).toMatchObject({
-      [NAMESPACE_PRESET_ANNOTATION]: PRESET,
+      await createFromPickedPreset(page, INSTANCE_FROM_NAMESPACE_PRESET);
+
+      const instance = await (
+        await request.get(instanceUrl(INSTANCE_FROM_NAMESPACE_PRESET), {
+          headers: authHeaders(token),
+        })
+      ).json();
+      expect(instance.metadata.annotations).toMatchObject({
+        [NAMESPACE_PRESET_ANNOTATION]: PRESET,
+      });
+      expect(instance.metadata.annotations).not.toHaveProperty(
+        CLUSTER_PRESET_ANNOTATION
+      );
+      expect(instance.spec).toMatchObject(namespacePresetSpec);
+
+      await deleteInstance(request, token, INSTANCE_FROM_NAMESPACE_PRESET);
     });
-    expect(instance.metadata.annotations).not.toHaveProperty(
-      CLUSTER_PRESET_ANNOTATION
-    );
-    expect(instance.spec).toMatchObject(namespacePresetSpec);
 
-    await deleteInstance(request, token, INSTANCE_FROM_NAMESPACE_PRESET);
-  });
+    test('brings up an instance created from a cluster-wide preset', async ({
+      page,
+      request,
+    }) => {
+      test.setTimeout(TIMEOUTS.ThirtyMinutes);
+      await openWizard(page);
+      await pickPreset(page, 'Cluster-wide');
 
-  test('creates an instance from a cluster-wide preset', async ({
-    page,
-    request,
-  }) => {
-    test.setTimeout(TIMEOUTS.FifteenMinutes);
-    await openWizard(page);
-    await pickPreset(page, 'Cluster-wide');
+      await createFromPickedPreset(page, INSTANCE_FROM_CLUSTER_PRESET);
 
-    await createFromPickedPreset(page, INSTANCE_FROM_CLUSTER_PRESET);
+      const instance = await (
+        await request.get(instanceUrl(INSTANCE_FROM_CLUSTER_PRESET), {
+          headers: authHeaders(token),
+        })
+      ).json();
+      expect(instance.metadata.annotations).toMatchObject({
+        [CLUSTER_PRESET_ANNOTATION]: PRESET,
+      });
+      expect(instance.metadata.annotations).not.toHaveProperty(
+        NAMESPACE_PRESET_ANNOTATION
+      );
+      expect(instance.spec).toMatchObject(clusterPresetSpec);
 
-    const instance = await (
-      await request.get(instanceUrl(INSTANCE_FROM_CLUSTER_PRESET), {
-        headers: authHeaders(token),
-      })
-    ).json();
-    expect(instance.metadata.annotations).toMatchObject({
-      [CLUSTER_PRESET_ANNOTATION]: PRESET,
+      await deleteInstance(request, token, INSTANCE_FROM_CLUSTER_PRESET);
     });
-    expect(instance.metadata.annotations).not.toHaveProperty(
-      NAMESPACE_PRESET_ANNOTATION
-    );
-    expect(instance.spec).toMatchObject(clusterPresetSpec);
-
-    await deleteInstance(request, token, INSTANCE_FROM_CLUSTER_PRESET);
   });
 
   test('reports a list that failed to load and loads it on retry', async ({
