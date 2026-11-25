@@ -43,7 +43,7 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	contractmonitoring "github.com/openeverest/openeverest/v2/contract/monitoring"
 )
 
 const (
@@ -389,7 +389,7 @@ func getBinding(t *testing.T, c client.Client, entryName string) *monitoringv1al
 	t.Helper()
 	b := &monitoringv1alpha1.MonitoringBinding{}
 	require.NoError(t, c.Get(t.Context(),
-		types.NamespacedName{Namespace: testNamespace, Name: rtmonitoring.BindingName(testInstance, entryName)}, b,
+		types.NamespacedName{Namespace: testNamespace, Name: contractmonitoring.BindingName(testInstance, entryName)}, b,
 	))
 	return b
 }

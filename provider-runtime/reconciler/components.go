@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
@@ -68,7 +69,7 @@ func (r *ProviderReconciler) watchPods(ctx context.Context, c ctrlcontroller.Con
 	pods, err := cache.New(r.manager.GetConfig(), cache.Options{
 		Scheme:               r.manager.GetScheme(),
 		Mapper:               r.manager.GetRESTMapper(),
-		DefaultLabelSelector: labels.SelectorFromSet(labels.Set{controller.ProviderLabel: r.provider.Name()}),
+		DefaultLabelSelector: labels.SelectorFromSet(labels.Set{contract.ProviderLabel: r.provider.Name()}),
 		DefaultTransform:     cache.TransformStripManagedFields(),
 	})
 	if err != nil {

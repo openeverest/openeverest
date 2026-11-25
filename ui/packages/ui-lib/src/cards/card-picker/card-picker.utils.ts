@@ -51,7 +51,7 @@ export const flattenToSearchText = (value: unknown): string => {
 const getHaystack = (item: CardPickerItem): string =>
   (
     item.searchText ??
-    `${item.title} ${item.subtitle ?? ''} ${item.detail ?? ''}`
+    `${item.title} ${item.badge?.label ?? ''} ${item.subtitle ?? ''} ${item.detail ?? ''}`
   ).toLowerCase();
 
 export const itemMatches = (

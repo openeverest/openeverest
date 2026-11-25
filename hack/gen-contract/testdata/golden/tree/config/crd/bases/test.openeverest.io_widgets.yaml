@@ -1,0 +1,46 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: widgets.test.openeverest.io
+spec:
+  group: test.openeverest.io
+  names:
+    kind: Widget
+    listKind: WidgetList
+    plural: widgets
+    singular: widget
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.size
+      name: Size
+      type: integer
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Widget is a test resource.
+        properties:
+          spec:
+            description: WidgetSpec is the desired state.
+            properties:
+              description:
+                type: string
+                description: Description is free text.
+              size:
+                default: 1
+                description: Size of the widget.
+                example: 3
+                maximum: 10
+                type: integer
+            type: object
+            x-kubernetes-validations:
+            - message: size must be set
+              rule: has(self.size)
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

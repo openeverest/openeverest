@@ -43,9 +43,11 @@ const (
 	CredentialSecretKeyPassword = "password"
 )
 
-// CredentialProfileMonitor is the well-known credential profile of a
-// read-only monitoring user: the engine's monitoring role (e.g. MongoDB
-// clusterMonitor plus read on local, PostgreSQL pg_monitor) and nothing more.
+// CredentialProfileMonitor is the well-known credential profile of the user
+// monitoring and query analysis agents log in with: what the engine's own
+// monitoring agents (PMM) get, which may read data but never writes it (e.g.
+// MongoDB clusterMonitor plus read on local, PostgreSQL pg_monitor and
+// pg_read_all_data, the monitor user of the MySQL operators).
 // Connection endpoints that monitoring agents log in to name it.
 const CredentialProfileMonitor = "monitor"
 

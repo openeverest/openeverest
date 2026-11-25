@@ -1,0 +1,2 @@
+widgets.test.openeverest.io 472
+{"group":"test.openeverest.io","names":{"kind":"Widget","listKind":"WidgetList","plural":"widgets","singular":"widget"},"scope":"Namespaced","versions":[{"name":"v1alpha1","schema":{"openAPIV3Schema":{"properties":{"spec":{"properties":{"description":{"type":"string"},"size":{"default":1,"maximum":10,"type":"integer"}},"type":"object","x-kubernetes-validations":[{"rule":"has(self.size)"}]}},"type":"object"}},"served":true,"storage":true,"subresources":{"status":{}}}]}

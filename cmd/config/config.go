@@ -60,6 +60,10 @@ type EverestConfig struct {
 	// SSOTokenExchangeRateLimit is the maximum number of SSO token exchange requests per second per IP.
 	// It is looser than LoginRateLimit: every open tab renews its SSO session, and users behind one NAT share an IP.
 	SSOTokenExchangeRateLimit int `default:"10" envconfig:"SSO_TOKEN_EXCHANGE_RATE_LIMIT"`
+	// TrustedProxies lists, comma separated, the CIDRs of proxies with public addresses whose
+	// X-Forwarded-For and X-Forwarded-Proto headers are trusted. Proxies on loopback, link-local
+	// and private addresses, such as an in-cluster ingress controller, are always trusted.
+	TrustedProxies []string `envconfig:"TRUSTED_PROXIES"`
 	// AccessTokenTTL is the lifetime of access JWTs.
 	AccessTokenTTL time.Duration `default:"15m" envconfig:"ACCESS_TOKEN_TTL"`
 	// RefreshTokenTTL is the lifetime of refresh tokens.

@@ -30,7 +30,7 @@ import (
 
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/contract"
 )
 
 // TestReconcile_MetadataWritesKeepUnknownSpec runs the reconciler with a
@@ -101,7 +101,7 @@ func TestReconcile_MetadataWritesKeepUnknownSpec(t *testing.T) {
 			require.NoError(t, stored.Get(t.Context(), key, got))
 			assert.Equal(t, monitoringSpec, got.Spec.Monitoring)
 			assert.Equal(t, tc.wantFinalizers, got.Finalizers)
-			assert.Equal(t, "test-provider", got.Labels[controller.ProviderLabel])
+			assert.Equal(t, "test-provider", got.Labels[contract.ProviderLabel])
 		})
 	}
 }

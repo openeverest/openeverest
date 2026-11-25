@@ -28,9 +28,9 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 func TestCreateBackupImport_Validation(t *testing.T) {
@@ -76,34 +76,34 @@ func TestCreateBackupImport_Validation(t *testing.T) {
 			backupImport: newImport("missing-class", "s1"),
 			storage:      storage,
 			err:          "backup class not found: 'missing-class'",
-			wantSentinel: controller.ErrBackupClassNotFound,
+			wantSentinel: referents.ErrBackupClassNotFound,
 		},
 		"missing storage": {
 			backupImport: newImport("import-class", "missing-storage"),
 			importClass:  importClass,
 			err:          "backup storage not found: backup storage 'missing-storage' does not exist",
-			wantSentinel: controller.ErrBackupStorageNotFound,
+			wantSentinel: referents.ErrBackupStorageNotFound,
 		},
 		"class does not support import": {
 			backupImport: newImport("no-import-class", "s1"),
 			importClass:  noImportClass,
 			storage:      storage,
 			err:          "backup import is not supported: class 'no-import-class'",
-			wantSentinel: controller.ErrBackupImportUnsupported,
+			wantSentinel: referents.ErrBackupImportUnsupported,
 		},
 		"class its provider rejects": {
 			backupImport: newImport("drift-class", "s1"),
 			importClass:  driftClass,
 			storage:      storage,
 			err:          `backup class incompatible: BackupClass "drift-class" is Incompatible with Provider "test-provider" (SpecDrift)`,
-			wantSentinel: controller.ErrBackupClassIncompatible,
+			wantSentinel: referents.ErrBackupClassIncompatible,
 		},
 		"storage the class cannot read": {
 			backupImport: newImport("import-class", "gcs"),
 			importClass:  importClass,
 			storage:      gcsStorage,
 			err:          `backup storage incompatible: BackupStorage "gcs" is Incompatible with BackupClass "import-class" (ParameterUnsupported)`,
-			wantSentinel: controller.ErrBackupStorageIncompatible,
+			wantSentinel: referents.ErrBackupStorageIncompatible,
 		},
 		"compatible": {
 			backupImport: newImport("import-class", "s1"),
