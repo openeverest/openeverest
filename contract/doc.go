@@ -66,4 +66,11 @@
 // which versions are development values, the results of Check and when an
 // acknowledgement holds, so that every other implementation, such as Helm
 // templates or the UI, runs the same cases.
+//
+// The Go code both sides run lives here too: the keys and names of the
+// objects they share in this package, and the rules about those objects in
+// its subpackages. Core does not import the provider runtime, the SDK that
+// extensions link: code that both run is part of what extensions depend on,
+// so it is versioned with the contract, and the provider runtime can then be
+// released on its own.
 package contract

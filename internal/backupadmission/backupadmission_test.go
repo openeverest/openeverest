@@ -31,8 +31,8 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 	"github.com/openeverest/openeverest/v2/internal/backupadmission"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 const (
@@ -133,13 +133,13 @@ func assertDecision(t *testing.T, want outcome, d backupadmission.Decision, err 
 		require.NoError(t, d.Denied)
 	} else {
 		require.ErrorIs(t, d.Denied, want.denied)
-		require.ErrorIs(t, d.Denied, controller.ErrInvalidReference)
+		require.ErrorIs(t, d.Denied, referents.ErrInvalidReference)
 		assert.Contains(t, d.Denied.Error(), want.reason)
 	}
 	require.Len(t, d.Missing, len(want.missing))
 	for i, m := range want.missing {
 		require.ErrorIs(t, d.Missing[i], m)
-		require.ErrorIs(t, d.Missing[i], controller.ErrInvalidReference)
+		require.ErrorIs(t, d.Missing[i], referents.ErrInvalidReference)
 	}
 	got := d.Warnings()
 	require.Len(t, got, len(want.warnings), "warnings: %q", got)
@@ -187,7 +187,7 @@ func TestBackup(t *testing.T) {
 			backup:  backup("b", "drift", "aws", onDB),
 			objects: []client.Object{db, class("drift", backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonSpecDrift), aws},
 			want: outcome{
-				denied: controller.ErrBackupClassIncompatible,
+				denied: referents.ErrBackupClassIncompatible,
 				reason: `BackupClass "drift" is Incompatible with Provider "psmdb" (SpecDrift): detail`,
 				// The storage has no verdict for a class nobody claims.
 				warnings: []string{`BackupStorage "aws" is Pending for BackupClass "drift"`},
@@ -198,7 +198,7 @@ func TestBackup(t *testing.T) {
 			backup:  backup("b", "pbm", "aws", &common.ObjectRef{Name: "pg"}),
 			objects: []client.Object{instance("pg", "percona-postgresql", nil), pbm, aws},
 			want: outcome{
-				denied: controller.ErrBackupClassIncompatible,
+				denied: referents.ErrBackupClassIncompatible,
 				reason: `Provider "percona-postgresql" (ProviderUnsupported)`,
 			},
 		},
@@ -222,7 +222,7 @@ func TestBackup(t *testing.T) {
 			backup:  backup("b", "pbm", "gcs", onDB),
 			objects: []client.Object{db, pbm, storage("gcs", pbm, backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonParameterUnsupported)},
 			want: outcome{
-				denied: controller.ErrBackupStorageIncompatible,
+				denied: referents.ErrBackupStorageIncompatible,
 				reason: `BackupStorage "gcs" is Incompatible with BackupClass "pbm" (ParameterUnsupported): detail`,
 			},
 		},
@@ -242,7 +242,7 @@ func TestBackup(t *testing.T) {
 			name:   "nothing exists yet",
 			backup: backup("b", "pbm", "aws", onDB),
 			want: outcome{
-				missing: []error{controller.ErrInstanceNotFound, controller.ErrBackupStorageNotFound, controller.ErrBackupClassNotFound},
+				missing: []error{referents.ErrInstanceNotFound, referents.ErrBackupStorageNotFound, referents.ErrBackupClassNotFound},
 				warnings: []string{
 					"instance 'mongo' does not exist; the Backup waits until it exists",
 					"backup storage 'aws' does not exist; the Backup waits until it exists",
@@ -255,7 +255,7 @@ func TestBackup(t *testing.T) {
 			backup:  backup("b", "drift", "aws", nil),
 			objects: []client.Object{class("drift", backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonSpecDrift), aws},
 			want: outcome{
-				denied:   controller.ErrBackupClassIncompatible,
+				denied:   referents.ErrBackupClassIncompatible,
 				reason:   `Provider "psmdb" (SpecDrift)`,
 				warnings: []string{`BackupStorage "aws" is Pending for BackupClass "drift"`},
 			},
@@ -340,7 +340,7 @@ func TestRestore(t *testing.T) {
 				target, physical, class("pbm", backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonUnknownClass),
 				succeeded(backup("old", "pbm", "aws", nil), backupv1alpha1.BackupStateSucceeded),
 			},
-			want: outcome{denied: controller.ErrBackupClassIncompatible, reason: `BackupClass "pbm" is Incompatible with Provider "psmdb" (UnknownClass)`},
+			want: outcome{denied: referents.ErrBackupClassIncompatible, reason: `BackupClass "pbm" is Incompatible with Provider "psmdb" (UnknownClass)`},
 		},
 		{
 			name:    "source backup's class does not run on the target's provider",
@@ -349,7 +349,7 @@ func TestRestore(t *testing.T) {
 				instance("mongo", "percona-postgresql", nil), pbm,
 				succeeded(backup("old", "pbm", "aws", nil), backupv1alpha1.BackupStateSucceeded),
 			},
-			want: outcome{denied: controller.ErrBackupClassIncompatible, reason: "(ProviderUnsupported)"},
+			want: outcome{denied: referents.ErrBackupClassIncompatible, reason: "(ProviderUnsupported)"},
 		},
 		{
 			name:    "source backup's class pending",
@@ -364,13 +364,13 @@ func TestRestore(t *testing.T) {
 			name:    "source backup not succeeded",
 			restore: fromBackup("running"),
 			objects: []client.Object{target, pbm, succeeded(backup("running", "pbm", "aws", nil), backupv1alpha1.BackupStateRunning)},
-			want:    outcome{denied: controller.ErrBackupNotSucceeded, reason: "'running' is in state 'Running'"},
+			want:    outcome{denied: referents.ErrBackupNotSucceeded, reason: "'running' is in state 'Running'"},
 		},
 		{
 			name:    "source backup and target missing",
 			restore: fromBackup("old"),
 			want: outcome{
-				missing: []error{controller.ErrBackupNotFound, controller.ErrInstanceNotFound},
+				missing: []error{referents.ErrBackupNotFound, referents.ErrInstanceNotFound},
 				warnings: []string{
 					"backup not found: 'old' in namespace 'db'; the Restore waits until it exists",
 					"instance 'mongo' does not exist; the Restore waits until it exists",
@@ -389,14 +389,14 @@ func TestRestore(t *testing.T) {
 				target, instance("source", provider, archiving("pbm", "aws")), pbm,
 				storage("aws", pbm, backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonTLSOptionUnsupported),
 			},
-			want: outcome{denied: controller.ErrBackupStorageIncompatible, reason: `BackupStorage "aws" is Incompatible with BackupClass "pbm" (TLSOptionUnsupported)`},
+			want: outcome{denied: referents.ErrBackupStorageIncompatible, reason: `BackupStorage "aws" is Incompatible with BackupClass "pbm" (TLSOptionUnsupported)`},
 		},
 		{
 			name:    "point in time from a source storage that does not exist yet",
 			restore: pointInTime("source", "aws"),
 			objects: []client.Object{target, instance("source", provider, archiving("pbm", "aws")), pbm},
 			want: outcome{
-				missing:  []error{controller.ErrBackupStorageNotFound},
+				missing:  []error{referents.ErrBackupStorageNotFound},
 				warnings: []string{"backup storage 'aws' does not exist; the Restore waits until it exists"},
 			},
 		},
@@ -409,19 +409,19 @@ func TestRestore(t *testing.T) {
 			name:    "point in time from a storage the stream does not archive to",
 			restore: pointInTime("source", "gcs"),
 			objects: []client.Object{target, instance("source", provider, archiving("pbm", "aws")), pbm, storage("gcs", pbm, backupv1alpha1.CompatibilityCompatible, "")},
-			want:    outcome{denied: controller.ErrRestorePITRUnsupported, reason: `storage "gcs" is not a PITR-enabled storage`},
+			want:    outcome{denied: referents.ErrRestorePITRUnsupported, reason: `storage "gcs" is not a PITR-enabled storage`},
 		},
 		{
 			name:    "point in time with a class that does not support it",
 			restore: pointInTime("source", "aws"),
 			objects: []client.Object{target, instance("source", provider, archiving("no-pitr", "aws")), noPITR, storage("aws", noPITR, backupv1alpha1.CompatibilityCompatible, "")},
-			want:    outcome{denied: controller.ErrRestorePITRUnsupported, reason: `BackupClass "no-pitr"`},
+			want:    outcome{denied: referents.ErrRestorePITRUnsupported, reason: `BackupClass "no-pitr"`},
 		},
 		{
 			name:    "point in time from an instance without a backup class",
 			restore: pointInTime("source", "aws"),
 			objects: []client.Object{target, instance("source", provider, nil), storage("aws", pbm, backupv1alpha1.CompatibilityCompatible, "")},
-			want:    outcome{denied: controller.ErrInvalidReference, reason: "instance 'source' has no backup class configured"},
+			want:    outcome{denied: referents.ErrInvalidReference, reason: "instance 'source' has no backup class configured"},
 		},
 	}
 	for _, tt := range tests {
@@ -467,14 +467,14 @@ func TestImport(t *testing.T) {
 			name:    "class does not support import",
 			imp:     newImport("no-import", "aws"),
 			objects: []client.Object{noImport, storage("aws", noImport, backupv1alpha1.CompatibilityCompatible, "")},
-			want:    outcome{denied: controller.ErrBackupImportUnsupported, reason: "class 'no-import'"},
+			want:    outcome{denied: referents.ErrBackupImportUnsupported, reason: "class 'no-import'"},
 		},
 		{
 			name:    "class incompatible for its executor",
 			imp:     newImport("drift", "aws"),
 			objects: []client.Object{class("drift", backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonSpecDrift), storage("aws", pbm, backupv1alpha1.CompatibilityCompatible, "")},
 			want: outcome{
-				denied:   controller.ErrBackupClassIncompatible,
+				denied:   referents.ErrBackupClassIncompatible,
 				reason:   `BackupClass "drift" is Incompatible with Provider "psmdb" (SpecDrift)`,
 				warnings: []string{`BackupStorage "aws" is Pending for BackupClass "drift"`},
 			},
@@ -492,13 +492,13 @@ func TestImport(t *testing.T) {
 			name:    "storage incompatible",
 			imp:     newImport("pbm", "gcs"),
 			objects: []client.Object{pbm, storage("gcs", pbm, backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonParameterUnsupported)},
-			want:    outcome{denied: controller.ErrBackupStorageIncompatible, reason: "(ParameterUnsupported)"},
+			want:    outcome{denied: referents.ErrBackupStorageIncompatible, reason: "(ParameterUnsupported)"},
 		},
 		{
 			name: "class and storage missing",
 			imp:  newImport("pbm", "aws"),
 			want: outcome{
-				missing: []error{controller.ErrBackupClassNotFound, controller.ErrBackupStorageNotFound},
+				missing: []error{referents.ErrBackupClassNotFound, referents.ErrBackupStorageNotFound},
 				warnings: []string{
 					"backup class not found: 'pbm'; the BackupImport waits until it exists",
 					"backup storage 'aws' does not exist; the BackupImport waits until it exists",
@@ -535,6 +535,6 @@ func TestReadError(t *testing.T) {
 		Spec:       backupv1alpha1.BackupImportSpec{ClassRef: common.ObjectRef{Name: "pbm"}},
 	})
 	require.ErrorIs(t, err, unavailable)
-	require.NotErrorIs(t, err, controller.ErrInvalidReference)
+	require.NotErrorIs(t, err, referents.ErrInvalidReference)
 	assert.Contains(t, err.Error(), "failed to get backup class 'pbm'")
 }

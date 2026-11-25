@@ -18,9 +18,9 @@ import (
 	"context"
 	"errors"
 
+	"github.com/openeverest/openeverest/v2/contract/referents"
 	"github.com/openeverest/openeverest/v2/internal/backupadmission"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 // admitOperation applies the decision on a Backup, Restore or BackupImport
@@ -54,7 +54,7 @@ func admitOperation(ctx context.Context, d backupadmission.Decision, err error) 
 // doesn't satisfy a compatibility rule) as opposed to an unexpected
 // runtime/infrastructure error (API server unavailable, connection refused,
 // timeout, etc.). Every reference-validation sentinel satisfies
-// errors.Is(err, controller.ErrInvalidReference), so new sentinels are
+// errors.Is(err, referents.ErrInvalidReference), so new sentinels are
 // classified correctly here without updating this function.
 //
 // admitOperation uses this to decide whether a rejection should be reported
@@ -62,5 +62,5 @@ func admitOperation(ctx context.Context, d backupadmission.Decision, err error) 
 // propagated unchanged so it is handled as an internal error instead of
 // being misrepresented as a client mistake.
 func isValidationError(err error) bool {
-	return errors.Is(err, controller.ErrInvalidReference)
+	return errors.Is(err, referents.ErrInvalidReference)
 }

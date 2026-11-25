@@ -28,7 +28,7 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	"github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	contractmonitoring "github.com/openeverest/openeverest/v2/contract/monitoring"
 )
 
 const (
@@ -86,10 +86,10 @@ func monitoredInstance(entries ...string) *v1alpha1.Instance {
 func monitoringBinding(entry string, mode v1alpha1.MonitoringExecutionMode, class string, accepted metav1.ConditionStatus) *monitoringv1alpha1.MonitoringBinding {
 	b := &monitoringv1alpha1.MonitoringBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       monitoring.BindingName("orders", entry),
+			Name:       contractmonitoring.BindingName("orders", entry),
 			Namespace:  monitoringTestNamespace,
 			Generation: 3,
-			Labels:     monitoring.BindingLabels("orders", entry, entry+"-dest", class),
+			Labels:     contractmonitoring.BindingLabels("orders", entry, entry+"-dest", class),
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion: "core.openeverest.io/v1alpha1", Kind: "Instance", Name: "orders", UID: monitoringTestUID, Controller: new(true),
 			}},

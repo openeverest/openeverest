@@ -544,19 +544,12 @@ type BaseProvider struct {
 	shippedBackupClasses []backupv1alpha1.BackupClass
 }
 
-// StatusFieldOwner returns the server-side-apply field manager under which
-// the runtime of the named provider writes the status it shares with other
-// writers: the fields it owns on Instance.status and the Accepted condition
-// of the BackupClasses the provider claims.
-func StatusFieldOwner(provider string) string {
-	return "openeverest-provider/" + provider
-}
-
 // ShippedBackupClassesProvider is implemented by every provider that embeds
 // BaseProvider. When ShippedBackupClasses returns classes, the runtime claims
 // every BackupClass whose spec.providerManaged.providerRef names the
 // provider: it server-side-applies the class's Accepted
-// condition, with the class generation it judged, under StatusFieldOwner:
+// condition, with the class generation it judged, under
+// contract.ProviderStatusFieldOwner:
 //   - True (Accepted) when the provider ships a class of that name with the
 //     same capabilities: the whole spec except displayName, description and
 //     uiSchema, compared after the CRD's defaults, so a class the API server

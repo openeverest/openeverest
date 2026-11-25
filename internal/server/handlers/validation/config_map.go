@@ -23,8 +23,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/openeverest/openeverest/v2/contract/definitions"
 	"github.com/openeverest/openeverest/v2/pkg/common"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 // CreateConfigMap validates and creates a ConfigMap.
@@ -50,7 +50,7 @@ func (h *validateHandler) CreateConfigMap(ctx context.Context, cluster, namespac
 	}
 
 	// Validate configmap data against the schema.
-	if err := controller.ValidateConfigMapSchema(configMap, &provider.Spec); err != nil {
+	if err := definitions.ValidateConfigMapSchema(configMap, &provider.Spec); err != nil {
 		return nil, errors.Join(ErrInvalidRequest, err)
 	}
 

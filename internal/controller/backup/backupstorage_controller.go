@@ -36,7 +36,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	"github.com/openeverest/openeverest/v2/internal/controller/ssa"
 )
 
 const (
@@ -122,7 +122,7 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, nil
 		}
 		logf.FromContext(ctx).Info("BackupStorage is deleted but still referenced", "referrers", strings.Join(referrers, ", "))
-		conditions = append(conditions, rtmonitoring.NewCondition(bs, backupv1alpha1.BackupStorageConditionDeleting, metav1.ConditionTrue,
+		conditions = append(conditions, ssa.NewCondition(bs, backupv1alpha1.BackupStorageConditionDeleting, metav1.ConditionTrue,
 			backupv1alpha1.ReasonWaitingForReferrers, "still referenced by "+strings.Join(referrers, ", "),
 		))
 	}
@@ -165,7 +165,7 @@ func (r *BackupStorageReconciler) acceptedCondition(
 		if !apierrors.IsNotFound(err) {
 			return metav1.Condition{}, nil, fmt.Errorf("get BackupStorageClass %q: %w", bs.Spec.BackupStorageClassRef.Name, err)
 		}
-		return rtmonitoring.NewCondition(bs, backupv1alpha1.BackupStorageConditionAccepted, metav1.ConditionFalse,
+		return ssa.NewCondition(bs, backupv1alpha1.BackupStorageConditionAccepted, metav1.ConditionFalse,
 			backupv1alpha1.ReasonClassNotFound, fmt.Sprintf("BackupStorageClass %q not found", bs.Spec.BackupStorageClassRef.Name),
 		), nil, nil
 	}
@@ -196,7 +196,7 @@ func (r *BackupStorageReconciler) acceptedCondition(
 	if v.Accepted() {
 		status = metav1.ConditionTrue
 	}
-	return rtmonitoring.NewCondition(bs, backupv1alpha1.BackupStorageConditionAccepted, status, v.Reason, v.Message), class, nil
+	return ssa.NewCondition(bs, backupv1alpha1.BackupStorageConditionAccepted, status, v.Reason, v.Message), class, nil
 }
 
 func (r *BackupStorageReconciler) secretContent(ctx context.Context, namespace, name string) (SecretContent, error) {
@@ -236,7 +236,7 @@ func (r *BackupStorageReconciler) applyStatus(
 		}
 		classes = append(classes, raw)
 	}
-	return rtmonitoring.ApplyStatus(ctx, r.Client, bs, backupStorageFieldOwner, map[string]any{
+	return ssa.ApplyStatus(ctx, r.Client, bs, backupStorageFieldOwner, map[string]any{
 		"conditions":    conds,
 		"backupClasses": classes,
 	})

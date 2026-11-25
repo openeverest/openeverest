@@ -52,6 +52,7 @@ import (
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/internal/instanceprep"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
@@ -59,7 +60,7 @@ import (
 	"github.com/openeverest/openeverest/v2/provider-runtime/validation"
 )
 
-const finalizerName = controller.ProviderFinalizer
+const finalizerName = contract.ProviderFinalizer
 
 // conflictRequeue gives the cache time to catch up with the write that won
 // the optimistic lock.
@@ -514,8 +515,8 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	if in.Labels == nil {
 		in.Labels = make(map[string]string)
 	}
-	if in.Labels[controller.ProviderLabel] != r.provider.Name() {
-		in.Labels[controller.ProviderLabel] = r.provider.Name()
+	if in.Labels[contract.ProviderLabel] != r.provider.Name() {
+		in.Labels[contract.ProviderLabel] = r.provider.Name()
 		needsUpdate = true
 	}
 	if !controllerutil.ContainsFinalizer(in, finalizerName) {

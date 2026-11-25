@@ -33,6 +33,17 @@ linters:
               desc: use "errors" instead
             - pkg: github.com/gogo/protobuf/proto
               desc: use "github.com/golang/protobuf/proto" instead
+        # provider-runtime is the SDK extensions link. Code that core and
+        # extensions both run is part of what extensions depend on, so it
+        # lives in the versioned contract packages; keeping core off
+        # provider-runtime also lets provider-runtime be released on its own.
+        provider-runtime:
+          files:
+            - $all
+            - '!**/provider-runtime/**'
+          deny:
+            - pkg: github.com/openeverest/openeverest/v2/provider-runtime
+              desc: core must not import provider-runtime; move what both sides run to github.com/openeverest/openeverest/v2/contract/...
     errcheck:
       exclude-functions:
         - fmt.Fprint

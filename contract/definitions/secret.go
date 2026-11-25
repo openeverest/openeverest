@@ -12,7 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+// Package definitions checks a Secret or ConfigMap against the definition it
+// follows: the entry of a Provider's spec.secrets or spec.configMaps that its
+// contract.DefinitionLabel names. Core runs the check when it admits such an
+// object, and providers can run it on what they read, so both sides give a
+// Provider's definitions the same meaning.
+package definitions
 
 import (
 	"encoding/json"
@@ -23,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/contract"
 )
 
 // ErrSecretSchemaValidation is returned when a secret fails schema validation.
@@ -49,9 +54,9 @@ func ValidateSecretSchema(secret *corev1.Secret, providerSpec *corev1alpha1.Prov
 	}
 
 	// Get the secret definition name from the label.
-	secretDefinition := secret.GetLabels()[common.OpenEverestDefinitionLabel]
+	secretDefinition := secret.GetLabels()[contract.DefinitionLabel]
 	if secretDefinition == "" {
-		return fmt.Errorf("missing %s label: %w", common.OpenEverestDefinitionLabel, ErrSecretSchemaValidation)
+		return fmt.Errorf("missing %s label: %w", contract.DefinitionLabel, ErrSecretSchemaValidation)
 	}
 
 	// Look up the secret definition from the provider spec.

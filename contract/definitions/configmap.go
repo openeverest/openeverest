@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package definitions
 
 import (
 	"encoding/json"
@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/contract"
 )
 
 // ErrConfigMapSchemaValidation is returned when a configmap fails schema validation.
@@ -49,9 +49,9 @@ func ValidateConfigMapSchema(configMap *corev1.ConfigMap, providerSpec *corev1al
 	}
 
 	// Get the configmap definition name from the label.
-	configMapDefinition := configMap.GetLabels()[common.OpenEverestDefinitionLabel]
+	configMapDefinition := configMap.GetLabels()[contract.DefinitionLabel]
 	if configMapDefinition == "" {
-		return fmt.Errorf("missing %s label: %w", common.OpenEverestDefinitionLabel, ErrConfigMapSchemaValidation)
+		return fmt.Errorf("missing %s label: %w", contract.DefinitionLabel, ErrConfigMapSchemaValidation)
 	}
 
 	// Look up the configmap definition from the provider spec.
