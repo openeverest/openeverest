@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -78,9 +79,17 @@ func (k *Kubernetes) GetDBNamespaces(ctx context.Context, opts ...ctrlclient.Lis
 	systemNamespaces := GetSystemNamespaces(k.Namespace())
 	// Filter out all system namespaces to prevent database operations in reserved namespaces.
 	result.Items = slices.DeleteFunc(result.Items, func(ns corev1.Namespace) bool {
-		return slices.Contains(systemNamespaces, ns.Name)
+		return isSystemNamespace(ns.Name, systemNamespaces)
 	})
 	return result, nil
+}
+
+// isSystemNamespace reports whether name is one of systemNamespaces or
+// reserved by OpenShift, which keeps "openshift" and every "openshift-*"
+// namespace for the platform.
+func isSystemNamespace(name string, systemNamespaces []string) bool {
+	return slices.Contains(systemNamespaces, name) ||
+		name == "openshift" || strings.HasPrefix(name, "openshift-")
 }
 
 // DeleteNamespace deletes a namespace that matches the criteria.
