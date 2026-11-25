@@ -286,11 +286,15 @@ func TestSetPassword(t *testing.T) {
 		t.Parallel()
 		mgr := newMemoryAccounts()
 		// Seed as insecure so SetPassword(secure=true) has an observable effect.
-		mgr.seed("validuser", &accounts.Account{
-			Enabled:      true,
-			Capabilities: []accounts.AccountCapability{accounts.AccountCapabilityLogin},
-			PasswordHash: "oldpassword",
-		}, false)
+		mgr.seed(
+			"validuser",
+			&accounts.Account{
+				Enabled:      true,
+				Capabilities: []accounts.AccountCapability{accounts.AccountCapabilityLogin},
+				PasswordHash: "oldpassword",
+			},
+			false,
+		)
 		a := newTestAccounts(mgr)
 		require.NoError(t, a.SetPassword(ctx, SetPasswordOptions{Username: "validuser", NewPassword: "newpassword"}))
 		secure, err := mgr.IsSecure(ctx, "validuser")
@@ -312,10 +316,14 @@ func TestListOutput(t *testing.T) {
 	t.Cleanup(func() { table.DefaultWriter = orig })
 
 	mgr := newMemoryAccounts()
-	mgr.seed("alice", &accounts.Account{
-		Enabled:      true,
-		Capabilities: []accounts.AccountCapability{accounts.AccountCapabilityLogin},
-	}, true)
+	mgr.seed(
+		"alice",
+		&accounts.Account{
+			Enabled:      true,
+			Capabilities: []accounts.AccountCapability{accounts.AccountCapabilityLogin},
+		},
+		true,
+	)
 	a := newTestAccounts(mgr)
 
 	t.Run("default_columns_with_headers", func(t *testing.T) {
