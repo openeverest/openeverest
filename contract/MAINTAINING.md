@@ -2,6 +2,19 @@
 
 This is for core contributors, reviewers and release managers: how the contract version moves, how releases are recorded and kept frozen, and when a pull request needs a decision label. Extension authors, who only import the package, need [README.md](README.md) and the package documentation in [doc.go](doc.go).
 
+## The files here
+
+| File | Kind | Holds |
+|---|---|---|
+| `*.go` | hand-edited | the library extensions import |
+| `zz_generated.version.go` | generated | `Version`, `MinVersion`, `FingerprintScheme`, `Fingerprints` and `UpgradableFrom` |
+| `VERSION`, `MIN_VERSION` | generated | `Version` and `MinVersion`, for tools that read them from a git ref without building Go |
+| `vectors.json` | hand-edited | the cases of `OrderVectors`, which every other implementation of `Check`, `IsDevelopment` and `AcknowledgementHolds` runs, such as provider-sdk's Helm template, so that it decides as they do |
+| `CHANGES` | hand-edited | the contract changes no artifact shows |
+| `releases/<version>.yaml` | frozen | the record of each core release |
+
+`make gen-contract` writes the generated files: never edit them. A record is added at each release and never changes after.
+
 ## The contract version
 
 The contract version is a core release number, not a counter of its own, so a message can say "needs OpenEverest 2.1.0 or later" without a lookup table. A pre-release, a minor release and a major release each have their own version as contract version. A patch release of a final release cannot change the contract, so it keeps the contract version of its line, and extensions built against it run on every release of that line (see [Release records](#release-records)).

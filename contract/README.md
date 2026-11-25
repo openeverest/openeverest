@@ -14,18 +14,5 @@ Between releases, `Version` is a development value that sorts after the last rel
 
 - **Stamp.** Extension tooling stamps every build with the `Version` of the core it was built against, as `VersionAnnotation` on the objects core interprets and in the extension's `Chart.yaml`. Extensions never pick a number, and there are no version ranges.
 - **Check.** Every enforcement point checks `MinVersion ≤ stamp ≤ Version` by SemVer 2.0.0 precedence, with `Check`, or with `Window.Check` on a window `WindowFromAnnotations` reads. A reader that sees several windows takes their `Intersect`.
-- **Same answers everywhere.** An implementation in another language, such as a Helm template, the UI or a CEL rule, runs the cases of `OrderVectors`, so it decides exactly as `Check`, `IsDevelopment` and `AcknowledgementHolds` do.
 
-## The files here
-
-| File | Kind | Holds |
-|---|---|---|
-| `*.go` | hand-edited | the library extensions import |
-| `zz_generated.version.go` | generated | `Version`, `MinVersion`, `FingerprintScheme`, `Fingerprints` and `UpgradableFrom` |
-| `VERSION`, `MIN_VERSION` | generated | `Version` and `MinVersion`, for tools that read them from a git ref without building Go |
-| `vectors.json` | hand-edited | the cases of `OrderVectors`, which are part of the contract |
-| `CHANGES` | hand-edited | the contract changes no artifact shows |
-| `releases/<version>.yaml` | frozen | the record of each core release |
-| `MAINTAINING.md` | hand-edited | how the version moves, and how releases are recorded |
-
-`make gen-contract` writes the generated files: never edit them. A record is added at each release and never changes after. How core works out the version, what the records hold and when a pull request needs a decision label: [MAINTAINING.md](MAINTAINING.md).
+How core works out the version, what the other files here are, what the release records hold and when a pull request needs a decision label: [MAINTAINING.md](MAINTAINING.md).
