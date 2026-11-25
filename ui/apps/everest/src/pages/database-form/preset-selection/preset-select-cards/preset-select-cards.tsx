@@ -18,6 +18,7 @@ import { useFormContext } from 'react-hook-form';
 import { CardPicker } from '@percona/ui-lib';
 import ActionableAlert from 'components/actionable-alert';
 import { DbWizardFormFields } from 'consts';
+import { useDatabaseFormContext } from 'pages/database-form/database-form-context';
 import { usePresetSelectionContext } from '../preset-selection-context';
 import {
   getDroppedPresetMessage,
@@ -28,6 +29,7 @@ import { Messages } from './preset-select-cards.messages';
 // Thin preset-specific wrapper over the reusable CardPicker: maps presets to
 // card items (searchable by their whole spec) and binds selection to the form.
 export const PresetSelectCards = () => {
+  const { uiSchema, defaultTopology } = useDatabaseFormContext();
   const {
     presets,
     presetId,
@@ -40,7 +42,14 @@ export const PresetSelectCards = () => {
   } = usePresetSelectionContext();
   const { setValue } = useFormContext();
 
-  const items = useMemo(() => presets.map(presetToCardItem), [presets]);
+  const items = useMemo(
+    () =>
+      presets.map((preset) => {
+        const topology = preset.spec?.topology?.type ?? defaultTopology;
+        return presetToCardItem(preset, uiSchema[topology]);
+      }),
+    [presets, uiSchema, defaultTopology]
+  );
 
   // A dropped pick keeps the section up even with nothing left to offer, or
   // the form would fall back to defaults with no explanation.

@@ -23,6 +23,8 @@ export const Messages = {
     [PresetScope.Namespace]: 'Namespace',
   },
   summary: {
+    component: (name: string, fields: string) => `${name} (${fields})`,
+    field: (label: string, value: string) => `${label}: ${value}`,
     nodes: (count: number) => pluralize(count, 'node'),
     cpu: (value: string) => `${value} CPU`,
     memory: (value: string) => `${value} RAM`,
