@@ -187,6 +187,56 @@ validation:
           message: Number of shards cannot be decreased
 ```
 
+### Reading a Map Field
+
+A rule on another field reads a [map field](components/map-field.md) as the map it writes,
+`{ key: value }`, at the map's `path`. The same goes for `original.<path>`.
+
+| To check                  | Write                                                           |
+| ------------------------- | --------------------------------------------------------------- |
+| a key is set              | `'team' in spec.labels`                                         |
+| the value of a key        | `'team' in spec.labels && spec.labels['team'] == 'db'`          |
+| the number of entries     | `size(spec.labels) <= 5`                                        |
+| every key                 | `spec.labels.all(k, k.startsWith('example.com/'))`              |
+| every value               | `spec.labels.all(k, spec.labels[k] != '')`                      |
+| no saved entry is removed | `original.spec.labels.all(k, k in spec.labels)` (edit mode)     |
+
+- **No entries.** The rule reads an empty map, `{}`: `size(spec.labels) == 0` is true and
+  `'team' in spec.labels` is false. Nothing is sent to the API for such a map, and the API reads a
+  missing map and an empty one the same way.
+- **The object that holds the map.** The rule gets `{}` where that object exists; reading the map
+  never creates it. With no `spec.components.proxy` at all, there is no
+  `spec.components.proxy.service.annotations` either, so a rule guards the object as it does for
+  its other fields: `!has(spec.components.proxy.service) || …`.
+- **A key that isn't set.** `spec.labels['team']` fails with a CEL error instead of your
+  `message`, so check the key with `in` first, as in the table.
+- **Rows the user hasn't finished.** A row with no key isn't an entry, so the rule doesn't see it.
+- **Inside a toggleable group** that is off, the map is unset like the group's other fields: guard
+  the rule with `has()`, see [Toggleable Group](groups.md#toggleable-group). In `original` the
+  same holds for a group that was saved off.
+
+The rule runs again whenever the map's rows change.
+
+```yaml
+externalAccess:
+  uiType: select
+  path: spec.components.proxy.service.type
+  fieldParams:
+    label: External access
+    options:
+      - { label: ClusterIP, value: ClusterIP }
+      - { label: LoadBalancer, value: LoadBalancer }
+  validation:
+    celExpressions:
+      - celExpr: >-
+          !has(spec.components.proxy.service.type) ||
+          spec.components.proxy.service.type != 'LoadBalancer' ||
+          'service.beta.kubernetes.io/aws-load-balancer-type' in spec.components.proxy.service.annotations
+        message: Add the aws-load-balancer-type annotation for a LoadBalancer
+```
+
+Rules on the map itself, or on a row's key or value, aren't supported yet.
+
 ### Full Example: Mongo Node Edit Constraints
 
 ```yaml

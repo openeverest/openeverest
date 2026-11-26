@@ -25,6 +25,7 @@ import type {
 } from './schema-builder.types';
 import { convertToNestedSchema } from './convert-to-nested-schema';
 import { applyCelValidation } from './apply-cel-validation';
+import { getCelValueReaders, watchFieldsReadByCel } from '../field-codecs';
 import { applyToggleableValidation } from './apply-toggleable-validation';
 import {
   collectToggleableMetas,
@@ -74,6 +75,7 @@ export const buildZodSchema = (
   // Convert flat schema to nested structure
   const nestedFields = convertToNestedSchema(flatFields);
   const toggleables = collectToggleableMetas(topology.sections);
+  const celValueReaders = getCelValueReaders(topology.sections);
   let zodSchema: z.ZodTypeAny = z.object(nestedFields).passthrough();
 
   zodSchema = applyToggleableValidation(zodSchema, allToggleableFieldRules);
@@ -83,13 +85,14 @@ export const buildZodSchema = (
     zodSchema,
     allCelExpValidations,
     options?.originalData,
-    toggleables
+    toggleables,
+    celValueReaders
   );
 
   return {
     schema: zodSchema,
     celDependencyGroups: withToggleableSwitchDependencies(
-      allCelDependencyGroups,
+      watchFieldsReadByCel(allCelDependencyGroups, celValueReaders),
       toggleables
     ),
   };

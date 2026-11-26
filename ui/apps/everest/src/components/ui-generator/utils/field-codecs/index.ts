@@ -13,8 +13,15 @@
 // limitations under the License.
 
 export {
+  getCelValueReaders,
   getFieldCodec,
   getWholeValuePaths,
+  readValuesForCel,
+  watchFieldsReadByCel,
   writeFieldsInApiShape,
 } from './field-codecs';
-export type { FieldCodec, FieldCodecResolver } from './field-codecs.types';
+export type {
+  CelValueReader,
+  FieldCodec,
+  FieldCodecResolver,
+} from './field-codecs.types';

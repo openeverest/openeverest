@@ -101,8 +101,21 @@ flowchart TD
   - **`convertToNestedSchema`** — flat fields → nested `z.object`. A parent object is optional when
     all of its fields are, so edit mode accepts an instance that lacks it (e.g. no
     `spec.components.engine.parameters` when Engine configuration is unset).
-  - **`applyCelValidation(schema, celExprs, originalData?, toggleables?)`** — attaches CEL (in edit
-    mode the `original` namespace — persisted instance data — is available).
+  - **`applyCelValidation(schema, celExprs, originalData?, toggleables?, celValueReaders?)`** —
+    attaches CEL (in edit mode the `original` namespace — persisted instance data — is available).
+    A rule evaluates the form's values, except at the paths of fields whose codec has `toCel`
+    (`getCelValueReaders`, `readValuesForCel` in `utils/field-codecs/`): a `map` is read as the
+    map it writes, `{}` when it has no entries, so a provider writes the rule against the API.
+    Reading adds no object around the value: where the map's parent object is absent, so is the
+    map. A switched-off group's fields are removed first and its paths aren't read; in `original`
+    the paths of a group that saved nothing aren't read either.
+    `original` is read the same way. A `quantity` has no `toCel`: a rule compares the number in
+    `unit`.
+  - **CEL dependencies** — `extractCelFieldPaths` collects the dotted paths of an expression
+    (quoted strings left out, so a map key like `'example.com/role'` isn't one), and the form
+    re-runs the rule when a field at one of them changes (`useCelValidation`).
+    `watchFieldsReadByCel` turns a path inside a `toCel` field (`spec.labels.team`) into that
+    field's path (`spec.labels`): the form has one field for the whole value.
   - **Toggleable children** — `schema.or(z.any())`; the real rules run in
     `applyToggleableValidation` only while the switch is on, and their CEL carries `activeWhen`.
     CEL on other fields sees switched-off paths as absent and re-runs when the switch flips.
@@ -121,7 +134,8 @@ flowchart TD
 - **Field codecs** (`utils/field-codecs/`) — a field whose form value differs from its API value
   has a codec: `toForm` (a saved value → the form), `toApi` (the form → the API, given the value
   stored at the same path), `defaultToForm` (a schema default → the form, when the default is
-  written in the API shape) and `ownsWholeValue`. `getFieldCodec(component)` returns it, and the
+  written in the API shape), `toCel` (what a CEL rule reads, when not the form's value) and
+  `ownsWholeValue`. `getFieldCodec(component)` returns it, and the
   stages below call it instead of branching on the field type. Two fields have one today:
   - **map** (`utils/map-field/map-field-codec.ts`) — rows (`[{ key, value }]`) in the form, a map
     in the API and in the schema's `defaultValue`; owns its whole value.

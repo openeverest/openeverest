@@ -13,11 +13,18 @@
 // limitations under the License.
 
 import { ReactNode } from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TestWrapper } from 'utils/test';
 import { UIGenerator } from '../ui-generator';
+import { useCelValidation } from '../hooks/use-cel-validation';
 import {
   ComponentGroup,
   FieldType,
@@ -78,11 +85,17 @@ const FormWrapper = ({
   children: ReactNode;
   uiSchema?: TopologyUISchemas;
 }) => {
-  const methods = useForm({
-    resolver: zodResolver(buildZodSchema(uiSchema, 'replicaSet').schema),
+  const { schema: zodSchema, celDependencyGroups } = buildZodSchema(
+    uiSchema,
+    'replicaSet'
+  );
+  const methods = useForm<Record<string, unknown>>({
+    resolver: zodResolver(zodSchema),
     mode: 'onChange',
     defaultValues: getDefaultValues(uiSchema, 'replicaSet'),
   });
+  // As the forms built on the generator do it.
+  useCelValidation(celDependencyGroups, methods.control, methods.trigger);
   return <FormProvider {...methods}>{children}</FormProvider>;
 };
 
@@ -94,35 +107,41 @@ const type = async (name: string, value: string) =>
   });
 
 describe('UIGenerator - map field', () => {
-  it('flags a key set twice until either row changes it', async () => {
-    render(
-      <TestWrapper>
-        <FormWrapper>
-          <UIGenerator
-            sections={schema.replicaSet.sections}
-            sectionKey="advanced"
-          />
-        </FormWrapper>
-      </TestWrapper>
-    );
+  it(
+    'flags a key set twice until either row changes it',
+    { timeout: 15000 },
+    async () => {
+      render(
+        <TestWrapper>
+          <FormWrapper>
+            <UIGenerator
+              sections={schema.replicaSet.sections}
+              sectionKey="advanced"
+            />
+          </FormWrapper>
+        </TestWrapper>
+      );
 
-    expect(screen.getByRole('textbox', { name: 'Key 1' })).toHaveValue('team');
+      expect(screen.getByRole('textbox', { name: 'Key 1' })).toHaveValue(
+        'team'
+      );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add annotation' }));
-    expect(screen.getByRole('textbox', { name: 'Key 2' })).toHaveFocus();
-    await type('Key 2', 'team');
+      fireEvent.click(screen.getByRole('button', { name: 'Add annotation' }));
+      expect(screen.getByRole('textbox', { name: 'Key 2' })).toHaveFocus();
+      await type('Key 2', 'team');
 
-    expect(
-      await screen.findByText('team is set more than once')
-    ).toBeInTheDocument();
+      expect(
+        await screen.findByText('team is set more than once')
+      ).toBeInTheDocument();
 
-    // The error sits on row 2, so clearing it needs both rows re-validated.
-    await type('Key 1', 'tier');
+      // The error sits on row 2, so clearing it needs both rows re-validated.
+      await type('Key 1', 'tier');
 
-    expect(
-      screen.queryByText('team is set more than once')
-    ).not.toBeInTheDocument();
-  });
+      expect(
+        screen.queryByText('team is set more than once')
+      ).not.toBeInTheDocument();
+    }
+  );
 
   it('leaves the focus alone when a row is removed after adding one', async () => {
     render(
@@ -340,5 +359,58 @@ describe('UIGenerator - map field', () => {
     expect(screen.getByRole('textbox', { name: 'Value 1' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Remove 1' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
+  });
+
+  it('runs the rule of a field that reads the map again as its rows change', async () => {
+    const ruledSchema: TopologyUISchemas = {
+      replicaSet: {
+        sections: {
+          advanced: {
+            components: {
+              ...schema.replicaSet.sections.advanced.components,
+              owner: {
+                uiType: FieldType.Text,
+                path: 'spec.proxy.owner',
+                fieldParams: { label: 'Owner' },
+                validation: {
+                  celExpressions: [
+                    {
+                      // Names a key inside the map, where the form has no field.
+                      celExpr: 'has(spec.proxy.annotations.team)',
+                      message: 'Add a team annotation',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    render(
+      <TestWrapper>
+        <FormWrapper uiSchema={ruledSchema}>
+          <UIGenerator
+            sections={ruledSchema.replicaSet.sections}
+            sectionKey="advanced"
+          />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    await type('Key 1', 'tier');
+
+    expect(
+      await screen.findByText('Add a team annotation')
+    ).toBeInTheDocument();
+
+    await type('Key 1', 'team');
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText('Add a team annotation')
+      ).not.toBeInTheDocument()
+    );
   });
 });

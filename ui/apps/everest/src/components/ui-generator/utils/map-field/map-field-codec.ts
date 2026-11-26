@@ -19,19 +19,25 @@ import type {
 } from '../field-codecs/field-codecs.types';
 import { isStringMap, objectToRows, rowsToObject } from './map-field';
 
+// A map with no filled row has no map to write. A value that isn't rows, like
+// a saved map a form loaded unconverted, is in the API shape already.
+const toMap = (formValue: unknown): unknown =>
+  formValue !== undefined && !Array.isArray(formValue)
+    ? formValue
+    : rowsToObject(formValue);
+
 // The form keeps a map as rows ({ key, value }); the API takes the map.
 const MAP_FIELD_CODEC: FieldCodec = {
   toForm: objectToRows,
-  // A map with no filled row writes nothing. A value that isn't rows, like a
-  // saved map a form loaded unconverted, is in the API shape already.
-  toApi: (formValue) =>
-    formValue !== undefined && !Array.isArray(formValue)
-      ? formValue
-      : rowsToObject(formValue),
+  toApi: toMap,
   // A default is written in the API shape. One that isn't a map of strings is
   // ignored rather than written back as text.
   defaultToForm: (defaultValue) =>
     isStringMap(defaultValue) ? objectToRows(defaultValue) : undefined,
+  // A rule reads the map the field writes, so it can be written against the
+  // API. With no entries that is an empty map, not a missing one: the API
+  // reads the two alike, and `in` and `size()` then need no guard of the map.
+  toCel: (formValue) => toMap(formValue) ?? {},
   ownsWholeValue: true,
 };
 

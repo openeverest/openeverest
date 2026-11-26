@@ -109,6 +109,11 @@ can't be above `max` in any form mode, or no map would pass: `provider-sdk gener
 on the map yet: the UI ignores them and `provider-sdk generate` rejects them (rule
 `map-ignored-option`).
 
+A CEL rule on **another** field can read the map: it sees `{ key: value }` at the map's `path`,
+and `{}` when the map has no entries (where the object holding it exists), e.g.
+`'team' in spec.labels`. See
+[Reading a Map Field](../validation.md#reading-a-map-field).
+
 On a row's field, `min` and `max` are still a text field's: `max: 63` there limits the length of a
 key or a value, not the number of entries.
 

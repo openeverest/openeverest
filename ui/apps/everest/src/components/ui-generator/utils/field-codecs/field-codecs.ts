@@ -12,13 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { Component, ComponentGroup } from '../../ui-generator.types';
+import type {
+  Component,
+  ComponentGroup,
+  Section,
+} from '../../ui-generator.types';
 import { getMapFieldCodec } from '../map-field';
-import { deleteByPath, getByPath, setByPath } from '../object-path';
+import {
+  deepClone,
+  deleteByPath,
+  getByPath,
+  isPlainObject,
+  setByPath,
+} from '../object-path';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
 import { getQuantityFieldCodec } from '../quantity';
 import { walkLeafComponents } from '../schema-walker';
-import type { FieldCodec, FieldCodecResolver } from './field-codecs.types';
+import type {
+  CelValueReader,
+  FieldCodec,
+  FieldCodecResolver,
+} from './field-codecs.types';
 
 // The one place that knows which fields convert. A new field type whose form
 // value differs from its API value adds its resolver here, and no stage
@@ -71,4 +85,66 @@ export const getWholeValuePaths = (
     }
   });
   return paths;
+};
+
+// One reader per path of a field that a CEL rule reads otherwise than the
+// form keeps it.
+export const getCelValueReaders = (
+  sections: Record<string, Section>
+): CelValueReader[] => {
+  const readers: CelValueReader[] = [];
+  Object.values(sections).forEach((section) => {
+    if (!section?.components) return;
+    walkLeafComponents(section.components, ({ component }) => {
+      const { toCel } = getFieldCodec(component) ?? {};
+      if (!toCel) return;
+      getComponentTargetPaths(component).forEach((path) =>
+        readers.push({ path, read: toCel })
+      );
+    });
+  });
+  return readers;
+};
+
+const holdsPath = (values: Record<string, unknown>, path: string): boolean => {
+  const parentPath = path.split('.').slice(0, -1).join('.');
+  return parentPath === '' || isPlainObject(getByPath(values, parentPath));
+};
+
+// The values a CEL rule evaluates: a copy of the form's values, or of the
+// saved ones, with each reader's path read through it.
+export const readValuesForCel = (
+  values: Record<string, unknown>,
+  readers: CelValueReader[]
+): Record<string, unknown> => {
+  if (readers.length === 0) return values;
+  const result = deepClone(values);
+  readers.forEach(({ path, read }) => {
+    // Reading adds no object around a value. A rule that asks whether one is
+    // there, like `has(spec.proxy)`, gets the same answer whether or not the
+    // schema has such a field inside it.
+    if (holdsPath(result, path)) {
+      setByPath(result, path, read(getByPath(result, path)));
+    }
+  });
+  return result;
+};
+
+// A rule names what it reads by API path, e.g. `spec.labels.team`, while the
+// form has one field for the whole value at `spec.labels`. The rule has to
+// run again when that field changes, so the dependency becomes the field.
+export const watchFieldsReadByCel = (
+  celDependencyGroups: string[][],
+  readers: CelValueReader[]
+): string[][] => {
+  if (readers.length === 0) return celDependencyGroups;
+  const toField = (dependency: string): string =>
+    readers.find(({ path }) => dependency.startsWith(`${path}.`))?.path ??
+    dependency;
+  return celDependencyGroups.map((group) => {
+    const fields = group.map(toField);
+    return fields.some((field, index) => field !== group[index])
+      ? Array.from(new Set(fields))
+      : group;
+  });
 };

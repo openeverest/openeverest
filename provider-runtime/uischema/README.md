@@ -88,7 +88,7 @@ They run on every map field `m` the UI renders (no [map rule](#map-rules) matche
 
 **Effect.** The UI renders the field and ignores the option (`map-ignored-option`), starts the field empty (`map-invalid-default`), or applies limits no map meets (`map-invalid-limits`).
 
-**Why.** None of these is supported yet: a row starts empty and writes only its key and value, takes no options from an API, is the same field in every form mode, and CEL can't read a map or a row. A default that isn't a map of strings would be written back as text. Limits that clash block every save.
+**Why.** None of these is supported yet: a row starts empty and writes only its key and value, takes no options from an API, is the same field in every form mode, and a rule set on a map or on a row has no value of its own to read yet (a rule on another field can read the map). A default that isn't a map of strings would be written back as text. Limits that clash block every save.
 
 ## Reserved key rule: `reserved-key`
 
