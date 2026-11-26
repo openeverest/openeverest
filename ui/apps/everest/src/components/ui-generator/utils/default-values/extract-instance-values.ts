@@ -15,14 +15,12 @@
 import {
   Component,
   ComponentGroup,
-  FieldType,
   FormMode,
   Section,
-  isMapComponent,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
-import { objectToRows } from '../map-field';
+import { getFieldCodec } from '../field-codecs';
 import { stripBadgeFromValue } from '../badge-to-api/badge-to-api';
 import { generateFieldId } from '../component-renderer/generate-field-id';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
@@ -34,7 +32,6 @@ import {
 } from '../toggleable/toggleable';
 import { getWidgetTargets } from '../widget-targets';
 import { getSchemaDefault } from './get-schema-default';
-import { readQuantity } from '../quantity';
 
 /*
  Walks schema components across all sections and extracts current values
@@ -90,21 +87,15 @@ const extractFlat = (
     if (sourcePath) {
       const instanceValue = getByPath(instance, sourcePath);
       if (instanceValue !== undefined) {
-        if (isMapComponent(component)) {
-          result[fieldId] = objectToRows(instanceValue);
-        } else if (component.uiType === FieldType.Quantity) {
-          result[fieldId] = readQuantity(
-            instanceValue,
-            component.fieldParams.unit
-          );
-        } else {
-          result[fieldId] = stripBadgeFromValue(
-            instanceValue,
-            component.fieldParams?.badgeToApi
-              ? component.fieldParams.badge
-              : undefined
-          );
-        }
+        const codec = getFieldCodec(component);
+        result[fieldId] = codec
+          ? codec.toForm(instanceValue)
+          : stripBadgeFromValue(
+              instanceValue,
+              component.fieldParams?.badgeToApi
+                ? component.fieldParams.badge
+                : undefined
+            );
         continue;
       }
     }
