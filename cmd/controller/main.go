@@ -31,6 +31,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -46,6 +47,7 @@ import (
 	"github.com/openeverest/openeverest/v2/internal/controller/lifecycleevents"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
 	"github.com/openeverest/openeverest/v2/internal/controller/secretusage"
+	inventorymetrics "github.com/openeverest/openeverest/v2/internal/inventory/metrics"
 	webhookbackupv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/events"
 )
@@ -301,6 +303,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := ctrlmetrics.Registry.Register(newInventoryCollector(mgr)); err != nil {
+		setupLog.Error(err, "Failed to register the inventory metrics")
+		os.Exit(1)
+	}
+
 	enableWebhooks := os.Getenv("ENABLE_WEBHOOKS") != "false"
 	if enableWebhooks {
 		if err := webhookbackupv1alpha1.SetupBackupWebhookWithManager(mgr); err != nil {
@@ -340,6 +347,19 @@ func main() {
 		setupLog.Error(err, "Failed to run manager")
 		os.Exit(1)
 	}
+}
+
+func newInventoryCollector(mgr ctrl.Manager) *inventorymetrics.Collector {
+	elected := mgr.Elected()
+	isLeader := func() bool {
+		select {
+		case <-elected:
+			return true
+		default:
+			return false
+		}
+	}
+	return inventorymetrics.NewCollector(mgr.GetCache(), isLeader, ctrl.Log.WithName("inventory-metrics"))
 }
 
 func setupLifecycleEvents(mgr ctrl.Manager) error {
