@@ -129,10 +129,12 @@ func ValidateBackupStorageMode(b *backupv1alpha1.Backup, bc *backupv1alpha1.Back
 	switch {
 	case bc.Spec.RequiresStorage() && !named:
 		return fmt.Errorf("%w: BackupClass %q writes to a BackupStorage, so spec.storageRef is required",
-			ErrBackupStorageModeMismatch, bc.Name)
+			ErrBackupStorageModeMismatch, bc.Name,
+		)
 	case !bc.Spec.RequiresStorage() && named:
 		return fmt.Errorf("%w: BackupClass %q has storageMode None and writes to no BackupStorage, so spec.storageRef must be empty",
-			ErrBackupStorageModeMismatch, bc.Name)
+			ErrBackupStorageModeMismatch, bc.Name,
+		)
 	}
 	return nil
 }

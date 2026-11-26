@@ -338,12 +338,13 @@ func TestRun_WithoutStorage(t *testing.T) {
 	defer srv.Close()
 
 	cr := NewCreateRunner(Config{Pretty: true}, zap.NewNop().Sugar())
-	err := cr.Run(context.Background(), CreateOptions{
+	opts := CreateOptions{
 		Instance:  "my-docdb",
 		Namespace: "everest",
 		Class:     "docdb-snapshot",
 		Cluster:   "main",
-	}, newConfigPath(t, srv.URL))
+	}
+	err := cr.Run(context.Background(), opts, newConfigPath(t, srv.URL))
 
 	require.NoError(t, err)
 	assert.NotContains(t, raw["spec"], "storageRef", "a class with storageMode None takes no storage")
