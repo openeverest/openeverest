@@ -187,7 +187,7 @@ build-debug: build-server-helper	## Build Everest API server binary with debug s
 # telemetry unless TELEMETRY_URL is set at runtime. Builds that use `make rc`
 # for testing, such as feature builds, run `TELEMETRY_URL= BUILD_CHANNEL=feature make rc`
 # to have none, and to report their own channel if one is set at runtime.
-TELEMETRY_URL ?= https://telemetry.openeverest.io/v2/heartbeat
+TELEMETRY_URL ?= https://telemetry.openeverest.tech/v2/heartbeat
 TELEMETRY_LD_FLAGS = -X 'github.com/openeverest/openeverest/v2/cmd/config.TelemetryURL=$(TELEMETRY_URL)' \
 	-X 'github.com/openeverest/openeverest/v2/cmd/config.BuildChannel=$(BUILD_CHANNEL)'
 
