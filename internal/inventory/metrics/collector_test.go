@@ -147,7 +147,8 @@ func TestCollector(t *testing.T) {
 				},
 			},
 			Status: corev1alpha1.InstanceStatus{
-				Phase: corev1alpha1.InstancePhaseProvisioned,
+				Phase:   corev1alpha1.InstancePhaseProvisioned,
+				Version: "8.0.12",
 				Conditions: []metav1.Condition{
 					condition(corev1alpha1.ConditionReady, "True"),
 					condition(corev1alpha1.ConditionStalled, "False"),
@@ -218,7 +219,7 @@ func TestCollector(t *testing.T) {
 		`openeverest_backup_storage_info{class="s3",name="store",namespace="team-a"}`:                                  1,
 		`openeverest_monitoring_destination_info{class="prometheus",name="dest",namespace="team-a"}`:                   1,
 		`openeverest_monitoring_destination_ready{name="dest",namespace="team-a",status="false"}`:                      1,
-		`openeverest_instance_info{` + inst + `,provider="percona-server-mongodb",version="8.0"}`:                      1,
+		`openeverest_instance_info{` + inst + `,provider="percona-server-mongodb",version="8.0.12"}`:                   1,
 		`openeverest_instance_phase{` + inst + `,phase="Provisioned"}`:                                                 1,
 		`openeverest_instance_phase{` + inst + `,phase="Pending"}`:                                                     0,
 		`openeverest_instance_condition{condition="Ready",` + inst + `,status="true"}`:                                 1,

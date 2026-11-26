@@ -64,7 +64,7 @@ var (
 		"namespace", "name", "status")
 
 	instanceInfo = newDesc("instance_info",
-		"An Instance. Always 1.",
+		"An Instance. version is the version it runs, or the one its spec asks for until the provider reports. Always 1.",
 		"namespace", "instance", "provider", "version")
 	instancePhase = newDesc("instance_phase",
 		"Lifecycle phase of an Instance: 1 for the current phase, 0 for the others. "+

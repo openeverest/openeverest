@@ -169,7 +169,7 @@ func emitInstances(e *emitter, instances []corev1alpha1.Instance) {
 	for i := range instances {
 		inst := &instances[i]
 		ns, name := inst.Namespace, inst.Name
-		e.gauge(instanceInfo, 1, ns, name, inst.Spec.ProviderRef.Name, inst.Spec.Version)
+		e.gauge(instanceInfo, 1, ns, name, inst.Spec.ProviderRef.Name, instanceVersion(inst))
 		e.oneHot(instancePhase, string(inst.Status.Phase), instancePhases, ns, name)
 		for _, cond := range inst.Status.Conditions {
 			if instanceConditions[cond.Type] {
@@ -180,6 +180,17 @@ func emitInstances(e *emitter, instances []corev1alpha1.Instance) {
 		emitInstanceResources(e, inst)
 		emitPITR(e, inst)
 	}
+}
+
+// instanceVersion is the version the Instance runs, as the provider reports
+// it, or the one its spec asks for before the provider has reported. An
+// Instance that leaves spec.version to the provider's default has only the
+// former.
+func instanceVersion(inst *corev1alpha1.Instance) string {
+	if inst.Status.Version != "" {
+		return inst.Status.Version
+	}
+	return inst.Spec.Version
 }
 
 func emitComponentReplicas(e *emitter, inst *corev1alpha1.Instance) {
