@@ -65,7 +65,7 @@ func gather(t *testing.T, c prometheus.Collector) map[string]float64 {
 	require.NoError(t, reg.Register(c))
 	families, err := reg.Gather()
 	require.NoError(t, err)
-	out := map[string]float64{}
+	out := make(map[string]float64)
 	for _, f := range families {
 		for _, m := range f.GetMetric() {
 			labels := make([]string, 0, len(m.GetLabel()))
@@ -257,7 +257,8 @@ func TestCollector(t *testing.T) {
 		}
 	}
 	assert.NotContains(t, got, db1("openeverest_instance_resource_limits", "component", "engine", "resource", "memory"),
-		"a resource the spec doesn't set is not exported")
+		"a resource the spec doesn't set is not exported",
+	)
 	for s := range got {
 		assert.NotContains(t, s, `condition="Synced"`, "only summary conditions are exported")
 	}
@@ -304,6 +305,8 @@ func TestCollectorSurvivesRepeatedConditions(t *testing.T) {
 
 	got := gather(t, NewCollector(reader, leader, logr.Discard()))
 
-	assert.InDelta(t, 1, got[series("openeverest_instance_condition",
-		labelNamespace, "team-a", labelInstance, "db1", "condition", "Ready", "status", "true")], 0)
+	ready := series("openeverest_instance_condition",
+		labelNamespace, "team-a", labelInstance, "db1", "condition", "Ready", "status", "true",
+	)
+	assert.InDelta(t, 1, got[ready], 0)
 }

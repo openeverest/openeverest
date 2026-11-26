@@ -239,8 +239,8 @@ type backupKey struct{ namespace, instance, storage, state string }
 type storageKey struct{ namespace, instance, storage string }
 
 func emitBackups(e *emitter, backups []backupv1alpha1.Backup) {
-	counts := map[backupKey]int{}
-	lastSuccess := map[storageKey]time.Time{}
+	counts := make(map[backupKey]int)
+	lastSuccess := make(map[storageKey]time.Time)
 	for i := range backups {
 		b := &backups[i]
 		instance := ""
@@ -272,7 +272,7 @@ func emitBackups(e *emitter, backups []backupv1alpha1.Backup) {
 type restoreKey struct{ namespace, instance, state string }
 
 func emitRestores(e *emitter, restores []backupv1alpha1.Restore) {
-	counts := map[restoreKey]int{}
+	counts := make(map[restoreKey]int)
 	for i := range restores {
 		r := &restores[i]
 		counts[restoreKey{r.Namespace, r.Spec.InstanceRef.Name, stateOrUnknown(string(r.Status.State))}]++
@@ -300,7 +300,7 @@ type emitter struct {
 }
 
 func newEmitter(ch chan<- prometheus.Metric) *emitter {
-	return &emitter{ch: ch, seen: map[string]struct{}{}}
+	return &emitter{ch: ch, seen: make(map[string]struct{})}
 }
 
 func (e *emitter) gauge(desc *prometheus.Desc, value float64, labels ...string) {

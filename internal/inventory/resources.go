@@ -47,8 +47,8 @@ func InstanceResources(inst *corev1alpha1.Instance) []ComponentResources {
 		}
 		r := ComponentResources{
 			Component: name,
-			Requests:  map[corev1.ResourceName]float64{},
-			Limits:    map[corev1.ResourceName]float64{},
+			Requests:  make(map[corev1.ResourceName]float64),
+			Limits:    make(map[corev1.ResourceName]float64),
 		}
 		if c.Resources != nil {
 			for _, res := range []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory} {
