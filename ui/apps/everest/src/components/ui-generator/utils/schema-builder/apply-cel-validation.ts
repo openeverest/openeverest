@@ -14,7 +14,7 @@
 
 import { z } from 'zod';
 import type { ToggleableMeta } from 'components/ui-generator/ui-generator.types';
-import { validateCelExpression } from './cel-validation';
+import { validateCelExpression, warnRuleNotEvaluable } from './cel-validation';
 import {
   deepClone,
   deleteByPathAndEmptyParents,
@@ -68,6 +68,13 @@ export const applyCelValidation = (
         );
 
         if (!validationResult.isValid) {
+          if (validationResult.evaluationError) {
+            warnRuleNotEvaluable(
+              path.join('.'),
+              celExpr.celExpr,
+              validationResult.evaluationError
+            );
+          }
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: validationResult.message || 'Validation failed',

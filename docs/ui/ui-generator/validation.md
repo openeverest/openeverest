@@ -121,6 +121,29 @@ In this example, the `self` keyword refers to the current field's value. The val
 
 More CEL examples can be found in the documentation for a specific field in the **examples => CEL section**
 
+### When a rule can't be evaluated
+
+A rule that throws instead of returning `true` or `false` also blocks the form: a syntax error, a read of a key the Instance doesn't set, a comparison of a string with a number. The rule is at fault there, not what the user entered, so the field shows "The provider's validation rule for this field couldn't be evaluated." instead of the rule's `message`. The browser console gets a `[UISchema]` warning with the expression, the field's path and the CEL error, once per rule.
+
+Guard a path that may be absent with `has()`:
+
+```yaml
+celExpressions:
+  - celExpr: "!has(spec.proxy.replicas) || spec.replicas >= spec.proxy.replicas"
+    message: "Nodes cannot be fewer than proxies"
+```
+
+### Errors on a field outside the section edit dialog
+
+On the Instance overview each section is edited in its own dialog, and the rules of every section still run there. When a rule on a field of another section fails, the dialog lists it at the top with the section, the field label and the message, and Save stays disabled until the rule passes:
+
+```
+Save is disabled because of fields outside this dialog:
+Resources › Number of nodes: Nodes cannot be fewer than proxies
+```
+
+Errors show as soon as the dialog opens, including a required field the Instance has no value for.
+
 ## Mode-Aware Validation
 
 By default, validation rules apply in **all modes** (create, edit, restore, import). When you need different rules per mode — for example, preventing disk descaling only during edit — use the **mode-aware validation** format.

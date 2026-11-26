@@ -218,7 +218,7 @@ flowchart TD
   VALUES --> ORIGINAL["originalDataForCel =<br/>stripBadges(deepMerge(instance, defaultValues))"]
   ORIGINAL --> ZOD_EDIT["buildSectionZodSchema(…, { originalData })"]
   MODE --> ZOD_EDIT
-  ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
+  ZOD_EDIT --> FORM["FormDialog + OutsideFieldErrors + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
   SUBMIT --> MERGE["mergeSectionEdit:<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)"]
@@ -228,6 +228,17 @@ flowchart TD
 The edit modal reuses the same `UIGenerator` but validates only the target section via
 `buildSectionZodSchema`; other fields pass through `.passthrough()`, while CEL dependencies are
 collected from all sections.
+
+So a rule on a field the dialog doesn't render can keep Save disabled. `OutsideFieldErrors` lists
+those errors at the top of the dialog with the section, the field label and the rule's message. It
+also runs validation once when the dialog opens: the form is invalid from the start but records no
+error until a field changes, so a field that is already invalid (a required one with no stored
+value) would otherwise show nothing.
+
+A rule that throws instead of returning a verdict (bad syntax, an absent key, mismatched types)
+still blocks Save, but `validateCelExpression` reports it apart from a rule that returned `false`:
+the field shows that the provider's rule couldn't be evaluated rather than the rule's `message`,
+and `warnRuleNotEvaluable` logs the expression, the field path and the CEL error once per rule.
 
 CEL's `original` is built from the same read as the form (`extractInstanceValues`), so a
 `quantity` disk rule like `size >= original.size` compares numbers (`10 >= 10`), not
@@ -374,4 +385,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-20
+- Last updated: 2026-11-26

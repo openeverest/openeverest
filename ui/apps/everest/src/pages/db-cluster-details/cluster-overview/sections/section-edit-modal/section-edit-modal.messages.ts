@@ -12,7 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type { OutsideFieldError } from './outside-field-errors/outside-field-errors.types';
+
 export const Messages = {
   onSuccess: 'Section updated successfully',
   submitMessage: 'Save',
+  outsideErrorsTitle: 'Save is disabled because of fields outside this dialog:',
+  outsideError: ({
+    fieldId,
+    sectionLabel,
+    fieldLabel,
+    message,
+  }: OutsideFieldError) =>
+    sectionLabel
+      ? `${sectionLabel} › ${fieldLabel ?? fieldId}: ${message}`
+      : `${fieldId}: ${message}`,
 };

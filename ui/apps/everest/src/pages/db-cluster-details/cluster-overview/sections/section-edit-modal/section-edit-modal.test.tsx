@@ -27,6 +27,7 @@ import type { Instance, Provider } from 'shared-types/api.types';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import { Messages } from 'components/ui-generator/api-providers/data-source-field/data-source-field.messages';
 import { Messages as ProvidersMessages } from 'components/ui-generator/api-providers/providers.messages';
+import { Messages as CelMessages } from 'components/ui-generator/utils/schema-builder/cel-validation/cel-validation.messages';
 import SectionEditModal from './section-edit-modal';
 
 const { mutate, storageClasses } = vi.hoisted(() => {
@@ -237,7 +238,9 @@ describe('SectionEditModal CEL validation', () => {
     await waitFor(() => {
       expect(saveButton).toBeEnabled();
     });
-    expect(screen.queryByText(/CEL expression error/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(CelMessages.ruleNotEvaluable)
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText('Disk size cannot be decreased')
     ).not.toBeInTheDocument();

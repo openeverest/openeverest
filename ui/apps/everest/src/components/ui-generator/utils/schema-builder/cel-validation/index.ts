@@ -3,3 +3,4 @@ export {
   validateCelExpression,
   type CelValidationResult,
 } from './validate-expression';
+export { warnRuleNotEvaluable } from './warn-rule-not-evaluable';

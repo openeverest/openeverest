@@ -36,6 +36,7 @@ import type { Instance } from 'shared-types/api.types';
 import { widgetRegistry } from 'pages/database-form/widget-registry';
 import type { SectionEditModalProps } from './section-edit-modal.types';
 import { applyRuntimeOverrides } from './section-edit-modal.utils';
+import { OutsideFieldErrors } from './outside-field-errors/outside-field-errors';
 import { Messages } from './section-edit-modal.messages';
 
 const SectionEditModal = ({
@@ -132,6 +133,7 @@ const SectionEditModal = ({
       size="XL"
       submitting={submitting}
     >
+      <OutsideFieldErrors sectionKey={sectionKey} sections={editSections} />
       <UIGenerator
         sectionKey={sectionKey}
         sections={editSections}
