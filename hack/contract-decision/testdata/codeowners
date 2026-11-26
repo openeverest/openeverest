@@ -1,0 +1,11 @@
+*	@openeverest/maintainers
+
+# BEGIN contract-adjacent
+# The contract.
+/contract/                         @openeverest/maintainers
+/api/                              @openeverest/maintainers
+
+/internal/server/middlewares.go    @openeverest/maintainers
+# END contract-adjacent
+
+/docs/                             @openeverest/docs

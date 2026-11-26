@@ -1,0 +1,3 @@
+changes 146
+#1234: provider webhooks must declare sideEffects None or NoneOnDryRun.
+#1240: the API server reads the connection details Secret by its new name.

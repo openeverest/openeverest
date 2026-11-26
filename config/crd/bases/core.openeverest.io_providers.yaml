@@ -4,6 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
+    openeverest.io/contract-version: 2.0.0-alpha.1.next
+    openeverest.io/min-contract-version: 2.0.0-alpha.1
+    openeverest.io/upgradable-from: ""
   name: providers.core.openeverest.io
 spec:
   group: core.openeverest.io
@@ -424,6 +427,22 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              contractVersion:
+                description: |-
+                  ContractVersion is the contract version of the provider build that
+                  last started: the OpenEverest release that build was made against.
+                  The provider's runtime writes it from the version it links, once it
+                  is allowed to start. It is metadata for the compatibility checks,
+                  not something to set by hand.
+
+                  It states what actually runs, which the openeverest.io/contract-version
+                  annotation, written by the chart, cannot do when an image is
+                  overridden. It also tells a restart from a new rollout: a build with
+                  this version starts without a check, so a pod restart or a node drain
+                  never stops a provider that already runs, while a build with another
+                  version waits, unready, until the installed OpenEverest supports it.
+                maxLength: 256
+                type: string
             type: object
         required:
         - spec

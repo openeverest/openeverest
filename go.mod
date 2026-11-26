@@ -30,7 +30,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oapi-codegen/echo-middleware v1.1.0
 	github.com/oapi-codegen/runtime v1.9.0
-	github.com/openeverest/helm-charts/charts/everest v0.0.0-20261119142706-a09993df5e88
+	github.com/openeverest/helm-charts/charts/everest v0.0.0-20261125185428-b697f706679d
 	github.com/operator-framework/api v0.46.0
 	github.com/percona/everest-operator v0.6.0-dev1.0.20260429065444-70caa52c384a
 	github.com/rodaine/table v1.4.1
@@ -40,6 +40,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.59.0
+	golang.org/x/mod v0.42.0
 	golang.org/x/term v0.48.0
 	golang.org/x/time v0.16.0
 	golang.org/x/tools v0.52.0
@@ -433,7 +434,6 @@ require (
 	golang.org/x/build v0.0.0-20240906172953-ad8de1aafeaf // indirect
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20260811152304-ee035b5b010f // indirect
-	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect

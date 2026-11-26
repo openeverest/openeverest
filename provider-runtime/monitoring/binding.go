@@ -12,20 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package monitoring holds the plumbing shared by everything that touches
-// the monitoring kinds: the core controllers, provider-runtime (the
-// ProviderManaged executor) and out-of-tree class controllers (the
-// ExtensionManaged executor). It has no engine operator dependencies.
+// Package monitoring holds the plumbing the controllers that act on the
+// monitoring kinds use: provider-runtime (the ProviderManaged executor) and
+// out-of-tree class controllers (the ExtensionManaged executor). It has no
+// engine operator dependencies. The rules these controllers share with core,
+// such as the names of bindings and the field managers of their status, are
+// in contract/monitoring.
 package monitoring
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"maps"
 	"slices"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,51 +36,6 @@ import (
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 )
-
-// Field managers of the status fields core writes. Every writer applies
-// under its own field manager so no writer erases another's fields.
-const (
-	// MaterializerFieldOwner owns MonitoringBinding.spec and the Accepted
-	// condition on bindings and destinations.
-	MaterializerFieldOwner = "openeverest.io/binding-materializer"
-	// ReadinessFieldOwner owns the Ready condition on bindings.
-	ReadinessFieldOwner = "openeverest.io/binding-readiness"
-	// CompatibilityFieldOwner owns MonitoringClass.status.providers.
-	CompatibilityFieldOwner = "openeverest.io/monitoring-compatibility"
-)
-
-const (
-	bindingNameMaxLength = 63
-	bindingNameHashChars = 8
-)
-
-// BindingName returns the deterministic MonitoringBinding name for an
-// Instance entry: <instance>-<entry>-<first 8 hex chars of
-// sha256("<instance>/<entry>")>. The prefix is truncated so the name fits in
-// 63 characters.
-func BindingName(instance, entry string) string {
-	sum := sha256.Sum256([]byte(instance + "/" + entry))
-	suffix := hex.EncodeToString(sum[:])[:bindingNameHashChars]
-	base := instance + "-" + entry
-	if maxBase := bindingNameMaxLength - 1 - bindingNameHashChars; len(base) > maxBase {
-		base = strings.TrimRight(base[:maxBase], "-.")
-	}
-	return base + "-" + suffix
-}
-
-// BindingLabels returns the labels core stamps on a binding. The class label
-// is omitted while the class is not resolved yet.
-func BindingLabels(instance, entry, destination, class string) map[string]string {
-	l := map[string]string{
-		monitoringv1alpha1.BindingInstanceLabel:    instance,
-		monitoringv1alpha1.BindingEntryLabel:       entry,
-		monitoringv1alpha1.BindingDestinationLabel: destination,
-	}
-	if class != "" {
-		l[monitoringv1alpha1.BindingClassLabel] = class
-	}
-	return l
-}
 
 // ListBindingsForInstance lists the bindings controlled by the Instance.
 // Bindings of a deleted Instance with the same name, still awaiting garbage
@@ -161,19 +115,4 @@ func NewCondition(obj client.Object, condType string, status metav1.ConditionSta
 		Message:            message,
 		LastTransitionTime: metav1.Now(),
 	}
-}
-
-// IsAccepted reports whether the binding's Accepted condition is True for
-// the binding's current generation.
-func IsAccepted(b *monitoringv1alpha1.MonitoringBinding) bool {
-	cond := meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionAccepted)
-	return cond != nil && cond.Status == metav1.ConditionTrue && cond.ObservedGeneration == b.Generation
-}
-
-// ClassIsAccepted reports whether a class has been claimed by its controller
-// at its current generation. An Accepted condition observed at another
-// generation is stale and counts as not accepted.
-func ClassIsAccepted(class *monitoringv1alpha1.MonitoringClass) bool {
-	cond := meta.FindStatusCondition(class.Status.Conditions, monitoringv1alpha1.MonitoringClassConditionAccepted)
-	return cond != nil && cond.Status == metav1.ConditionTrue && cond.ObservedGeneration == class.Generation
 }

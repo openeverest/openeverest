@@ -104,6 +104,9 @@ func TestServerReadinessGatedOnManager(t *testing.T) {
 	r, err := New(ctx, &readinessTestProvider{},
 		WithServer(server.ServerConfig{Port: port}),
 		WithMetrics("0"),
+		// The gate would hold the build, as the API server is unreachable,
+		// and keep the manager this test is about from starting.
+		withStartupGate(startupGateOptions{skip: true}),
 	)
 	require.NoError(t, err)
 
