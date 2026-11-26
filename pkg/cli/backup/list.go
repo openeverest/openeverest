@@ -149,7 +149,7 @@ func backupInstance(b *client.Backup) string {
 }
 
 func backupStorage(b *client.Backup) string {
-	if b.Spec.StorageRef.Name == "" {
+	if b.Spec.StorageRef == nil || b.Spec.StorageRef.Name == "" {
 		return "-"
 	}
 	return b.Spec.StorageRef.Name

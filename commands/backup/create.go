@@ -81,7 +81,7 @@ func init() {
 	createCmd.Flags().StringVar(&createOpts.Instance, cli.FlagBackupInstance, "", "Instance to back up (required)")
 	createCmd.Flags().StringVarP(&createOpts.Namespace, cli.FlagBackupNamespace, "n", "", "Namespace the instance is located in (required)")
 	createCmd.Flags().StringVar(&createOpts.Class, cli.FlagBackupClass, "", "BackupClass to execute the backup with (required)")
-	createCmd.Flags().StringVar(&createOpts.Storage, cli.FlagBackupStorage, "", "BackupStorage to write the backup to (required)")
+	createCmd.Flags().StringVar(&createOpts.Storage, cli.FlagBackupStorage, "", "BackupStorage to write the backup to (required unless the BackupClass has storageMode None)")
 	createCmd.Flags().StringVar(&createOpts.Name, cli.FlagBackupName, "", "Backup name (default: generated from instance name)")
 	createCmd.Flags().StringVar(&createOpts.DeletionPolicy, cli.FlagBackupDeletionPolicy, "", "Delete or Retain the underlying backup data when the Backup CR is deleted (default: Delete)")
 	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagBackupCluster, "main", "Cluster name")
@@ -92,7 +92,6 @@ func init() {
 	_ = createCmd.MarkFlagRequired(cli.FlagBackupInstance)
 	_ = createCmd.MarkFlagRequired(cli.FlagBackupNamespace)
 	_ = createCmd.MarkFlagRequired(cli.FlagBackupClass)
-	_ = createCmd.MarkFlagRequired(cli.FlagBackupStorage)
 }
 
 func createPreRun(cmd *cobra.Command, _ []string) {

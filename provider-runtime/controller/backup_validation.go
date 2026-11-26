@@ -34,6 +34,16 @@ const LimitsExceededReason = "LimitsExceeded"
 // Instance does not conform to the schema declared by its BackupClass.
 const PITRConfigInvalidReason = "PITRConfigInvalid"
 
+// StorageModeMismatchReason is the reason string used on BackupConfigError
+// and the BackupConfigured condition when an Instance's backup configuration
+// does not fit the storageMode of its BackupClass.
+const StorageModeMismatchReason = "StorageModeMismatch"
+
+// ErrBackupStorageModeMismatch is the sentinel returned by
+// ValidateInstanceBackupStorageMode when an Instance's backup configuration
+// does not fit the storageMode of its BackupClass.
+var ErrBackupStorageModeMismatch = errors.New("backup configuration does not fit the backup class's storage mode")
+
 // ErrBackupClassLimitsExceeded is the sentinel returned by
 // ValidateInstanceBackupAgainstClass when an Instance violates the limits
 // declared by its BackupClass.
@@ -58,6 +68,19 @@ var ErrPITRConfigInvalid = errors.New("PITR config invalid")
 func ValidateInstanceBackupAgainstClass(in *corev1alpha1.Instance, bc *backupv1alpha1.BackupClass) error {
 	if errs := backupclass.LimitErrors(in, bc); len(errs) > 0 {
 		return fmt.Errorf("%w: %w", ErrBackupClassLimitsExceeded, errs.ToAggregate())
+	}
+	return nil
+}
+
+// ValidateInstanceBackupStorageMode checks an Instance's backup configuration
+// against the storageMode of its BackupClass: a class whose storageMode is
+// None takes no .spec.backup.storages, and one whose storageMode is Required
+// takes no .spec.backup.schedules. It is a no-op, returning nil, when the
+// Instance has no backup config, no class is selected, or the class is not
+// ProviderManaged.
+func ValidateInstanceBackupStorageMode(in *corev1alpha1.Instance, bc *backupv1alpha1.BackupClass) error {
+	if errs := backupclass.StorageModeErrors(in, bc); len(errs) > 0 {
+		return fmt.Errorf("%w: %w", ErrBackupStorageModeMismatch, errs.ToAggregate())
 	}
 	return nil
 }

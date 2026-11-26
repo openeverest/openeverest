@@ -31,6 +31,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
@@ -178,19 +179,29 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	// A Backup that has not started waits for its storage; the watches
 	// enqueue it once the storage and its credentials exist.
+	// A Backup of a class without storage has none to wait for. Admission
+	// rejects one whose storageRef does not fit its class, but a Backup
+	// created while its class was missing was not checked.
 	if backup.Status.State == "" || backup.Status.State == backupv1alpha1.BackupStatePending {
-		missing, err := missingBackupStorage(ctx, r.client, backup.Namespace, backup.Spec.StorageRef.Name)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		if missing.reason != "" {
-			backup.Status.State = backupv1alpha1.BackupStatePending
-			backup.Status.Message = missing.message
+		if err := referents.ValidateBackupStorageMode(backup, bc); err != nil {
+			backup.Status.State = backupv1alpha1.BackupStateFailed
+			backup.Status.Message = err.Error()
 			return reconcile.Result{}, r.updateStatus(ctx, backup, bc)
+		}
+		if backup.Spec.StorageRef.Name != "" {
+			missing, err := missingBackupStorage(ctx, r.client, backup.Namespace, backup.Spec.StorageRef.Name)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			if missing.reason != "" {
+				backup.Status.State = backupv1alpha1.BackupStatePending
+				backup.Status.Message = missing.message
+				return reconcile.Result{}, r.updateStatus(ctx, backup, bc)
+			}
 		}
 	}
 
-	if backup.Status.Path == "" {
+	if backup.Status.Path == "" && backup.Spec.StorageRef.Name != "" {
 		backup.Status.Path, err = instanceBackupPath(ctx, r.client, instance, backup.Spec.StorageRef.Name, inCtx.BackupPathStyle())
 		if err != nil {
 			return reconcile.Result{}, err

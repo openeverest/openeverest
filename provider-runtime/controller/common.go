@@ -1335,7 +1335,8 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 
 	// 3. Target Instance must register the same BackupStorage as the source so
 	// the provider can read the data. Only enforceable when the source pins a
-	// single storage; a point-in-time source named by Instance alone does not.
+	// single storage; a point-in-time source named by Instance alone does not,
+	// and a Backup of a class whose storageMode is None names none.
 	if origin.storageName != "" &&
 		(c.in.Spec.Backup == nil || !hasInstanceStorage(c.in.Spec.Backup, origin.storageName)) {
 		s := DataSourceStatus{

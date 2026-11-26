@@ -496,6 +496,7 @@ func (p *pass) withdrawBackupVerdict() {
 		v1alpha1.ReasonBackupClassPending,
 		controller.LimitsExceededReason,
 		controller.PITRConfigInvalidReason,
+		controller.StorageModeMismatchReason,
 	}
 	if slices.Contains(issued, c.Reason) {
 		meta.RemoveStatusCondition(&p.in.Status.Conditions, v1alpha1.ConditionBackupConfigured)

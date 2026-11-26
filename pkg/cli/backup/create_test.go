@@ -96,6 +96,7 @@ func TestRun_HappyPath_GeneratesName(t *testing.T) {
 	assert.Equal(t, "my-mongo-", gotBody.Metadata.GenerateName)
 	assert.Empty(t, gotBody.Metadata.Name)
 	assert.Equal(t, "psmdb-backup", gotBody.Spec.ClassRef.Name)
+	require.NotNil(t, gotBody.Spec.StorageRef)
 	assert.Equal(t, "my-s3", gotBody.Spec.StorageRef.Name)
 	assert.Equal(t, client.BackupSpecOriginTypeInstance, gotBody.Spec.Origin.Type)
 	require.NotNil(t, gotBody.Spec.Origin.InstanceRef)
@@ -320,4 +321,30 @@ func TestRun_Wait_TimesOut(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "timed out")
+}
+
+func TestRun_WithoutStorage(t *testing.T) {
+	t.Parallel()
+
+	var raw map[string]map[string]any
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups", func(w http.ResponseWriter, r *http.Request) {
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&raw))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(backupWithState(t, "my-docdb-abcde", ""))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	cr := NewCreateRunner(Config{Pretty: true}, zap.NewNop().Sugar())
+	err := cr.Run(context.Background(), CreateOptions{
+		Instance:  "my-docdb",
+		Namespace: "everest",
+		Class:     "docdb-snapshot",
+		Cluster:   "main",
+	}, newConfigPath(t, srv.URL))
+
+	require.NoError(t, err)
+	assert.NotContains(t, raw["spec"], "storageRef", "a class with storageMode None takes no storage")
 }

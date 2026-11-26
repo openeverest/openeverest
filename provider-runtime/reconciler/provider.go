@@ -640,6 +640,8 @@ func (r *ProviderReconciler) checkSpec(ctx context.Context, p *pass, inCtx *cont
 			reason = controller.PITRConfigInvalidReason
 		case errors.Is(err, controller.ErrBackupClassLimitsExceeded):
 			reason = controller.LimitsExceededReason
+		case errors.Is(err, controller.ErrBackupStorageModeMismatch):
+			reason = controller.StorageModeMismatchReason
 		default:
 			return false, err
 		}
@@ -1302,14 +1304,18 @@ func fetchBackupClassForInstance(ctx context.Context, c client.Client, in *v1alp
 
 // validateInstanceBackupConfig enforces the generic backup configuration
 // rules declared on a ProviderManaged BackupClass against an Instance's
-// .spec.backup: the numeric limits (maxStorages, maxPITREnabledStorages,
+// .spec.backup: the storage mode, the numeric limits (maxStorages, maxPITREnabledStorages,
 // maxSchedulesPerStorage) and the per-storage PITR config schema. It is a
 // no-op when no class is referenced or when the class is Job-mode. Returns
-// the sentinels controller.ErrBackupClassLimitsExceeded and
-// controller.ErrPITRConfigInvalid that providers see via the helpers.
+// the sentinels controller.ErrBackupStorageModeMismatch,
+// controller.ErrBackupClassLimitsExceeded and controller.ErrPITRConfigInvalid
+// that providers see via the helpers.
 func validateInstanceBackupConfig(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
 	bc, err := fetchBackupClassForInstance(ctx, c, in)
 	if err != nil {
+		return err
+	}
+	if err := controller.ValidateInstanceBackupStorageMode(in, bc); err != nil {
 		return err
 	}
 	if err := controller.ValidateInstanceBackupAgainstClass(in, bc); err != nil {

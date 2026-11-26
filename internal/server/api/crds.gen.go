@@ -165,6 +165,24 @@ func (e BackupClassSpecExecutionMode) Valid() bool {
 	}
 }
 
+// Defines values for BackupClassSpecStorageMode.
+const (
+	BackupClassSpecStorageModeNone     BackupClassSpecStorageMode = "None"
+	BackupClassSpecStorageModeRequired BackupClassSpecStorageMode = "Required"
+)
+
+// Valid indicates whether the value is a known member of the BackupClassSpecStorageMode enum.
+func (e BackupClassSpecStorageMode) Valid() bool {
+	switch e {
+	case BackupClassSpecStorageModeNone:
+		return true
+	case BackupClassSpecStorageModeRequired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupClassStatusConditionsStatus.
 const (
 	BackupClassStatusConditionsStatusFalse   BackupClassStatusConditionsStatus = "False"
@@ -288,6 +306,24 @@ func (e BackupStorageStatusConditionsStatus) Valid() bool {
 	case BackupStorageStatusConditionsStatusTrue:
 		return true
 	case BackupStorageStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClusterInstancePresetSpecBackupSchedulesRetentionType.
+const (
+	ClusterInstancePresetSpecBackupSchedulesRetentionTypeCount ClusterInstancePresetSpecBackupSchedulesRetentionType = "count"
+	ClusterInstancePresetSpecBackupSchedulesRetentionTypeTime  ClusterInstancePresetSpecBackupSchedulesRetentionType = "time"
+)
+
+// Valid indicates whether the value is a known member of the ClusterInstancePresetSpecBackupSchedulesRetentionType enum.
+func (e ClusterInstancePresetSpecBackupSchedulesRetentionType) Valid() bool {
+	switch e {
+	case ClusterInstancePresetSpecBackupSchedulesRetentionTypeCount:
+		return true
+	case ClusterInstancePresetSpecBackupSchedulesRetentionTypeTime:
 		return true
 	default:
 		return false
@@ -501,6 +537,24 @@ func (e InstalledExtensionStatusPhase) Valid() bool {
 	case InstalledExtensionStatusPhaseUninstalling:
 		return true
 	case InstalledExtensionStatusPhaseUpgrading:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceSpecBackupSchedulesRetentionType.
+const (
+	InstanceSpecBackupSchedulesRetentionTypeCount InstanceSpecBackupSchedulesRetentionType = "count"
+	InstanceSpecBackupSchedulesRetentionTypeTime  InstanceSpecBackupSchedulesRetentionType = "time"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecBackupSchedulesRetentionType enum.
+func (e InstanceSpecBackupSchedulesRetentionType) Valid() bool {
+	switch e {
+	case InstanceSpecBackupSchedulesRetentionTypeCount:
+		return true
+	case InstanceSpecBackupSchedulesRetentionTypeTime:
 		return true
 	default:
 		return false
@@ -765,6 +819,24 @@ func (e InstanceStatusPhase) Valid() bool {
 	case InstanceStatusPhaseProvisioned:
 		return true
 	case InstanceStatusPhaseTerminating:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetSpecBackupSchedulesRetentionType.
+const (
+	InstancePresetSpecBackupSchedulesRetentionTypeCount InstancePresetSpecBackupSchedulesRetentionType = "count"
+	InstancePresetSpecBackupSchedulesRetentionTypeTime  InstancePresetSpecBackupSchedulesRetentionType = "time"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecBackupSchedulesRetentionType enum.
+func (e InstancePresetSpecBackupSchedulesRetentionType) Valid() bool {
+	switch e {
+	case InstancePresetSpecBackupSchedulesRetentionTypeCount:
+		return true
+	case InstancePresetSpecBackupSchedulesRetentionTypeTime:
 		return true
 	default:
 		return false
@@ -1356,11 +1428,13 @@ type Backup struct {
 		// StorageRef StorageRef references a BackupStorage in the same namespace that
 		// defines where the backup data is written. For ProviderManaged classes
 		// the referenced storage must already be registered on the Instance via
-		// .spec.backup.storages so the engine can write to it.
-		StorageRef struct {
+		// .spec.backup.storages so the engine can write to it. Required when the
+		// class's storageMode is Required, the default, and forbidden when it is
+		// None; admission enforces both. Always required for External backups.
+		StorageRef *struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
-		} `json:"storageRef"`
+		} `json:"storageRef,omitempty"`
 	} `json:"spec"`
 
 	// Status BackupStatus defines the observed state of Backup.
@@ -1516,8 +1590,9 @@ type BackupClass struct {
 		// BackupStorageClasses BackupStorageClasses lists the BackupStorageClasses the class's executor
 		// can write to, each with the authentication modes it supports. A
 		// BackupStorage is usable with the class only when both its class and
-		// its authentication mode are listed.
-		BackupStorageClasses []struct {
+		// its authentication mode are listed. Required, with at least one entry,
+		// unless storageMode is None, which forbids it.
+		BackupStorageClasses *[]struct {
 			// AuthModes AuthModes are the authentication modes of that class the executor
 			// supports.
 			AuthModes []string `json:"authModes"`
@@ -1548,7 +1623,7 @@ type BackupClass struct {
 				// verification off, as spec.tls.insecureSkipVerify asks.
 				InsecureSkipVerify *BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify `json:"insecureSkipVerify,omitempty"`
 			} `json:"tls,omitempty"`
-		} `json:"backupStorageClasses"`
+		} `json:"backupStorageClasses,omitempty"`
 
 		// Description Description is the description of the backup class.
 		Description *string `json:"description,omitempty"`
@@ -1640,6 +1715,13 @@ type BackupClass struct {
 			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 		} `json:"restoreParametersSchema,omitempty"`
 
+		// StorageMode StorageMode says whether the class's backups are written to a
+		// BackupStorage. Required, the default, means they are. None means the
+		// executor keeps them without one, for example as CSI VolumeSnapshots:
+		// backupStorageClasses must then be empty, and supportsImport and
+		// providerManaged.supportsPITR false.
+		StorageMode *BackupClassSpecStorageMode `json:"storageMode,omitempty"`
+
 		// SupportsImport SupportsImport indicates whether the owner of this class can discover and
 		// import restorable backups already sitting in a BackupStorage.
 		SupportsImport *bool `json:"supportsImport,omitempty"`
@@ -1725,6 +1807,13 @@ type BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify string
 // the only mode: the provider in providerManaged.providerRef executes
 // them.
 type BackupClassSpecExecutionMode string
+
+// BackupClassSpecStorageMode StorageMode says whether the class's backups are written to a
+// BackupStorage. Required, the default, means they are. None means the
+// executor keeps them without one, for example as CSI VolumeSnapshots:
+// backupStorageClasses must then be empty, and supportsImport and
+// providerManaged.supportsPITR false.
+type BackupClassSpecStorageMode string
 
 // BackupClassStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type BackupClassStatusConditionsStatus string
@@ -2194,6 +2283,51 @@ type ClusterInstancePreset struct {
 			// Enabled Enabled toggles the backup feature for this Instance. When false the
 			// runtime skips ConfigureBackup() and the rest of this struct is ignored.
 			Enabled bool `json:"enabled"`
+
+			// Schedules Schedules registers recurring backup tasks for a BackupClass whose
+			// storageMode is None, which writes to no BackupStorage and so has no
+			// storage entry to carry them. A class whose storageMode is Required
+			// takes its schedules under .storages[].schedules and rejects these.
+			// Schedule names must be unique across these and all storages.
+			Schedules *[]struct {
+				// Cron Cron is a standard 5-field cron expression. The provider may reject
+				// expressions the engine does not support.
+				Cron string `json:"cron"`
+
+				// Enabled Enabled toggles the schedule. A disabled schedule is removed from
+				// the engine without losing its definition on the Instance.
+				Enabled bool `json:"enabled"`
+
+				// Name Name uniquely identifies the schedule. The provider uses it as the
+				// schedule key on the engine and as the value of Backup.spec.scheduleName
+				// on mirrored Backup CRs. Names must be unique across all storages on
+				// the Instance.
+				Name string `json:"name"`
+
+				// Parameters Parameters is schedule-specific structured configuration validated
+				// against the BackupClass's .spec.parametersSchema. When unset the
+				// provider falls back to engine defaults. The schema is the same as for
+				// Backup.spec.parameters but applied per-schedule rather than
+				// per-backup-run.
+				Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+				// Retention Retention configures count-based or time-based backup retention for
+				// this schedule. Unset keeps all backups.
+				Retention *struct {
+					// Count Count is the number of recent backups to keep when Type is count.
+					// Required when Type is count (minimum 1). Forbidden when Type is time.
+					// Omit Retention on the schedule to keep all backups.
+					Count *int32 `json:"count,omitempty"`
+
+					// Duration Duration is the recovery window when Type is time, in the form
+					// <positive-integer><unit> where unit is d (days), w (weeks), or m
+					// (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+					Duration *string `json:"duration,omitempty"`
+
+					// Type Type selects count-based or time-based retention.
+					Type ClusterInstancePresetSpecBackupSchedulesRetentionType `json:"type"`
+				} `json:"retention,omitempty"`
+			} `json:"schedules,omitempty"`
 
 			// Storages Storages registers BackupStorages on the engine. Each entry references
 			// a BackupStorage resource in the same namespace; the BackupStorage name
@@ -3047,7 +3181,9 @@ type ClusterInstancePreset struct {
 		// must be in the same namespace, in Succeeded state, and its BackupClass
 		// must be executed by the Instance's provider. Instance must
 		// also have backup enabled and include a storage entry that matches the
-		// storage used by the source Backup so the provider can access the data.
+		// storage used by the source Backup so the provider can access the data,
+		// unless the source Backup names no storage, as with a BackupClass whose
+		// storageMode is None.
 		DataSource *struct {
 			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
@@ -3261,6 +3397,9 @@ type ClusterInstancePreset struct {
 		} `json:"conditions,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// ClusterInstancePresetSpecBackupSchedulesRetentionType Type selects count-based or time-based retention.
+type ClusterInstancePresetSpecBackupSchedulesRetentionType string
 
 // ClusterInstancePresetSpecBackupStoragesSchedulesRetentionType Type selects count-based or time-based retention.
 type ClusterInstancePresetSpecBackupStoragesSchedulesRetentionType string
@@ -3545,6 +3684,51 @@ type Instance struct {
 			// Enabled Enabled toggles the backup feature for this Instance. When false the
 			// runtime skips ConfigureBackup() and the rest of this struct is ignored.
 			Enabled bool `json:"enabled"`
+
+			// Schedules Schedules registers recurring backup tasks for a BackupClass whose
+			// storageMode is None, which writes to no BackupStorage and so has no
+			// storage entry to carry them. A class whose storageMode is Required
+			// takes its schedules under .storages[].schedules and rejects these.
+			// Schedule names must be unique across these and all storages.
+			Schedules *[]struct {
+				// Cron Cron is a standard 5-field cron expression. The provider may reject
+				// expressions the engine does not support.
+				Cron string `json:"cron"`
+
+				// Enabled Enabled toggles the schedule. A disabled schedule is removed from
+				// the engine without losing its definition on the Instance.
+				Enabled bool `json:"enabled"`
+
+				// Name Name uniquely identifies the schedule. The provider uses it as the
+				// schedule key on the engine and as the value of Backup.spec.scheduleName
+				// on mirrored Backup CRs. Names must be unique across all storages on
+				// the Instance.
+				Name string `json:"name"`
+
+				// Parameters Parameters is schedule-specific structured configuration validated
+				// against the BackupClass's .spec.parametersSchema. When unset the
+				// provider falls back to engine defaults. The schema is the same as for
+				// Backup.spec.parameters but applied per-schedule rather than
+				// per-backup-run.
+				Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+				// Retention Retention configures count-based or time-based backup retention for
+				// this schedule. Unset keeps all backups.
+				Retention *struct {
+					// Count Count is the number of recent backups to keep when Type is count.
+					// Required when Type is count (minimum 1). Forbidden when Type is time.
+					// Omit Retention on the schedule to keep all backups.
+					Count *int32 `json:"count,omitempty"`
+
+					// Duration Duration is the recovery window when Type is time, in the form
+					// <positive-integer><unit> where unit is d (days), w (weeks), or m
+					// (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+					Duration *string `json:"duration,omitempty"`
+
+					// Type Type selects count-based or time-based retention.
+					Type InstanceSpecBackupSchedulesRetentionType `json:"type"`
+				} `json:"retention,omitempty"`
+			} `json:"schedules,omitempty"`
 
 			// Storages Storages registers BackupStorages on the engine. Each entry references
 			// a BackupStorage resource in the same namespace; the BackupStorage name
@@ -4398,7 +4582,9 @@ type Instance struct {
 		// must be in the same namespace, in Succeeded state, and its BackupClass
 		// must be executed by the Instance's provider. Instance must
 		// also have backup enabled and include a storage entry that matches the
-		// storage used by the source Backup so the provider can access the data.
+		// storage used by the source Backup so the provider can access the data,
+		// unless the source Backup names no storage, as with a BackupClass whose
+		// storageMode is None.
 		DataSource *struct {
 			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
@@ -4941,6 +5127,9 @@ type Instance struct {
 	} `json:"status,omitempty"`
 }
 
+// InstanceSpecBackupSchedulesRetentionType Type selects count-based or time-based retention.
+type InstanceSpecBackupSchedulesRetentionType string
+
 // InstanceSpecBackupStoragesSchedulesRetentionType Type selects count-based or time-based retention.
 type InstanceSpecBackupStoragesSchedulesRetentionType string
 
@@ -5161,6 +5350,51 @@ type InstancePreset struct {
 			// Enabled Enabled toggles the backup feature for this Instance. When false the
 			// runtime skips ConfigureBackup() and the rest of this struct is ignored.
 			Enabled bool `json:"enabled"`
+
+			// Schedules Schedules registers recurring backup tasks for a BackupClass whose
+			// storageMode is None, which writes to no BackupStorage and so has no
+			// storage entry to carry them. A class whose storageMode is Required
+			// takes its schedules under .storages[].schedules and rejects these.
+			// Schedule names must be unique across these and all storages.
+			Schedules *[]struct {
+				// Cron Cron is a standard 5-field cron expression. The provider may reject
+				// expressions the engine does not support.
+				Cron string `json:"cron"`
+
+				// Enabled Enabled toggles the schedule. A disabled schedule is removed from
+				// the engine without losing its definition on the Instance.
+				Enabled bool `json:"enabled"`
+
+				// Name Name uniquely identifies the schedule. The provider uses it as the
+				// schedule key on the engine and as the value of Backup.spec.scheduleName
+				// on mirrored Backup CRs. Names must be unique across all storages on
+				// the Instance.
+				Name string `json:"name"`
+
+				// Parameters Parameters is schedule-specific structured configuration validated
+				// against the BackupClass's .spec.parametersSchema. When unset the
+				// provider falls back to engine defaults. The schema is the same as for
+				// Backup.spec.parameters but applied per-schedule rather than
+				// per-backup-run.
+				Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+				// Retention Retention configures count-based or time-based backup retention for
+				// this schedule. Unset keeps all backups.
+				Retention *struct {
+					// Count Count is the number of recent backups to keep when Type is count.
+					// Required when Type is count (minimum 1). Forbidden when Type is time.
+					// Omit Retention on the schedule to keep all backups.
+					Count *int32 `json:"count,omitempty"`
+
+					// Duration Duration is the recovery window when Type is time, in the form
+					// <positive-integer><unit> where unit is d (days), w (weeks), or m
+					// (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+					Duration *string `json:"duration,omitempty"`
+
+					// Type Type selects count-based or time-based retention.
+					Type InstancePresetSpecBackupSchedulesRetentionType `json:"type"`
+				} `json:"retention,omitempty"`
+			} `json:"schedules,omitempty"`
 
 			// Storages Storages registers BackupStorages on the engine. Each entry references
 			// a BackupStorage resource in the same namespace; the BackupStorage name
@@ -6014,7 +6248,9 @@ type InstancePreset struct {
 		// must be in the same namespace, in Succeeded state, and its BackupClass
 		// must be executed by the Instance's provider. Instance must
 		// also have backup enabled and include a storage entry that matches the
-		// storage used by the source Backup so the provider can access the data.
+		// storage used by the source Backup so the provider can access the data,
+		// unless the source Backup names no storage, as with a BackupClass whose
+		// storageMode is None.
 		DataSource *struct {
 			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
@@ -6228,6 +6464,9 @@ type InstancePreset struct {
 		} `json:"conditions,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// InstancePresetSpecBackupSchedulesRetentionType Type selects count-based or time-based retention.
+type InstancePresetSpecBackupSchedulesRetentionType string
 
 // InstancePresetSpecBackupStoragesSchedulesRetentionType Type selects count-based or time-based retention.
 type InstancePresetSpecBackupStoragesSchedulesRetentionType string

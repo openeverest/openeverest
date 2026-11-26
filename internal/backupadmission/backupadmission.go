@@ -77,7 +77,8 @@ func (d Decision) Warnings() []string {
 // Backup decides whether b may be created. Its class's verdict for the
 // Provider of its Instance, or for an External backup the Provider that
 // executes the class, and its storage's verdict for the class must not be
-// Incompatible.
+// Incompatible, and it must name a storage if and only if its class writes to
+// one.
 func Backup(ctx context.Context, r Reader, b *backupv1alpha1.Backup) (Decision, error) {
 	j := newJudge(r, "Backup", b.GetNamespace())
 
@@ -91,9 +92,12 @@ func Backup(ctx context.Context, r Reader, b *backupv1alpha1.Backup) (Decision, 
 			provider = in.Spec.ProviderRef.Name
 		}
 	}
-	storage, err := j.storage(ctx, b.Spec.StorageRef.Name)
-	if err != nil {
-		return Decision{}, err
+	var storage *backupv1alpha1.BackupStorage
+	if name := b.Spec.StorageRef.Name; name != "" {
+		var err error
+		if storage, err = j.storage(ctx, name); err != nil {
+			return Decision{}, err
+		}
 	}
 	class, err := j.class(ctx, b.Spec.ClassRef.Name)
 	if err != nil {
@@ -101,6 +105,9 @@ func Backup(ctx context.Context, r Reader, b *backupv1alpha1.Backup) (Decision, 
 	}
 	if class == nil {
 		return j.d, nil
+	}
+	if err := referents.ValidateBackupStorageMode(b, class); err != nil {
+		j.deny(err)
 	}
 
 	if b.Spec.Origin.InstanceRef == nil {

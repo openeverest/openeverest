@@ -241,3 +241,65 @@ func TestBackupsForReferents(t *testing.T) {
 		names(r.backupsForSecret(t.Context(), testSecret("dev-keys"))),
 	)
 }
+
+func TestBackupReconcile_StorageMode(t *testing.T) {
+	t.Parallel()
+
+	class := func(mode backupv1alpha1.BackupStorageMode) *backupv1alpha1.BackupClass {
+		bc := testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider")
+		bc.Spec.StorageMode = mode
+		return bc
+	}
+	tests := []struct {
+		name        string
+		mode        backupv1alpha1.BackupStorageMode
+		storage     string
+		wantState   backupv1alpha1.BackupState
+		wantMessage string
+		wantSynced  bool
+	}{
+		{
+			name:       "class without storage syncs a backup that names none",
+			mode:       backupv1alpha1.BackupStorageModeNone,
+			wantSynced: true,
+		},
+		{
+			name:        "class without storage fails a backup that names one",
+			mode:        backupv1alpha1.BackupStorageModeNone,
+			storage:     "s3-prod",
+			wantState:   backupv1alpha1.BackupStateFailed,
+			wantMessage: `BackupClass "pbm" has storageMode None`,
+		},
+		{
+			name:        "class with storage fails a backup that names none",
+			mode:        backupv1alpha1.BackupStorageModeRequired,
+			wantState:   backupv1alpha1.BackupStateFailed,
+			wantMessage: `BackupClass "pbm" writes to a BackupStorage`,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			b := testBackup("")
+			b.Spec.StorageRef.Name = tc.storage
+			c := newOperationTestClient(class(tc.mode), testOperationInstance(), b)
+			p := &countingBackupProvider{}
+			r := &backupRuntimeReconciler{client: c, reader: c, provider: p, providerName: "test-provider"}
+
+			key := client.ObjectKey{Namespace: "team-a", Name: "nightly"}
+			_, err := r.Reconcile(t.Context(), reconcile.Request{NamespacedName: key})
+			require.NoError(t, err)
+
+			got := &backupv1alpha1.Backup{}
+			require.NoError(t, c.Get(t.Context(), key, got))
+			if tc.wantSynced {
+				assert.Equal(t, 1, p.backups)
+				assert.Empty(t, got.Status.Path, "a backup without storage has no path in one")
+				return
+			}
+			assert.Zero(t, p.backups, "the provider must not be called")
+			assert.Equal(t, tc.wantState, got.Status.State)
+			assert.Contains(t, got.Status.Message, tc.wantMessage)
+		})
+	}
+}

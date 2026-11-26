@@ -40,25 +40,56 @@ const (
 	BackupExecutionModeProviderManaged BackupExecutionMode = "ProviderManaged"
 )
 
+// BackupStorageMode says whether the backups of a BackupClass are written to
+// a BackupStorage.
+//
+// +kubebuilder:validation:Enum=Required;None
+type BackupStorageMode string
+
+const (
+	// BackupStorageModeRequired means every backup is written to a
+	// BackupStorage: Backups name one in spec.storageRef, and an Instance
+	// registers the storages it writes to, with their schedules and PITR,
+	// under spec.backup.storages.
+	BackupStorageModeRequired BackupStorageMode = "Required"
+	// BackupStorageModeNone means the executor keeps backups without a
+	// BackupStorage, for example as CSI VolumeSnapshots. Backups name no
+	// storage, an Instance declares its schedules under
+	// spec.backup.schedules, and the class supports neither PITR nor import,
+	// which both read a storage.
+	BackupStorageModeNone BackupStorageMode = "None"
+)
+
 // BackupClassSpec defines the desired state of BackupClass.
 //
 // +kubebuilder:validation:XValidation:rule="self.executionMode != 'ProviderManaged' || has(self.providerManaged)",message="spec.providerManaged is required when executionMode is ProviderManaged"
 // +kubebuilder:validation:XValidation:rule="!has(self.providerManaged) || self.executionMode == 'ProviderManaged'",message="spec.providerManaged is only allowed when executionMode is ProviderManaged"
+// +kubebuilder:validation:XValidation:rule="(has(self.storageMode) && self.storageMode == 'None') ? (!has(self.backupStorageClasses) || size(self.backupStorageClasses) == 0) : (has(self.backupStorageClasses) && size(self.backupStorageClasses) > 0)",message="spec.backupStorageClasses is required unless storageMode is None, and forbidden when it is"
+// +kubebuilder:validation:XValidation:rule="!has(self.storageMode) || self.storageMode != 'None' || !has(self.supportsImport) || !self.supportsImport",message="spec.supportsImport requires a BackupStorage, so it is not allowed when storageMode is None"
+// +kubebuilder:validation:XValidation:rule="!has(self.storageMode) || self.storageMode != 'None' || !has(self.providerManaged) || !has(self.providerManaged.supportsPITR) || !self.providerManaged.supportsPITR",message="spec.providerManaged.supportsPITR requires a BackupStorage, so it is not allowed when storageMode is None"
 type BackupClassSpec struct {
 	// DisplayName is a human-readable name for the backup class.
 	DisplayName string `json:"displayName,omitempty"`
 	// Description is the description of the backup class.
 	Description string `json:"description,omitempty"`
+	// StorageMode says whether the class's backups are written to a
+	// BackupStorage. Required, the default, means they are. None means the
+	// executor keeps them without one, for example as CSI VolumeSnapshots:
+	// backupStorageClasses must then be empty, and supportsImport and
+	// providerManaged.supportsPITR false.
+	// +kubebuilder:default=Required
+	// +optional
+	StorageMode BackupStorageMode `json:"storageMode,omitempty"`
 	// BackupStorageClasses lists the BackupStorageClasses the class's executor
 	// can write to, each with the authentication modes it supports. A
 	// BackupStorage is usable with the class only when both its class and
-	// its authentication mode are listed.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinItems=1
+	// its authentication mode are listed. Required, with at least one entry,
+	// unless storageMode is None, which forbids it.
 	// +kubebuilder:validation:MaxItems=16
 	// +listType=map
 	// +listMapKey=name
-	BackupStorageClasses []BackupStorageClassSupport `json:"backupStorageClasses"`
+	// +optional
+	BackupStorageClasses []BackupStorageClassSupport `json:"backupStorageClasses,omitempty"`
 	// ExecutionMode selects who executes the class's backup and restore
 	// operations, and discriminates the execution union: the member named
 	// after the mode is required, any other is forbidden. ProviderManaged is
@@ -166,6 +197,13 @@ func (s *BackupClassSpec) ExecutorProvider() string {
 		return s.ProviderManaged.ProviderRef.Name
 	}
 	return ""
+}
+
+// RequiresStorage reports whether the class's backups are written to a
+// BackupStorage. An unset storageMode, as on a class read from a server that
+// predates the field, means Required.
+func (s *BackupClassSpec) RequiresStorage() bool {
+	return s.StorageMode != BackupStorageModeNone
 }
 
 // BackupStorageClassSupport is a BackupStorageClass a BackupClass can write
