@@ -300,7 +300,7 @@ func (p *annotationsProvider) Status(*controller.Context) (controller.Status, er
 }
 
 func (p *annotationsProvider) Sync(c *controller.Context) error {
-	data := map[string]string{}
+	data := make(map[string]string)
 	if service := c.Instance().Spec.Components["engine"].Service; p.readsAnnotations && service != nil {
 		data = service.Annotations
 	}
