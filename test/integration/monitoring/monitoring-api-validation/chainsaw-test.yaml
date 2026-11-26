@@ -639,10 +639,10 @@ spec:
             -p '{"status":{"monitoring":{"sources":{"logs":[{"component":"engine","kind":"mysql","podSelector":{},"type":"Slow Log","format":"logfmt"}]}}}}'
         check:
           ($error != null): true
-          (contains($stderr, 'monitoring.sources.logs[0].container: Required value')): true
+          "(contains($stderr, 'monitoring.sources.logs[0].container: Required value'))": true
           (contains($stderr, 'monitoring.sources.logs[0].podSelector in body should have at least 1 properties')): true
           (contains($stderr, 'monitoring.sources.logs[0].type in body should match')): true
-          (contains($stderr, 'monitoring.sources.logs[0].format: Unsupported value')): true
+          "(contains($stderr, 'monitoring.sources.logs[0].format: Unsupported value'))": true
     - script:
         content: |
           kubectl create --dry-run=server -f - <<'EOF'
