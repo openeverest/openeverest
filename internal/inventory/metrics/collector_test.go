@@ -16,6 +16,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -30,10 +31,15 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	toolscache "k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/cache/informertest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllertest"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
@@ -90,6 +96,23 @@ func series(name string, kv ...string) string {
 }
 
 func leader() bool { return true }
+
+func synced(context.Context) bool { return true }
+
+// newCollector returns a Collector for the leader over a synced reader that
+// recomputes every scrape.
+func newCollector(reader client.Reader) *Collector {
+	return NewCollector(reader, Options{IsLeader: leader, Synced: synced}, logr.Discard())
+}
+
+// onlyBuildInfo asserts that a scrape emitted openeverest_build_info alone.
+func onlyBuildInfo(t *testing.T, got map[string]float64) {
+	t.Helper()
+	require.Len(t, got, 1)
+	for s := range got {
+		assert.True(t, strings.HasPrefix(s, "openeverest_build_info{"), s)
+	}
+}
 
 func TestCollector(t *testing.T) {
 	t.Parallel()
@@ -212,7 +235,7 @@ func TestCollector(t *testing.T) {
 	}
 	reader := fake.NewClientBuilder().WithScheme(newScheme(t)).WithObjects(objects...).Build()
 
-	got := gather(t, NewCollector(reader, leader, logr.Discard()))
+	got := gather(t, newCollector(reader))
 
 	// db1 labels a series of team-a/db1 with the labels given as name, value pairs.
 	db1 := func(name string, kv ...string) string {
@@ -264,16 +287,39 @@ func TestCollector(t *testing.T) {
 	}
 }
 
-func TestCollectorFollowsDeletions(t *testing.T) {
+// TestCollectorReusesRecentResult checks that scrapes within ReuseFor share
+// one result, and that the series of a deleted object disappear after it.
+func TestCollectorReusesRecentResult(t *testing.T) {
 	t.Parallel()
 
 	inst := &corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "db1", Namespace: "team-a"}}
-	reader := fake.NewClientBuilder().WithScheme(newScheme(t)).WithObjects(inst).Build()
-	c := NewCollector(reader, leader, logr.Discard())
+	lists := 0
+	countLists := interceptor.Funcs{
+		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			lists++
+			return c.List(ctx, list, opts...)
+		},
+	}
+	reader := fake.NewClientBuilder().WithScheme(newScheme(t)).WithObjects(inst).WithInterceptorFuncs(countLists).Build()
+	now := time.Unix(1_700_000_000, 0)
+	opts := Options{
+		IsLeader: leader,
+		Synced:   synced,
+		ReuseFor: 10 * time.Second,
+		Now:      func() time.Time { return now },
+	}
+	c := NewCollector(reader, opts, logr.Discard())
 	info := series("openeverest_instance_info", labelNamespace, "team-a", labelInstance, "db1", labelProvider, "", "version", "")
 
 	require.Contains(t, gather(t, c), info)
+	listsPerScrape := lists
 	require.NoError(t, reader.Delete(context.Background(), inst))
+
+	now = now.Add(9 * time.Second)
+	assert.Contains(t, gather(t, c), info, "a scrape within ReuseFor reuses the last result")
+	assert.Equal(t, listsPerScrape, lists, "a reused result reads nothing")
+
+	now = now.Add(2 * time.Second)
 	assert.NotContains(t, gather(t, c), info)
 }
 
@@ -283,11 +329,62 @@ func TestCollectorOnlyLeaderEmitsInventory(t *testing.T) {
 	inst := &corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "db1", Namespace: "team-a"}}
 	reader := fake.NewClientBuilder().WithScheme(newScheme(t)).WithObjects(inst).Build()
 
-	got := gather(t, NewCollector(reader, func() bool { return false }, logr.Discard()))
+	opts := Options{IsLeader: func() bool { return false }, Synced: synced}
+	onlyBuildInfo(t, gather(t, NewCollector(reader, opts, logr.Discard())))
+}
 
-	require.Len(t, got, 1)
-	for series := range got {
-		assert.True(t, strings.HasPrefix(series, "openeverest_build_info{"), series)
+// TestCollectorDoesNotWaitForTheCache checks that a scrape before the cache
+// has synced emits no inventory and reads nothing.
+func TestCollectorDoesNotWaitForTheCache(t *testing.T) {
+	t.Parallel()
+
+	failLists := interceptor.Funcs{
+		List: func(context.Context, client.WithWatch, client.ObjectList, ...client.ListOption) error {
+			t.Error("a scrape listed objects before the cache synced")
+			return nil
+		},
+	}
+	reader := fake.NewClientBuilder().WithScheme(newScheme(t)).WithInterceptorFuncs(failLists).Build()
+
+	opts := Options{IsLeader: leader, Synced: func(context.Context) bool { return false }}
+	onlyBuildInfo(t, gather(t, NewCollector(reader, opts, logr.Discard())))
+}
+
+func TestCacheSynced(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	backupGVK := backupv1alpha1.GroupVersion.WithKind("Backup")
+	for _, tc := range []struct {
+		name      string
+		informers *informertest.FakeInformers
+		want      bool
+	}{
+		{
+			name:      "every informer synced",
+			informers: &informertest.FakeInformers{Scheme: newScheme(t)},
+			want:      true,
+		},
+		{
+			name: "one informer still syncing",
+			informers: &informertest.FakeInformers{
+				Scheme: newScheme(t),
+				InformersByGVK: map[schema.GroupVersionKind]toolscache.SharedIndexInformer{
+					backupGVK: controllertest.NewFakeInformer(),
+				},
+			},
+			want: false,
+		},
+		{
+			name:      "a kind the API server doesn't serve",
+			informers: &informertest.FakeInformers{Scheme: newScheme(t), Error: errors.New("no matches for kind")},
+			want:      false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, CacheSynced(tc.informers)(ctx))
+		})
 	}
 }
 
@@ -303,7 +400,7 @@ func TestCollectorSurvivesRepeatedConditions(t *testing.T) {
 	}
 	reader := fake.NewClientBuilder().WithScheme(newScheme(t)).WithObjects(inst).Build()
 
-	got := gather(t, NewCollector(reader, leader, logr.Discard()))
+	got := gather(t, newCollector(reader))
 
 	ready := series("openeverest_instance_condition",
 		labelNamespace, "team-a", labelInstance, "db1", "condition", "Ready", "status", "true",

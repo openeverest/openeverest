@@ -51,6 +51,25 @@ type Snapshot struct {
 	MonitoringBindings     []monitoringv1alpha1.MonitoringBinding
 }
 
+// Kinds returns one object of every kind Collect lists. A caller can check
+// that its cache holds them all before collecting.
+func Kinds() []client.Object {
+	return []client.Object{
+		&extensionsv1alpha1.InstalledExtension{},
+		&extensionsv1alpha1.Plugin{},
+		&corev1alpha1.Provider{},
+		&corev1alpha1.Instance{},
+		&backupv1alpha1.Backup{},
+		&backupv1alpha1.Restore{},
+		&backupv1alpha1.BackupClass{},
+		&backupv1alpha1.BackupStorageClass{},
+		&backupv1alpha1.BackupStorage{},
+		&monitoringv1alpha1.MonitoringClass{},
+		&monitoringv1alpha1.MonitoringDestination{},
+		&monitoringv1alpha1.MonitoringBinding{},
+	}
+}
+
 // Collect lists every kind the inventory covers, across all namespaces.
 // With a cache-backed reader it makes no API server requests and does not copy
 // the cached objects.

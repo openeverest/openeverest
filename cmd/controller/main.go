@@ -359,7 +359,12 @@ func newInventoryCollector(mgr ctrl.Manager) *inventorymetrics.Collector {
 			return false
 		}
 	}
-	return inventorymetrics.NewCollector(mgr.GetCache(), isLeader, ctrl.Log.WithName("inventory-metrics"))
+	opts := inventorymetrics.Options{
+		IsLeader: isLeader,
+		Synced:   inventorymetrics.CacheSynced(mgr.GetCache()),
+		ReuseFor: inventorymetrics.DefaultReuseFor,
+	}
+	return inventorymetrics.NewCollector(mgr.GetCache(), opts, ctrl.Log.WithName("inventory-metrics"))
 }
 
 func setupLifecycleEvents(mgr ctrl.Manager) error {

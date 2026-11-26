@@ -22,11 +22,13 @@ package metrics
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
@@ -38,23 +40,68 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/version"
 )
 
-const collectTimeout = 10 * time.Second
+const (
+	// DefaultReuseFor is how long a scrape's result answers the next scrapes.
+	// It bounds the work /metrics can cause however often it is called, and
+	// is shorter than any usual scrape interval.
+	DefaultReuseFor = 10 * time.Second
+
+	syncCheckTimeout = time.Second
+)
+
+// Options configure a Collector.
+type Options struct {
+	// IsLeader reports whether this replica emits the inventory. Every
+	// controller replica shares the same view, so only the leader emits it
+	// and scraping every replica yields one copy of each series; the others
+	// emit only openeverest_build_info.
+	IsLeader func() bool
+	// Synced reports, without waiting, whether the reader holds every kind
+	// the inventory covers. Until it does, a scrape emits no inventory rather
+	// than wait for the API server.
+	Synced func(ctx context.Context) bool
+	// ReuseFor is how long a result answers the next scrapes; 0 recomputes
+	// every scrape.
+	ReuseFor time.Duration
+	// Now returns the current time; time.Now if nil.
+	Now func() time.Time
+}
 
 // Collector is a prometheus.Collector over the inventory of one cluster.
+//
+// A scrape never reaches the API server: it reads the controller's cache, and
+// only once every informer it needs has synced. Repeated scrapes within
+// ReuseFor share one result.
 type Collector struct {
-	reader   client.Reader
-	isLeader func() bool
-	log      logr.Logger
+	reader client.Reader
+	opts   Options
+	log    logr.Logger
+
+	mu       sync.Mutex
+	last     []prometheus.Metric
+	lastTime time.Time
 }
 
 // NewCollector returns a Collector that reads the inventory from reader.
-//
-// Every controller replica shares the same cache, so only the replica for
-// which isLeader returns true emits the inventory; the others emit only
-// openeverest_build_info. Scraping every replica then yields one copy of each
-// series.
-func NewCollector(reader client.Reader, isLeader func() bool, log logr.Logger) *Collector {
-	return &Collector{reader: reader, isLeader: isLeader, log: log}
+func NewCollector(reader client.Reader, opts Options, log logr.Logger) *Collector {
+	if opts.Now == nil {
+		opts.Now = time.Now
+	}
+	return &Collector{reader: reader, opts: opts, log: log}
+}
+
+// CacheSynced returns an Options.Synced that checks informers already exist
+// and have synced, without starting or waiting for any.
+func CacheSynced(informers cache.Informers) func(ctx context.Context) bool {
+	return func(ctx context.Context) bool {
+		for _, obj := range inventory.Kinds() {
+			informer, err := informers.GetInformer(ctx, obj, cache.BlockUntilSynced(false))
+			if err != nil || !informer.HasSynced() {
+				return false
+			}
+		}
+		return true
+	}
 }
 
 // Describe implements prometheus.Collector.
@@ -66,13 +113,37 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implements prometheus.Collector.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
-	e := newEmitter(ch)
+	for _, m := range c.metrics() {
+		ch <- m
+	}
+}
+
+// metrics returns the series of a recent scrape, or computes them. The lock
+// covers only in-memory work: reading the synced cache and building series.
+func (c *Collector) metrics() []prometheus.Metric {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	now := c.opts.Now()
+	if c.last != nil && now.Sub(c.lastTime) < c.opts.ReuseFor {
+		return c.last
+	}
+
+	e := newEmitter()
 	e.gauge(buildInfo, 1, version.Version, contract.Version)
-	if !c.isLeader() {
+	if c.opts.IsLeader() {
+		c.emitInventory(e)
+	}
+	c.last, c.lastTime = e.metrics, now
+	return c.last
+}
+
+func (c *Collector) emitInventory(e *emitter) {
+	ctx, cancel := context.WithTimeout(context.Background(), syncCheckTimeout)
+	defer cancel()
+	if !c.opts.Synced(ctx) {
+		c.log.V(1).Info("The cache has not synced every inventory kind yet; /metrics leaves the inventory out")
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), collectTimeout)
-	defer cancel()
 	snap, err := inventory.Collect(ctx, c.reader)
 	if err != nil {
 		c.log.Error(err, "Failed to collect the inventory for /metrics")
@@ -291,16 +362,16 @@ func stateOrUnknown(state string) string {
 	return state
 }
 
-// emitter sends const metrics and drops a series whose labels were already
-// sent. A duplicate series fails the whole scrape, and an object with, say,
+// emitter builds const metrics and drops a series whose labels were already
+// emitted. A duplicate series fails the whole scrape, and an object with, say,
 // a repeated condition type must not take /metrics down.
 type emitter struct {
-	ch   chan<- prometheus.Metric
-	seen map[string]struct{}
+	metrics []prometheus.Metric
+	seen    map[string]struct{}
 }
 
-func newEmitter(ch chan<- prometheus.Metric) *emitter {
-	return &emitter{ch: ch, seen: make(map[string]struct{})}
+func newEmitter() *emitter {
+	return &emitter{seen: make(map[string]struct{})}
 }
 
 func (e *emitter) gauge(desc *prometheus.Desc, value float64, labels ...string) {
@@ -309,7 +380,7 @@ func (e *emitter) gauge(desc *prometheus.Desc, value float64, labels ...string) 
 		return
 	}
 	e.seen[key] = struct{}{}
-	e.ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, value, labels...)
+	e.metrics = append(e.metrics, prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, value, labels...))
 }
 
 // oneHot emits one series per possible value, 1 for the current one.
