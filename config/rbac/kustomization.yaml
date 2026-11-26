@@ -18,9 +18,6 @@ resources:
 - metrics_auth_role.yaml
 - metrics_auth_role_binding.yaml
 - metrics_reader_role.yaml
-# Needed only when the controller runs with --apply-builtin-manifests.
-- builtin_manifests_role.yaml
-- builtin_manifests_role_binding.yaml
 # For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
 # default, aiding admins in cluster management. Those roles are
 # not used by the openeverest itself. You can comment the following lines

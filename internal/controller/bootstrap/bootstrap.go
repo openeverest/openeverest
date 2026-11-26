@@ -54,39 +54,41 @@ type Retry struct {
 	Most  time.Duration
 }
 
-// Bootstrap is a runnable that, on the leader, does what is enabled once,
-// retrying until it succeeds or the manager stops. A failure never stops the
-// manager: the controllers run regardless.
+// Bootstrap is a runnable that, on the leader, creates the missing defaults
+// and applies the built-in manifests, retrying until it succeeds or the
+// manager stops, then applies the built-in manifests again every
+// ResyncPeriod. A failure never stops the manager: the controllers run
+// regardless.
 type Bootstrap struct {
 	// Client must not be the manager's cached client: a Get through it would
 	// start an informer on every Secret and ConfigMap in the cluster.
 	Client client.Client
 	// Namespace is where OpenEverest runs, and where the defaults go.
 	Namespace string
-	// CreateMissingDefaults creates the defaults the API server needs, the
-	// everest-jwt and everest-accounts Secrets and the everest-rbac and
-	// everest-settings ConfigMaps, if they are missing. It never changes an
-	// existing one: once created, they belong to the user.
-	CreateMissingDefaults bool
-	// ApplyBuiltinManifests server-side applies the admission policies and
-	// the built-in BackupStorageClasses this version ships, see
-	// BuiltinManifests.
-	ApplyBuiltinManifests bool
-	Retry                 Retry
+	Retry     Retry
+	// ResyncPeriod is how often the built-in manifests are applied again
+	// after the first success, so one deleted or changed by hand comes back.
+	// Zero applies them once.
+	ResyncPeriod time.Duration
 }
 
 // +kubebuilder:rbac:groups=core,resources=secrets;configmaps,verbs=get;create
+// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingadmissionpolicies;validatingadmissionpolicybindings,verbs=create
+// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingadmissionpolicies;validatingadmissionpolicybindings,verbs=patch,resourceNames=monitoringdestination-in-use.monitoring.openeverest.io;secret-in-use.openeverest.io;secret-reference.openeverest.io;lifecycle-event-authoring.openeverest.io;lifecycle-actor-authoring.openeverest.io
+// +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupstorageclasses,verbs=create
+// +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupstorageclasses,verbs=patch,resourceNames=s3
 
-// Start runs Run until it succeeds or ctx ends. It returns no error, so a
-// failure does not stop the manager.
-func (b *Bootstrap) Start(ctx context.Context) error { //nolint:unparam // the signature of manager.Runnable
+// Start runs Run until it succeeds, then applies the built-in manifests
+// every ResyncPeriod, until ctx ends. It returns no error, so a failure does
+// not stop the manager.
+func (b *Bootstrap) Start(ctx context.Context) error {
 	log := logf.FromContext(ctx).WithName("bootstrap")
 	ctx = logf.IntoContext(ctx, log)
 	delay := b.Retry.First
 	for {
 		err := b.Run(ctx)
 		if err == nil {
-			return nil
+			break
 		}
 		log.Error(err, "Failed to bootstrap; retrying", "after", delay)
 		select {
@@ -96,21 +98,29 @@ func (b *Bootstrap) Start(ctx context.Context) error { //nolint:unparam // the s
 		}
 		delay = min(2*delay, b.Retry.Most)
 	}
+	if b.ResyncPeriod <= 0 {
+		return nil
+	}
+	ticker := time.NewTicker(b.ResyncPeriod)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			if err := b.applyBuiltinManifests(ctx); err != nil {
+				log.Error(err, "Failed to apply the built-in manifests; retrying", "after", b.ResyncPeriod)
+			}
+		}
+	}
 }
 
-// Run does once what is enabled.
+// Run creates the missing defaults and applies the built-in manifests once.
 func (b *Bootstrap) Run(ctx context.Context) error {
-	if b.CreateMissingDefaults {
-		if err := b.createMissingDefaults(ctx); err != nil {
-			return err
-		}
+	if err := b.createMissingDefaults(ctx); err != nil {
+		return err
 	}
-	if b.ApplyBuiltinManifests {
-		if err := b.applyBuiltinManifests(ctx); err != nil {
-			return err
-		}
-	}
-	return nil
+	return b.applyBuiltinManifests(ctx)
 }
 
 func (b *Bootstrap) createMissingDefaults(ctx context.Context) error {
@@ -202,6 +212,6 @@ func (b *Bootstrap) applyBuiltinManifests(ctx context.Context) error {
 			return fmt.Errorf("apply %s %s: %w", u.GetKind(), u.GetName(), err)
 		}
 	}
-	logf.FromContext(ctx).Info("Applied the built-in manifests", "objects", len(objs))
+	logf.FromContext(ctx).V(1).Info("Applied the built-in manifests", "objects", len(objs))
 	return nil
 }

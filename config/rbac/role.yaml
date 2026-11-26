@@ -30,10 +30,29 @@ rules:
   - patch
   - watch
 - apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingadmissionpolicies
+  - validatingadmissionpolicybindings
+  verbs:
+  - create
+- apiGroups:
+  - admissionregistration.k8s.io
+  resourceNames:
+  - lifecycle-actor-authoring.openeverest.io
+  - lifecycle-event-authoring.openeverest.io
+  - monitoringdestination-in-use.monitoring.openeverest.io
+  - secret-in-use.openeverest.io
+  - secret-reference.openeverest.io
+  resources:
+  - validatingadmissionpolicies
+  - validatingadmissionpolicybindings
+  verbs:
+  - patch
+- apiGroups:
   - backup.openeverest.io
   resources:
   - backupclasses
-  - backupstorageclasses
   verbs:
   - get
   - list
@@ -64,6 +83,23 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - backup.openeverest.io
+  resources:
+  - backupstorageclasses
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - backup.openeverest.io
+  resourceNames:
+  - s3
+  resources:
+  - backupstorageclasses
+  verbs:
+  - patch
 - apiGroups:
   - backup.openeverest.io
   resources:

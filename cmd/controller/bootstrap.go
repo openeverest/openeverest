@@ -30,6 +30,9 @@ import (
 const (
 	bootstrapFirstRetry = time.Second
 	bootstrapMostRetry  = 5 * time.Minute
+	// bootstrapResync is how often the built-in manifests are applied again,
+	// restoring one deleted or changed by hand.
+	bootstrapResync = 10 * time.Minute
 
 	// serviceAccountNamespaceFile is where Kubernetes mounts the namespace
 	// of a pod's ServiceAccount, which is the pod's own.
@@ -37,13 +40,10 @@ const (
 )
 
 // setupBootstrap registers the runnable that creates the missing defaults
-// and applies the built-in manifests, as enabled. It needs the namespace
-// the controller runs in, which outside a cluster only POD_NAMESPACE gives:
-// without it, bootstrap is skipped.
-func setupBootstrap(mgr ctrl.Manager, createMissingDefaults, applyBuiltinManifests bool) error {
-	if !createMissingDefaults && !applyBuiltinManifests {
-		return nil
-	}
+// and applies the built-in manifests. It needs the namespace the controller
+// runs in, which outside a cluster only POD_NAMESPACE gives: without it,
+// bootstrap is skipped.
+func setupBootstrap(mgr ctrl.Manager) error {
 	namespace, err := controllerNamespace(serviceAccountNamespaceFile)
 	if err != nil {
 		setupLog.Info("Skipping bootstrap: set POD_NAMESPACE to the namespace OpenEverest runs in", "reason", err.Error())
@@ -56,11 +56,10 @@ func setupBootstrap(mgr ctrl.Manager, createMissingDefaults, applyBuiltinManifes
 		return fmt.Errorf("create the bootstrap client: %w", err)
 	}
 	return mgr.Add(&bootstrap.Bootstrap{
-		Client:                c,
-		Namespace:             namespace,
-		CreateMissingDefaults: createMissingDefaults,
-		ApplyBuiltinManifests: applyBuiltinManifests,
-		Retry:                 bootstrap.Retry{First: bootstrapFirstRetry, Most: bootstrapMostRetry},
+		Client:       c,
+		Namespace:    namespace,
+		Retry:        bootstrap.Retry{First: bootstrapFirstRetry, Most: bootstrapMostRetry},
+		ResyncPeriod: bootstrapResync,
 	})
 }
 

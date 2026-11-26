@@ -17,6 +17,9 @@ package bootstrap_test
 import (
 	"crypto/x509"
 	"encoding/pem"
+	"os"
+	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,12 +27,14 @@ import (
 	"go.uber.org/zap"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/managedfields"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/yaml"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/internal/controller/bootstrap"
@@ -56,7 +61,7 @@ func TestRunCreatesMissingDefaults(t *testing.T) {
 	ctx := t.Context()
 	c := newFakeClient(t, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace, UID: "ns-uid"}})
 
-	b := &bootstrap.Bootstrap{Client: c, Namespace: namespace, CreateMissingDefaults: true}
+	b := &bootstrap.Bootstrap{Client: c, Namespace: namespace}
 	require.NoError(t, b.Run(ctx))
 
 	jwt := &corev1.Secret{}
@@ -111,7 +116,7 @@ func TestRunNeverChangesExistingDefaults(t *testing.T) {
 	}
 	c := newFakeClient(t, existing...)
 
-	b := &bootstrap.Bootstrap{Client: c, Namespace: namespace, CreateMissingDefaults: true}
+	b := &bootstrap.Bootstrap{Client: c, Namespace: namespace}
 	require.NoError(t, b.Run(ctx))
 
 	for _, want := range existing {
@@ -126,21 +131,17 @@ func TestRunNeverChangesExistingDefaults(t *testing.T) {
 	}
 }
 
-func TestRunAppliesBuiltinManifestsOnlyWhenEnabled(t *testing.T) {
+func TestRunAppliesBuiltinManifests(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	c := newFakeClient(t)
 
-	require.NoError(t, (&bootstrap.Bootstrap{Client: c, Namespace: namespace}).Run(ctx))
+	b := &bootstrap.Bootstrap{Client: c, Namespace: namespace}
+	require.NoError(t, b.Run(ctx))
+	// A later start, or a resync, applies the same objects again.
+	require.NoError(t, b.Run(ctx))
+
 	policies := &admissionregistrationv1.ValidatingAdmissionPolicyList{}
-	require.NoError(t, c.List(ctx, policies))
-	assert.Empty(t, policies.Items, "applied without ApplyBuiltinManifests")
-
-	b := &bootstrap.Bootstrap{Client: c, Namespace: namespace, ApplyBuiltinManifests: true}
-	require.NoError(t, b.Run(ctx))
-	// A later start applies the same objects again.
-	require.NoError(t, b.Run(ctx))
-
 	require.NoError(t, c.List(ctx, policies))
 	names := make(map[string]admissionregistrationv1.ValidatingAdmissionPolicy, len(policies.Items))
 	for _, p := range policies.Items {
@@ -164,4 +165,44 @@ func TestRunAppliesBuiltinManifestsOnlyWhenEnabled(t *testing.T) {
 	s3 := &backupv1alpha1.BackupStorageClass{}
 	require.NoError(t, c.Get(ctx, client.ObjectKey{Name: "s3"}, s3))
 	assert.NotEmpty(t, s3.Annotations["openeverest.io/contract-version"], "the stamped manifest is applied")
+}
+
+// TestManagerRoleCoversBuiltinManifests keeps the kubebuilder markers on
+// Bootstrap in step with the manifests: the controller may patch only the
+// built-in objects it names, so a new policy or class without its name in
+// the markers would fail to apply on every install.
+func TestManagerRoleCoversBuiltinManifests(t *testing.T) {
+	t.Parallel()
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "config", "rbac", "role.yaml"))
+	require.NoError(t, err)
+	role := &rbacv1.ClusterRole{}
+	require.NoError(t, yaml.Unmarshal(raw, role))
+
+	allowed := func(group, resource, verb, name string) bool {
+		for _, r := range role.Rules {
+			if slices.Contains(r.APIGroups, group) && slices.Contains(r.Resources, resource) &&
+				slices.Contains(r.Verbs, verb) && (len(r.ResourceNames) == 0 || slices.Contains(r.ResourceNames, name)) {
+				return true
+			}
+		}
+		return false
+	}
+	resources := map[string]string{
+		"ValidatingAdmissionPolicy":        "validatingadmissionpolicies",
+		"ValidatingAdmissionPolicyBinding": "validatingadmissionpolicybindings",
+		"BackupStorageClass":               "backupstorageclasses",
+	}
+
+	objs, err := bootstrap.BuiltinManifests(namespace)
+	require.NoError(t, err)
+	for _, u := range objs {
+		resource, ok := resources[u.GetKind()]
+		require.True(t, ok, "add the resource of kind %s to this test", u.GetKind())
+		group := u.GroupVersionKind().Group
+		for _, verb := range []string{"create", "patch"} {
+			assert.True(t, allowed(group, resource, verb, u.GetName()),
+				"the manager role does not allow %s on %s %s: add it to the kubebuilder markers on Bootstrap", verb, resource, u.GetName(),
+			)
+		}
+	}
 }
