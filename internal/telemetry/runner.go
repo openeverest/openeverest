@@ -24,12 +24,16 @@ import (
 	"github.com/openeverest/openeverest/v2/internal/inventory"
 )
 
-// Runner sends the report periodically. It never fails its caller: errors are
-// logged and the next attempt comes at the next interval.
+// Runner sends the report periodically, in the background. It never fails or
+// blocks its caller: each report has ReportTimeout to finish, errors and
+// panics are logged, and the next attempt comes at the next interval. It holds
+// no lock other code waits for.
 type Runner struct {
 	Interval     time.Duration
 	InitialDelay time.Duration
-	Sources      []SummarySource
+	// Timeout bounds one report; ReportTimeout if zero.
+	Timeout time.Duration
+	Sources []SummarySource
 	// Installation returns the identity of the installation; it is called
 	// for every report.
 	Installation func(ctx context.Context) (Installation, error)
@@ -48,9 +52,7 @@ func (r *Runner) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-timer.C:
-			if err := r.SendOnce(ctx); err != nil {
-				r.Log.Warnw("Failed to send the telemetry report", "error", err)
-			}
+			r.report(ctx)
 			timer.Reset(r.Interval)
 		}
 	}
@@ -77,4 +79,21 @@ func (r *Runner) SendOnce(ctx context.Context) error {
 	}
 	fleet := inventory.Merge(summaries, r.Now(), StaleAfter)
 	return r.Transport.Send(ctx, NewReport(inst, fleet))
+}
+
+func (r *Runner) report(ctx context.Context) {
+	defer func() {
+		if p := recover(); p != nil {
+			r.Log.Errorw("The telemetry report panicked", "panic", p)
+		}
+	}()
+	timeout := r.Timeout
+	if timeout == 0 {
+		timeout = ReportTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	if err := r.SendOnce(ctx); err != nil {
+		r.Log.Warnw("Failed to send the telemetry report", "error", err)
+	}
 }

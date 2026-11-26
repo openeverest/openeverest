@@ -43,6 +43,10 @@ const (
 	// StaleAfter is how old a cluster's summary may be and still be added to
 	// the report.
 	StaleAfter = 48 * time.Hour
+	// ReportTimeout bounds everything one report does: reading the clusters
+	// and sending. A report that doesn't finish in time is dropped until the
+	// next interval.
+	ReportTimeout = 2 * time.Minute
 )
 
 // Config is how telemetry is configured.

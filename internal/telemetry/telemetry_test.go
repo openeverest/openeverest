@@ -246,3 +246,108 @@ func TestReportCarriesNoUserChosenNames(t *testing.T) {
 	assert.Equal(t, "2", transport.reports[0]["provider_installations"])
 	assert.True(t, strings.HasPrefix(transport.reports[0]["providers"], "valkey"))
 }
+
+// pagingReader serves Instances page by page and decodes each page into the
+// caller's list like the API client does, reusing its Items array.
+type pagingReader struct {
+	client.Reader
+
+	pages [][]string
+	limit int64
+}
+
+func (r *pagingReader) List(_ context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	o := (&client.ListOptions{}).ApplyOptions(opts)
+	r.limit = o.Limit
+	page := 0
+	if o.Continue != "" {
+		page = int(o.Continue[0] - '0')
+	}
+	l := list.(*corev1alpha1.InstanceList) //nolint:forcetypeassert
+	l.Items = l.Items[:0]
+	for _, name := range r.pages[page] {
+		l.Items = append(l.Items, corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: name}})
+	}
+	l.Continue = ""
+	if page+1 < len(r.pages) {
+		l.Continue = string(rune('0' + page + 1))
+	}
+	return nil
+}
+
+func TestPagedReaderKeepsEveryPage(t *testing.T) {
+	t.Parallel()
+
+	src := &pagingReader{pages: [][]string{{"a", "b"}, {"c", "d"}, {"e"}}}
+	var list corev1alpha1.InstanceList
+
+	require.NoError(t, pagedReader{Reader: src, pageSize: 2}.List(context.Background(), &list))
+
+	names := make([]string, 0, len(list.Items))
+	for _, i := range list.Items {
+		names = append(names, i.Name)
+	}
+	assert.Equal(t, []string{"a", "b", "c", "d", "e"}, names)
+	assert.Equal(t, int64(2), src.limit)
+	assert.Empty(t, list.Continue)
+}
+
+type blockingSource struct{}
+
+func (blockingSource) Summaries(ctx context.Context) ([]inventory.Summary, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+type panickingSource struct{}
+
+func (panickingSource) Summaries(context.Context) ([]inventory.Summary, error) {
+	panic("boom")
+}
+
+// TestRunnerNeverBlocksOrCrashes checks that a hung source is given up after
+// the report timeout and that a panicking one is contained, so the loop
+// keeps running.
+func TestRunnerNeverBlocksOrCrashes(t *testing.T) {
+	t.Parallel()
+
+	transport := &recordingTransport{}
+	for _, src := range []SummarySource{blockingSource{}, panickingSource{}} {
+		r := &Runner{
+			Timeout:      50 * time.Millisecond,
+			Sources:      []SummarySource{src},
+			Installation: installation,
+			Transport:    transport,
+			Log:          zap.NewNop().Sugar(),
+			Now:          time.Now,
+		}
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			r.report(context.Background())
+		}()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("a report with %T did not return", src)
+		}
+	}
+	assert.Empty(t, transport.reports)
+}
+
+func TestHTTPTransportGivesUp(t *testing.T) {
+	t.Parallel()
+
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { <-release }))
+	t.Cleanup(func() {
+		close(release)
+		srv.Close()
+	})
+	tr := NewHTTPTransport(srv.URL, "test")
+	tr.Client.Timeout = 50 * time.Millisecond
+
+	start := time.Now()
+	require.Error(t, tr.Send(context.Background(), Report{}))
+	assert.Less(t, time.Since(start), 5*time.Second)
+}

@@ -17,9 +17,12 @@ package telemetry
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/internal/inventory"
@@ -34,7 +37,11 @@ type SummarySource interface {
 	Summaries(ctx context.Context) ([]inventory.Summary, error)
 }
 
-// LocalSource summarizes the cluster the reader reads.
+// listPageSize bounds each list request telemetry sends to the API server.
+const listPageSize = 500
+
+// LocalSource summarizes the cluster the reader reads. With a direct API
+// client it lists in pages, so no single request asks for a whole kind.
 type LocalSource struct {
 	Reader client.Reader
 }
@@ -45,11 +52,42 @@ func (s LocalSource) Summaries(ctx context.Context) ([]inventory.Summary, error)
 	if err != nil {
 		return nil, err
 	}
-	snap, err := inventory.Collect(ctx, s.Reader)
+	snap, err := inventory.Collect(ctx, pagedReader{Reader: s.Reader, pageSize: listPageSize})
 	if err != nil {
 		return nil, err
 	}
 	return []inventory.Summary{inventory.Summarize(snap, clusterID, time.Now())}, nil
+}
+
+// pagedReader lists through the wrapped reader pageSize objects at a time.
+type pagedReader struct {
+	client.Reader
+
+	pageSize int64
+}
+
+// List implements client.Reader.
+func (r pagedReader) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	var items []runtime.Object
+	continueToken := ""
+	for {
+		pageOpts := append(slices.Clone(opts), client.Limit(r.pageSize), client.Continue(continueToken))
+		if err := r.Reader.List(ctx, list, pageOpts...); err != nil {
+			return err
+		}
+		page, err := meta.ExtractList(list)
+		if err != nil {
+			return err
+		}
+		// The items point into the list, which the next page is decoded into.
+		for _, item := range page {
+			items = append(items, item.DeepCopyObject())
+		}
+		if continueToken = list.GetContinue(); continueToken == "" {
+			break
+		}
+	}
+	return meta.SetList(list, items)
 }
 
 // ClusterID returns the UID of the kube-system namespace, the identity of a
