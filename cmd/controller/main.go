@@ -79,6 +79,8 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var secretProtection bool
+	var createMissingDefaults bool
+	var applyBuiltinManifests bool
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -102,6 +104,13 @@ func main() {
 		"Hold the openeverest.io/in-use-protection finalizer and usage counts on the Secrets objects use, so the "+
 			"secret-in-use admission policy refuses deleting them. With --secret-protection=false the controller removes "+
 			"them from every Secret at start instead.")
+	flag.BoolVar(&createMissingDefaults, "create-missing-defaults", true,
+		"At start, create the everest-jwt and everest-accounts Secrets and the everest-rbac and everest-settings "+
+			"ConfigMaps in the controller's namespace if they are missing. Existing ones are never changed.")
+	flag.BoolVar(&applyBuiltinManifests, "apply-builtin-manifests", false,
+		"At start, server-side apply the admission policies and built-in BackupStorageClasses of this version. "+
+			"For installers that cannot ship them, such as an OLM bundle; the Helm chart ships them itself. "+
+			"Needs the permissions in config/rbac/builtin_manifests_role.yaml.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -298,6 +307,11 @@ func main() {
 
 	if err := setupLifecycleEvents(mgr); err != nil {
 		setupLog.Error(err, "Failed to set up lifecycle events")
+		os.Exit(1)
+	}
+
+	if err := setupBootstrap(mgr, createMissingDefaults, applyBuiltinManifests); err != nil {
+		setupLog.Error(err, "Failed to set up bootstrap")
 		os.Exit(1)
 	}
 

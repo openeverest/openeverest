@@ -1,0 +1,27 @@
+# Permissions the controller needs only with --apply-builtin-manifests, which
+# installers that cannot ship cluster-scoped admission policies and
+# BackupStorageClasses themselves, such as an OLM bundle, turn on. Kept out
+# of the manager role, which kubebuilder generates and every install grants,
+# because writing admission policies can block writes across the cluster.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: builtin-manifests-role
+rules:
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingadmissionpolicies
+  - validatingadmissionpolicybindings
+  verbs:
+  - create
+  - get
+  - patch
+- apiGroups:
+  - backup.openeverest.io
+  resources:
+  - backupstorageclasses
+  verbs:
+  - create
+  - get
+  - patch

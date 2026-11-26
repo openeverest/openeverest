@@ -19,6 +19,7 @@ package kubernetes
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
@@ -28,6 +29,7 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 
@@ -52,6 +54,34 @@ type configMapsClient struct {
 // manages everest accounts directly via ConfigMaps.
 func (k *Kubernetes) Accounts() accounts.Interface {
 	return &configMapsClient{k: k}
+}
+
+// NewInitialAccountsSecret returns the everest-accounts Secret for
+// namespace, holding only the admin account with a random password. The
+// password stays in plain text, marked insecure, until it is changed, so
+// that `everestctl accounts initial-admin-password` can print it.
+func NewInitialAccountsSecret(namespace string) (*corev1.Secret, error) {
+	data, err := yaml.Marshal(map[string]*accounts.Account{
+		common.EverestAdminUser: {
+			Enabled:       true,
+			Capabilities:  []accounts.AccountCapability{accounts.AccountCapabilityLogin},
+			PasswordMtime: time.Now().Format(time.RFC3339),
+			PasswordHash:  rand.Text(),
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.EverestAccountsSecretName,
+			Namespace: namespace,
+			Annotations: map[string]string{
+				fmt.Sprintf(insecurePasswordAnnotation, common.EverestAdminUser): insecurePasswordValueTrue,
+			},
+		},
+		Data: map[string][]byte{common.EverestAccountsFileName: data},
+	}, nil
 }
 
 // Get returns an account by username.
