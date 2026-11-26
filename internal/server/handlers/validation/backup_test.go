@@ -31,9 +31,9 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 func TestCreateBackup_Validation(t *testing.T) {
@@ -105,7 +105,7 @@ func TestCreateBackup_Validation(t *testing.T) {
 			},
 			objects:            []ctrlclient.Object{storage, supportedClass},
 			err:                "instance 'missing-instance' does not exist",
-			wantSentinel:       controller.ErrInstanceNotFound,
+			wantSentinel:       referents.ErrInstanceNotFound,
 			wantInvalidRequest: true,
 		},
 		{
@@ -123,7 +123,7 @@ func TestCreateBackup_Validation(t *testing.T) {
 			},
 			objects:            []ctrlclient.Object{instance, supportedClass},
 			err:                "backup storage 'missing-storage' does not exist",
-			wantSentinel:       controller.ErrBackupStorageNotFound,
+			wantSentinel:       referents.ErrBackupStorageNotFound,
 			wantInvalidRequest: true,
 		},
 		{
@@ -141,7 +141,7 @@ func TestCreateBackup_Validation(t *testing.T) {
 			},
 			objects:            []ctrlclient.Object{instance, storage},
 			err:                "backup class not found: 'missing-class'",
-			wantSentinel:       controller.ErrBackupClassNotFound,
+			wantSentinel:       referents.ErrBackupClassNotFound,
 			wantInvalidRequest: true,
 		},
 		{
@@ -149,7 +149,7 @@ func TestCreateBackup_Validation(t *testing.T) {
 			backup:             newBackup("b4", "unsupported-class", "test-storage"),
 			objects:            []ctrlclient.Object{instance, storage, unsupportedClass, s3StorageClass},
 			err:                `backup class incompatible: BackupClass "unsupported-class" is Incompatible with Provider "test-provider" (ProviderUnsupported)`,
-			wantSentinel:       controller.ErrBackupClassIncompatible,
+			wantSentinel:       referents.ErrBackupClassIncompatible,
 			wantInvalidRequest: true,
 		},
 		{
@@ -157,7 +157,7 @@ func TestCreateBackup_Validation(t *testing.T) {
 			backup:             newBackup("b7", "drift-class", "test-storage"),
 			objects:            []ctrlclient.Object{instance, storage, driftClass, s3StorageClass},
 			err:                `BackupClass "drift-class" is Incompatible with Provider "test-provider" (SpecDrift)`,
-			wantSentinel:       controller.ErrBackupClassIncompatible,
+			wantSentinel:       referents.ErrBackupClassIncompatible,
 			wantInvalidRequest: true,
 		},
 		{
@@ -165,7 +165,7 @@ func TestCreateBackup_Validation(t *testing.T) {
 			backup:             newBackup("b8", "supported-class", "gcs-storage"),
 			objects:            []ctrlclient.Object{instance, gcsStorage, supportedClass, s3StorageClass},
 			err:                `backup storage incompatible: BackupStorage "gcs-storage" is Incompatible with BackupClass "supported-class" (ParameterUnsupported)`,
-			wantSentinel:       controller.ErrBackupStorageIncompatible,
+			wantSentinel:       referents.ErrBackupStorageIncompatible,
 			wantInvalidRequest: true,
 		},
 		{

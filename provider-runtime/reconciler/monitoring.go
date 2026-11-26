@@ -34,6 +34,7 @@ import (
 
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	contractmonitoring "github.com/openeverest/openeverest/v2/contract/monitoring"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
@@ -443,7 +444,7 @@ func (r *ProviderReconciler) entryConfigured(ctx context.Context, syncCtx *contr
 		if rb.Mode() == v1alpha1.MonitoringExecutionModeProviderManaged {
 			r.retainBinding(ctx, rb.Binding, accepted, logger)
 		}
-	case !monitoring.IsAccepted(rb.Binding):
+	case !contractmonitoring.IsAccepted(rb.Binding):
 		cond.Message = "waiting for the binding to be accepted"
 	case rb.Mode() == v1alpha1.MonitoringExecutionModeProviderManaged && !rb.Apply:
 		// The provider held the live rendering; core is about to revoke Accepted.
@@ -470,7 +471,7 @@ func entryReady(rb controller.ResolvedBinding, configured metav1.Condition) meta
 		(c.Status == metav1.ConditionFalse || c.ObservedGeneration == rb.Binding.Generation) {
 		accepted = *c
 	}
-	ready := monitoring.BindingReady(rb.Binding, accepted, configured, rb.Destination)
+	ready := contractmonitoring.BindingReady(rb.Binding, accepted, configured, rb.Destination)
 	return entryCondition(v1alpha1.MonitoringEntryConditionReady, ready.Status, ready.Reason, ready.Message)
 }
 

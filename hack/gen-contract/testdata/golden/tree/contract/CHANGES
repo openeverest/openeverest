@@ -1,0 +1,5 @@
+# Changes no artifact shows.
+#
+# - #1: an example, in a comment.
+- #1234: provider webhooks must declare sideEffects None or NoneOnDryRun.
+- #1240: the API server reads the connection details Secret by its new name.

@@ -40,6 +40,8 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract"
+	contractsummary "github.com/openeverest/openeverest/v2/contract/summary"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/summary"
 )
@@ -96,7 +98,7 @@ func readyTestInstance(mutate func(*v1alpha1.Instance)) *v1alpha1.Instance {
 			Name:       "orders",
 			Namespace:  "team-a",
 			Generation: 2,
-			Labels:     map[string]string{controller.ProviderLabel: "test-provider"},
+			Labels:     map[string]string{contract.ProviderLabel: "test-provider"},
 			Finalizers: []string{finalizerName},
 		},
 		Spec: v1alpha1.InstanceSpec{ProviderRef: common.ObjectRef{Name: "test-provider"}},
@@ -871,7 +873,7 @@ func TestReconcile_Problems(t *testing.T) {
 			got, _ := st.pass()
 
 			requireCondition(t, got, v1alpha1.ConditionEngineHealthy, metav1.ConditionFalse, v1alpha1.ReasonEngineError)
-			require.NoError(t, summary.CheckConditions(got.Status.Conditions), reserved)
+			require.NoError(t, contractsummary.CheckConditions(got.Status.Conditions), reserved)
 		}
 	})
 

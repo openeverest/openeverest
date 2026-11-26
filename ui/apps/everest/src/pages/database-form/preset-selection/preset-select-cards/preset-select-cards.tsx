@@ -13,55 +13,87 @@
 // limitations under the License.
 
 import { useMemo } from 'react';
+import { Alert, Stack } from '@mui/material';
 import { useFormContext } from 'react-hook-form';
 import { CardPicker } from '@percona/ui-lib';
+import ActionableAlert from 'components/actionable-alert';
 import { DbWizardFormFields } from 'consts';
 import { usePresetSelectionContext } from '../preset-selection-context';
-import { presetToCardItem } from './preset-select-cards.utils';
+import {
+  getDroppedPresetMessage,
+  presetToCardItem,
+} from './preset-select-cards.utils';
 import { Messages } from './preset-select-cards.messages';
 
 // Thin preset-specific wrapper over the reusable CardPicker: maps presets to
 // card items (searchable by their whole spec) and binds selection to the form.
 export const PresetSelectCards = () => {
-  const { presets, presetName, isLoadingPresets, isError } =
-    usePresetSelectionContext();
+  const {
+    presets,
+    presetId,
+    isLoadingPresets,
+    isError,
+    retryFailedLists,
+    isRetrying,
+    droppedPreset,
+    dismissDroppedPreset,
+  } = usePresetSelectionContext();
   const { setValue } = useFormContext();
 
   const items = useMemo(() => presets.map(presetToCardItem), [presets]);
 
-  if (!isError && (isLoadingPresets || presets.length === 0)) {
+  // A dropped pick keeps the section up even with nothing left to offer, or
+  // the form would fall back to defaults with no explanation.
+  if (
+    !isError &&
+    !droppedPreset &&
+    (isLoadingPresets || presets.length === 0)
+  ) {
     return null;
   }
 
-  const statusCard = isError
-    ? { title: Messages.loadErrorTitle, subtitle: Messages.loadErrorSubtitle }
-    : undefined;
-
   return (
-    <CardPicker
-      sx={{ mb: 2 }}
-      items={items}
-      selectedId={presetName}
-      onSelect={(id) =>
-        setValue(DbWizardFormFields.presetName, id, {
-          shouldValidate: true,
-          shouldDirty: true,
-          shouldTouch: true,
-        })
-      }
-      leadCard={{
-        id: '',
-        title: Messages.scratchTitle,
-        subtitle: Messages.scratchCaption,
-      }}
-      statusCard={statusCard}
-      messages={{
-        searchPlaceholder: Messages.searchPlaceholder,
-        searchAriaLabel: Messages.searchAriaLabel,
-        browseAll: Messages.browseAll,
-        dialogTitle: Messages.dialogTitle,
-        noMatches: Messages.noMatches,
-      }}
-    />
+    <Stack spacing={2} sx={{ mt: 3 }}>
+      <CardPicker
+        items={items}
+        selectedId={presetId}
+        onSelect={(id) =>
+          setValue(DbWizardFormFields.presetId, id, {
+            shouldValidate: true,
+            shouldDirty: true,
+            shouldTouch: true,
+          })
+        }
+        leadCard={{
+          id: '',
+          title: Messages.scratchTitle,
+          subtitle: Messages.scratchCaption,
+        }}
+        messages={{
+          searchPlaceholder: Messages.searchPlaceholder,
+          searchAriaLabel: Messages.searchAriaLabel,
+          browseAll: Messages.browseAll,
+          dialogTitle: Messages.dialogTitle,
+          noMatches: Messages.noMatches,
+        }}
+      />
+      {/* One line under the cards: a failed list must not cost a row of them. */}
+      {isError && (
+        <ActionableAlert
+          message={
+            presets.length > 0 ? Messages.partialLoadError : Messages.loadError
+          }
+          buttonMessage={Messages.retry}
+          buttonProps={{ loading: isRetrying }}
+          onClick={retryFailedLists}
+        />
+      )}
+      {/* Not an error: the form is valid, the pick just no longer applies. */}
+      {droppedPreset && (
+        <Alert severity="info" role="status" onClose={dismissDroppedPreset}>
+          {getDroppedPresetMessage(droppedPreset)} {Messages.presetDroppedHint}
+        </Alert>
+      )}
+    </Stack>
   );
 };

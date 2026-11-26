@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/contract"
 	"github.com/openeverest/openeverest/v2/provider-runtime/internal/backupclass"
 	"github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
@@ -68,7 +68,7 @@ func (r *backupClassClaimReconciler) Reconcile(ctx context.Context, req reconcil
 		return reconcile.Result{}, nil
 	}
 	return reconcile.Result{}, monitoring.ApplyCondition(ctx, r.client, class, class.Status.Conditions,
-		controller.StatusFieldOwner(r.provider), cond,
+		contract.ProviderStatusFieldOwner(r.provider), cond,
 	)
 }
 

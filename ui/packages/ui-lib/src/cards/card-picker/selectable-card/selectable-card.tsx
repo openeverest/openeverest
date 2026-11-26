@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Card, CardActionArea, CardContent, Typography } from '@mui/material';
+import {
+  Card,
+  CardActionArea,
+  CardContent,
+  Chip,
+  Typography,
+} from '@mui/material';
 import { CardPickerItem } from '../card-picker.types';
 import { Highlight } from '../highlight';
 
@@ -24,10 +30,8 @@ export interface SelectableCardProps {
   // Search tokens to highlight in the texts.
   tokens?: string[];
   onSelect: () => void;
-  // Non-interactive state: renders inert and dimmed (e.g. an in-grid notice).
+  // Non-interactive state: renders inert and dimmed.
   disabled?: boolean;
-  // ARIA role for the non-interactive variant (e.g. 'status' for a live notice).
-  role?: string;
 }
 
 export const SelectableCard = ({
@@ -36,7 +40,6 @@ export const SelectableCard = ({
   tokens = NO_TOKENS,
   onSelect,
   disabled = false,
-  role,
 }: SelectableCardProps) => {
   const content = (
     <CardContent
@@ -52,6 +55,14 @@ export const SelectableCard = ({
       <Typography variant="sectionHeading">
         <Highlight text={item.title} tokens={tokens} />
       </Typography>
+      {item.badge && (
+        <Chip
+          size="xs"
+          color={item.badge.color}
+          label={<Highlight text={item.badge.label} tokens={tokens} />}
+          sx={{ alignSelf: 'flex-start' }}
+        />
+      )}
       {item.subtitle && (
         <Typography variant="body2" color="text.secondary">
           <Highlight text={item.subtitle} tokens={tokens} />
@@ -69,7 +80,6 @@ export const SelectableCard = ({
     <Card
       variant="selectable"
       className={disabled ? 'disabled' : selected ? 'selected' : undefined}
-      role={role}
       sx={{ display: 'flex', flexDirection: 'column' }}
     >
       {disabled ? (

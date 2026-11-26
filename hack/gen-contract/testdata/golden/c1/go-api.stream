@@ -1,0 +1,7 @@
+github.com/openeverest/openeverest/v2/contract 251
+const VersionAnnotation = "openeverest.io/contract-version"
+func Check ( string , string , string ) Result
+iota=0 const KindA Kind = iota
+iota=1 const KindB Kind = iota
+type Kind int
+type Result struct { Status string "json:\"status\"" Reason string }

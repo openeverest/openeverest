@@ -13,5 +13,8 @@
 // limitations under the License.
 
 // Package reconciler runs a provider: it reconciles the provider's Instances
-// and serves its probes and its Instance admission webhook.
+// and serves its probes and its Instance admission webhook. A new build of
+// the provider reconciles and admits nothing until the installed OpenEverest
+// supports the contract version it links: it waits, alive and unready, and
+// starts by itself once OpenEverest is upgraded.
 package reconciler
