@@ -72,8 +72,21 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 	// If user has create permission on Instance, allow any customization
 	err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionCreate, object)
 	if err == nil {
-		if err := h.ensureInstanceReferencesAuthorized(ctx, cluster, instance.GetNamespace(), instance.GetName(), nil, instance.Spec, true); err != nil {
+		err = h.ensureInstanceReferencesAuthorized(ctx, cluster, instance.GetNamespace(), instance.GetName(), nil, instance.Spec, true)
+		if err == nil {
+			return h.next.CreateInstance(ctx, cluster, instance)
+		}
+		if !errors.Is(err, ErrInsufficientPermissions) {
 			return nil, err
+		}
+
+		// A reference is denied, but create also opens the preset path: an exact
+		// copy of a preset the user can read needs no read on what the preset pins.
+		if presetErr := h.authorizeFromPreset(ctx, cluster, instance); presetErr != nil {
+			if errors.Is(presetErr, ErrInsufficientPermissions) {
+				return nil, err
+			}
+			return nil, presetErr
 		}
 		return h.next.CreateInstance(ctx, cluster, instance)
 	}
@@ -90,10 +103,20 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 		return nil, err
 	}
 
+	if err = h.authorizeFromPreset(ctx, cluster, instance); err != nil {
+		return nil, err
+	}
+
+	return h.next.CreateInstance(ctx, cluster, instance)
+}
+
+// authorizeFromPreset checks that the instance is an exact copy of a preset the
+// user can read. The caller has already checked create or create-from-preset.
+func (h *rbacHandler) authorizeFromPreset(ctx context.Context, cluster string, instance *corev1alpha1.Instance) error {
 	// The preset vouches for the references it pins, but not for the user
 	// secret: whose credentials to seed is the requester's own choice.
-	if err = h.ensureUserSecretReadable(ctx, cluster, instance.GetNamespace(), nil, instance.Spec); err != nil {
-		return nil, err
+	if err := h.ensureUserSecretReadable(ctx, cluster, instance.GetNamespace(), nil, instance.Spec); err != nil {
+		return err
 	}
 
 	var instancePreset, clusterInstancePreset string
@@ -106,30 +129,24 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 	case instancePreset != "":
 		// User must have read permission on the InstancePreset
 		presetObj := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instancePreset)
-		if err = h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionRead, presetObj); err != nil {
-			return nil, err
+		if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionRead, presetObj); err != nil {
+			return err
 		}
 
 		// Reading the preset comes first, so only users who may see it learn how the instance differs from it.
-		if err = h.ensureMatchesInstancePreset(ctx, cluster, instance, instancePreset); err != nil {
-			return nil, err
-		}
+		return h.ensureMatchesInstancePreset(ctx, cluster, instance, instancePreset)
 	case clusterInstancePreset != "":
 		// User must have read permission on the ClusterInstancePreset
 		clusterPresetObj := rbac.ClusterObjectName(cluster, clusterInstancePreset)
-		if err = h.enforce(ctx, rbac.ResourceClusterInstancePresets, rbac.ActionRead, clusterPresetObj); err != nil {
-			return nil, err
+		if err := h.enforce(ctx, rbac.ResourceClusterInstancePresets, rbac.ActionRead, clusterPresetObj); err != nil {
+			return err
 		}
 
-		if err = h.ensureMatchesClusterInstancePreset(ctx, cluster, instance, clusterInstancePreset); err != nil {
-			return nil, err
-		}
+		return h.ensureMatchesClusterInstancePreset(ctx, cluster, instance, clusterInstancePreset)
 	default:
 		// no preset specified
-		return nil, ErrInsufficientPermissions
+		return ErrInsufficientPermissions
 	}
-
-	return h.next.CreateInstance(ctx, cluster, instance)
 }
 
 // UpdateInstance updates an instance, gated by RBAC.
