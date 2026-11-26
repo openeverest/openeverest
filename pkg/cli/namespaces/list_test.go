@@ -28,9 +28,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
@@ -224,7 +227,75 @@ func TestNamespaceLister_getNamespaceOperators(t *testing.T) {
 
 			got, err := nsL.getNamespaceOperators(context.Background(), ns)
 			require.NoError(t, err)
+			assert.NotNil(t, got)
 			assert.ElementsMatch(t, tc.want, got)
+		})
+	}
+}
+
+func TestNamespaceLister_getNamespaceOperators_errors(t *testing.T) {
+	t.Parallel()
+
+	const nsName = "db-ns"
+	sub := &olmv1alpha1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{Name: common.MongoDBOperatorName, Namespace: nsName},
+		Status:     olmv1alpha1.SubscriptionStatus{InstalledCSV: "psmdb-operator.v1.20.0"},
+	}
+	csvResource := schema.GroupResource{Group: "operators.coreos.com", Resource: "clusterserviceversions"}
+	subResource := schema.GroupResource{Group: "operators.coreos.com", Resource: "subscriptions"}
+
+	tests := []struct {
+		name    string
+		funcs   interceptor.Funcs
+		want    []string
+		wantErr bool
+	}{
+		{
+			name: "CSV read forbidden is returned, not skipped",
+			funcs: interceptor.Funcs{Get: func(ctx context.Context, c ctrlclient.WithWatch, key ctrlclient.ObjectKey, obj ctrlclient.Object, opts ...ctrlclient.GetOption) error {
+				if _, ok := obj.(*olmv1alpha1.ClusterServiceVersion); ok {
+					return apierrors.NewForbidden(csvResource, key.Name, nil)
+				}
+				return c.Get(ctx, key, obj, opts...)
+			}},
+			wantErr: true,
+		},
+		{
+			name: "subscription list not found",
+			funcs: interceptor.Funcs{List: func(_ context.Context, _ ctrlclient.WithWatch, _ ctrlclient.ObjectList, _ ...ctrlclient.ListOption) error {
+				return apierrors.NewNotFound(subResource, "")
+			}},
+			want: []string{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := fakeclient.NewClientBuilder().
+				WithScheme(kubernetes.CreateScheme()).
+				WithObjects(sub).
+				WithInterceptorFuncs(tc.funcs).
+				Build()
+			nsL := &NamespaceLister{
+				kubeClient: kubernetes.NewEmpty(zap.NewNop().Sugar(), "everest-system").WithKubernetesClient(c),
+				l:          zap.NewNop().Sugar(),
+			}
+			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+				Name:   nsName,
+				Labels: map[string]string{common.KubernetesManagedByLabel: common.Everest},
+			}}
+
+			got, err := nsL.getNamespaceOperators(context.Background(), ns)
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.True(t, apierrors.IsForbidden(err))
+				return
+			}
+			require.NoError(t, err)
+			assert.NotNil(t, got)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }
