@@ -79,6 +79,16 @@ func gather(t *testing.T, c prometheus.Collector) map[string]float64 {
 	return out
 }
 
+// series formats a sample the way gather does, from label name, value pairs.
+func series(name string, kv ...string) string {
+	labels := make([]string, 0, len(kv)/2)
+	for i := 0; i+1 < len(kv); i += 2 {
+		labels = append(labels, fmt.Sprintf("%s=%q", kv[i], kv[i+1]))
+	}
+	sort.Strings(labels)
+	return name + "{" + strings.Join(labels, ",") + "}"
+}
+
 func leader() bool { return true }
 
 func TestCollector(t *testing.T) {
@@ -204,49 +214,52 @@ func TestCollector(t *testing.T) {
 
 	got := gather(t, NewCollector(reader, leader, logr.Discard()))
 
-	inst := `instance="db1",namespace="team-a"`
-	want := map[string]float64{
-		`openeverest_extension_info{name="percona-server-mongodb",type="provider",version="1.2.0"}`:                    1,
-		`openeverest_extension_phase{name="percona-server-mongodb",phase="Installed",type="provider"}`:                 1,
-		`openeverest_extension_phase{name="percona-server-mongodb",phase="Failed",type="provider"}`:                    0,
-		`openeverest_provider_info{contract_version="2.0.0",provider="percona-server-mongodb"}`:                        1,
-		`openeverest_provider_condition{condition="Ready",provider="percona-server-mongodb",status="true"}`:            1,
-		`openeverest_provider_condition{condition="Ready",provider="percona-server-mongodb",status="false"}`:           0,
-		`openeverest_class_info{controller="openeverest.io/prometheus",kind="MonitoringClass",name="prometheus"}`:      1,
-		`openeverest_class_accepted{kind="MonitoringClass",name="prometheus",status="true"}`:                           1,
-		`openeverest_class_info{controller="percona-server-mongodb",kind="BackupClass",name="pbm"}`:                    1,
-		`openeverest_class_info{controller="",kind="BackupStorageClass",name="s3"}`:                                    1,
-		`openeverest_backup_storage_info{class="s3",name="store",namespace="team-a"}`:                                  1,
-		`openeverest_monitoring_destination_info{class="prometheus",name="dest",namespace="team-a"}`:                   1,
-		`openeverest_monitoring_destination_ready{name="dest",namespace="team-a",status="false"}`:                      1,
-		`openeverest_instance_info{` + inst + `,provider="percona-server-mongodb",version="8.0.12"}`:                   1,
-		`openeverest_instance_phase{` + inst + `,phase="Provisioned"}`:                                                 1,
-		`openeverest_instance_phase{` + inst + `,phase="Pending"}`:                                                     0,
-		`openeverest_instance_condition{condition="Ready",` + inst + `,status="true"}`:                                 1,
-		`openeverest_instance_condition{condition="Stalled",` + inst + `,status="false"}`:                              1,
-		`openeverest_instance_condition{condition="Stalled",` + inst + `,status="true"}`:                               0,
-		`openeverest_instance_component_replicas{component="engine",instance="db1",kind="desired",namespace="team-a"}`: 3,
-		`openeverest_instance_component_replicas{component="engine",instance="db1",kind="ready",namespace="team-a"}`:   2,
-		`openeverest_instance_resource_requests{component="engine",` + inst + `,resource="cpu"}`:                       1.5,
-		`openeverest_instance_resource_requests{component="engine",` + inst + `,resource="memory"}`:                    3 * 1024 * 1024 * 1024,
-		`openeverest_instance_resource_requests{component="engine",` + inst + `,resource="storage"}`:                   30 * 1024 * 1024 * 1024,
-		`openeverest_instance_resource_limits{component="engine",` + inst + `,resource="cpu"}`:                         3,
-		`openeverest_instance_pitr_available{` + inst + `,storage="store"}`:                                            1,
-		`openeverest_instance_last_successful_backup_timestamp_seconds{` + inst + `,storage="store"}`:                  float64(lastBackup.Unix()),
-		`openeverest_backups{` + inst + `,state="Succeeded",storage="store"}`:                                          2,
-		`openeverest_backups{` + inst + `,state="Failed",storage="store"}`:                                             1,
-		`openeverest_backups{instance="",namespace="team-a",state="Succeeded",storage="store"}`:                        1,
-		`openeverest_restores{` + inst + `,state="Unknown"}`:                                                           1,
+	// db1 labels a series of team-a/db1 with the labels given as name, value pairs.
+	db1 := func(name string, kv ...string) string {
+		return series(name, append([]string{labelNamespace, "team-a", labelInstance, "db1"}, kv...)...)
 	}
-	for series, value := range want {
-		if assert.Contains(t, got, series) {
-			assert.InDelta(t, value, got[series], 0.001, series)
+	want := map[string]float64{
+		series("openeverest_extension_info", "name", "percona-server-mongodb", "type", "provider", "version", "1.2.0"):               1,
+		series("openeverest_extension_phase", "name", "percona-server-mongodb", "phase", "Installed", "type", "provider"):            1,
+		series("openeverest_extension_phase", "name", "percona-server-mongodb", "phase", "Failed", "type", "provider"):               0,
+		series("openeverest_provider_info", "contract_version", "2.0.0", labelProvider, "percona-server-mongodb"):                    1,
+		series("openeverest_provider_condition", "condition", "Ready", labelProvider, "percona-server-mongodb", "status", "true"):    1,
+		series("openeverest_provider_condition", "condition", "Ready", labelProvider, "percona-server-mongodb", "status", "false"):   0,
+		series("openeverest_class_info", "controller", "openeverest.io/prometheus", "kind", "MonitoringClass", "name", "prometheus"): 1,
+		series("openeverest_class_accepted", "kind", "MonitoringClass", "name", "prometheus", "status", "true"):                      1,
+		series("openeverest_class_info", "controller", "percona-server-mongodb", "kind", "BackupClass", "name", "pbm"):               1,
+		series("openeverest_class_info", "controller", "", "kind", "BackupStorageClass", "name", "s3"):                               1,
+		series("openeverest_backup_storage_info", "class", "s3", "name", "store", labelNamespace, "team-a"):                          1,
+		series("openeverest_monitoring_destination_info", "class", "prometheus", "name", "dest", labelNamespace, "team-a"):           1,
+		series("openeverest_monitoring_destination_ready", "name", "dest", labelNamespace, "team-a", "status", "false"):              1,
+		db1("openeverest_instance_info", labelProvider, "percona-server-mongodb", "version", "8.0.12"):                               1,
+		db1("openeverest_instance_phase", "phase", "Provisioned"):                                                                    1,
+		db1("openeverest_instance_phase", "phase", "Pending"):                                                                        0,
+		db1("openeverest_instance_condition", "condition", "Ready", "status", "true"):                                                1,
+		db1("openeverest_instance_condition", "condition", "Stalled", "status", "false"):                                             1,
+		db1("openeverest_instance_condition", "condition", "Stalled", "status", "true"):                                              0,
+		db1("openeverest_instance_component_replicas", "component", "engine", "kind", "desired"):                                     3,
+		db1("openeverest_instance_component_replicas", "component", "engine", "kind", "ready"):                                       2,
+		db1("openeverest_instance_resource_requests", "component", "engine", "resource", "cpu"):                                      1.5,
+		db1("openeverest_instance_resource_requests", "component", "engine", "resource", "memory"):                                   3 * 1024 * 1024 * 1024,
+		db1("openeverest_instance_resource_requests", "component", "engine", "resource", "storage"):                                  30 * 1024 * 1024 * 1024,
+		db1("openeverest_instance_resource_limits", "component", "engine", "resource", "cpu"):                                        3,
+		db1("openeverest_instance_pitr_available", "storage", "store"):                                                               1,
+		db1("openeverest_instance_last_successful_backup_timestamp_seconds", "storage", "store"):                                     float64(lastBackup.Unix()),
+		db1("openeverest_backups", "state", "Succeeded", "storage", "store"):                                                         2,
+		db1("openeverest_backups", "state", "Failed", "storage", "store"):                                                            1,
+		series("openeverest_backups", labelInstance, "", labelNamespace, "team-a", "state", "Succeeded", "storage", "store"):         1,
+		db1("openeverest_restores", "state", "Unknown"):                                                                              1,
+	}
+	for s, value := range want {
+		if assert.Contains(t, got, s) {
+			assert.InDelta(t, value, got[s], 0.001, s)
 		}
 	}
-	for series := range got {
-		assert.NotContains(t, series, `condition="Synced"`, "only summary conditions are exported")
-		assert.NotContains(t, series, `openeverest_instance_resource_limits{component="engine",`+inst+`,resource="memory"}`,
-			"a resource the spec doesn't set is not exported")
+	assert.NotContains(t, got, db1("openeverest_instance_resource_limits", "component", "engine", "resource", "memory"),
+		"a resource the spec doesn't set is not exported")
+	for s := range got {
+		assert.NotContains(t, s, `condition="Synced"`, "only summary conditions are exported")
 	}
 }
 
@@ -256,11 +269,11 @@ func TestCollectorFollowsDeletions(t *testing.T) {
 	inst := &corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "db1", Namespace: "team-a"}}
 	reader := fake.NewClientBuilder().WithScheme(newScheme(t)).WithObjects(inst).Build()
 	c := NewCollector(reader, leader, logr.Discard())
-	series := `openeverest_instance_info{instance="db1",namespace="team-a",provider="",version=""}`
+	info := series("openeverest_instance_info", labelNamespace, "team-a", labelInstance, "db1", labelProvider, "", "version", "")
 
-	require.Contains(t, gather(t, c), series)
+	require.Contains(t, gather(t, c), info)
 	require.NoError(t, reader.Delete(context.Background(), inst))
-	assert.NotContains(t, gather(t, c), series)
+	assert.NotContains(t, gather(t, c), info)
 }
 
 func TestCollectorOnlyLeaderEmitsInventory(t *testing.T) {
@@ -291,5 +304,6 @@ func TestCollectorSurvivesRepeatedConditions(t *testing.T) {
 
 	got := gather(t, NewCollector(reader, leader, logr.Discard()))
 
-	assert.InDelta(t, 1, got[`openeverest_instance_condition{condition="Ready",instance="db1",namespace="team-a",status="true"}`], 0)
+	assert.InDelta(t, 1, got[series("openeverest_instance_condition",
+		labelNamespace, "team-a", labelInstance, "db1", "condition", "Ready", "status", "true")], 0)
 }

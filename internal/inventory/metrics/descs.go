@@ -21,7 +21,17 @@ import (
 	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 )
 
-const prefix = "openeverest_"
+const (
+	prefix = "openeverest_"
+
+	// The labels that name an Instance, its namespace and its provider are
+	// the identity labels providers put on database metrics. They don't
+	// collide with the namespace and instance labels Prometheus gives every
+	// scraped series, and they join OpenEverest metrics with database ones.
+	labelNamespace = "openeverest_namespace"
+	labelInstance  = "openeverest_instance"
+	labelProvider  = "openeverest_provider"
+)
 
 func newDesc(name, help string, labels ...string) *prometheus.Desc {
 	return prometheus.NewDesc(prefix+name, help, labels, nil)
@@ -41,10 +51,10 @@ var (
 		"type", "name", "phase")
 	providerInfo = newDesc("provider_info",
 		"A Provider, whether installed from the catalog or with Helm. Always 1.",
-		"provider", "contract_version")
+		labelProvider, "contract_version")
 	providerCondition = newDesc("provider_condition",
 		"Condition of a Provider: 1 for the current status, 0 for the others.",
-		"provider", "condition", "status")
+		labelProvider, "condition", "status")
 
 	classInfo = newDesc("class_info",
 		"A MonitoringClass, BackupClass or BackupStorageClass. controller is the MonitoringClass controllerName, "+
@@ -55,49 +65,49 @@ var (
 		"kind", "name", "status")
 	backupStorageInfo = newDesc("backup_storage_info",
 		"A BackupStorage. Always 1.",
-		"namespace", "name", "class")
+		labelNamespace, "name", "class")
 	monitoringDestinationInfo = newDesc("monitoring_destination_info",
 		"A MonitoringDestination. Always 1.",
-		"namespace", "name", "class")
+		labelNamespace, "name", "class")
 	monitoringDestinationReady = newDesc("monitoring_destination_ready",
 		"Ready condition of a MonitoringDestination: 1 for the current status, 0 for the others.",
-		"namespace", "name", "status")
+		labelNamespace, "name", "status")
 
 	instanceInfo = newDesc("instance_info",
 		"An Instance. version is the version it runs, or the one its spec asks for until the provider reports. Always 1.",
-		"namespace", "instance", "provider", "version")
+		labelNamespace, labelInstance, labelProvider, "version")
 	instancePhase = newDesc("instance_phase",
 		"Lifecycle phase of an Instance: 1 for the current phase, 0 for the others. "+
 			"The phase says nothing about health: alert on openeverest_instance_condition.",
-		"namespace", "instance", "phase")
+		labelNamespace, labelInstance, "phase")
 	instanceCondition = newDesc("instance_condition",
 		"Summary condition of an Instance: 1 for the current status, 0 for the others.",
-		"namespace", "instance", "condition", "status")
+		labelNamespace, labelInstance, "condition", "status")
 	instanceComponentReplicas = newDesc("instance_component_replicas",
 		"Pods of an Instance component as the provider reports them: desired, current (not terminating) and ready.",
-		"namespace", "instance", "component", "kind")
+		labelNamespace, labelInstance, "component", "kind")
 	instanceResourceRequests = newDesc("instance_resource_requests",
 		"Resources an Instance component requests in its spec, times its replicas. CPU in cores, memory and "+
 			"storage in bytes. A lower bound: components that come only from defaults, sidecars and exporters "+
 			"are not counted.",
-		"namespace", "instance", "component", "resource")
+		labelNamespace, labelInstance, "component", "resource")
 	instanceResourceLimits = newDesc("instance_resource_limits",
 		"Resource limits an Instance component sets in its spec, times its replicas. CPU in cores, memory in bytes.",
-		"namespace", "instance", "component", "resource")
+		labelNamespace, labelInstance, "component", "resource")
 	instancePITRAvailable = newDesc("instance_pitr_available",
 		"1 while the point-in-time recovery window on a backup storage is available, 0 otherwise. "+
 			"Present only for storages with PITR enabled.",
-		"namespace", "instance", "storage")
+		labelNamespace, labelInstance, "storage")
 	instanceLastSuccessfulBackup = newDesc("instance_last_successful_backup_timestamp_seconds",
 		"Unix time the latest successful Backup of an Instance to a backup storage completed.",
-		"namespace", "instance", "storage")
+		labelNamespace, labelInstance, "storage")
 
 	backupsCount = newDesc("backups",
 		"Number of Backups by state. instance is empty for backups imported from external data.",
-		"namespace", "instance", "storage", "state")
+		labelNamespace, labelInstance, "storage", "state")
 	restoresCount = newDesc("restores",
 		"Number of Restores by state.",
-		"namespace", "instance", "state")
+		labelNamespace, labelInstance, "state")
 
 	allDescs = []*prometheus.Desc{
 		buildInfo,
