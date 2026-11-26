@@ -14,7 +14,11 @@
 
 package helm
 
-import "github.com/openeverest/openeverest/v2/pkg/kubernetes"
+import (
+	"helm.sh/helm/v3/pkg/action"
+
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+)
 
 // valueFalse is the string representation of a disabled Helm chart value.
 const valueFalse = "false"
@@ -51,4 +55,28 @@ func NewValues(v Values) map[string]string {
 		values["telemetry"] = valueFalse
 	}
 	return values
+}
+
+// TelemetryDisabled reports whether the user-supplied values of a release turn
+// telemetry off, in either form the chart accepts: telemetry=false or
+// telemetry.enabled=false.
+func TelemetryDisabled(values map[string]any) bool {
+	switch t := values["telemetry"].(type) {
+	case bool:
+		return !t
+	case map[string]any:
+		enabled, ok := t["enabled"].(bool)
+		return ok && !enabled
+	default:
+		return false
+	}
+}
+
+// ReleaseValues returns the values the user supplied to a release.
+func ReleaseValues(kubeconfigPath, namespace, releaseName string) (map[string]any, error) {
+	cfg, err := newActionsCfg(namespace, kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewGetValues(cfg).Run(releaseName)
 }

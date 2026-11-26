@@ -182,7 +182,8 @@ jobs:
 
       - name: Everest - build binary
         run: |
-          RELEASE_VERSION=${VERSION_TAG} CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} make rc
+          # Feature builds are for testing: no telemetry endpoint is compiled in.
+          TELEMETRY_URL= BUILD_CHANNEL=feature RELEASE_VERSION=${VERSION_TAG} CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} make rc
 
       - name: Everest - push Everest image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

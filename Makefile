@@ -155,8 +155,7 @@ export GOARCH ?= $(shell go env GOHOSTARCH)
 # Everest API server
 SERVER_LD_FLAGS = -X 'github.com/openeverest/openeverest/v2/pkg/version.Version=$(RELEASE_VERSION)' \
 	-X 'github.com/openeverest/openeverest/v2/pkg/version.FullCommit=$(RELEASE_FULLCOMMIT)' \
-	-X 'github.com/openeverest/openeverest/v2/pkg/version.ProjectName=Everest API Server' \
-	-X 'github.com/openeverest/openeverest/v2/cmd/config.TelemetryInterval=24h'
+	-X 'github.com/openeverest/openeverest/v2/pkg/version.ProjectName=Everest API Server'
 SERVER_BUILD_TAGS =
 SERVER_GC_FLAGS =
 
@@ -184,13 +183,23 @@ build-debug: SERVER_BUILD_TAGS = -tags debug
 build-debug: SERVER_GC_FLAGS = -gcflags=all="-N -l"
 build-debug: build-server-helper	## Build Everest API server binary with debug symbols.
 
+# Only release and RC builds have a telemetry endpoint: no other build sends
+# telemetry unless TELEMETRY_URL is set at runtime. Builds that use `make rc`
+# for testing, such as feature builds, run `TELEMETRY_URL= BUILD_CHANNEL=feature make rc`
+# to have none, and to report their own channel if one is set at runtime.
+TELEMETRY_URL ?= https://telemetry.openeverest.io/v2/heartbeat
+TELEMETRY_LD_FLAGS = -X 'github.com/openeverest/openeverest/v2/cmd/config.TelemetryURL=$(TELEMETRY_URL)' \
+	-X 'github.com/openeverest/openeverest/v2/cmd/config.BuildChannel=$(BUILD_CHANNEL)'
+
 .PHONY: rc
-rc: SERVER_LD_FLAGS += -X 'github.com/openeverest/openeverest/v2/cmd/config.TelemetryURL=https://check-dev.percona.com'
+rc: BUILD_CHANNEL ?= rc
+rc: SERVER_LD_FLAGS += $(TELEMETRY_LD_FLAGS)
 rc: build-server-helper	## Build Everest API server RC version.
 rc: build-controller-helper	## Build Everest controller RC version.
 
 .PHONY: release
-release: SERVER_LD_FLAGS += -X 'github.com/openeverest/openeverest/v2/cmd/config.TelemetryURL=https://check.percona.com'
+release: BUILD_CHANNEL = release
+release: SERVER_LD_FLAGS += $(TELEMETRY_LD_FLAGS)
 release: build-server-helper	## Build Everest API server release version. (Use for building release only!)
 release: build-controller-helper	## Build Everest controller release version. (Use for building release only!)
 

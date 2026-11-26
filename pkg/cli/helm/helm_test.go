@@ -108,3 +108,25 @@ func TestHelm_InstallOrUpgrade(t *testing.T) {
 	assert.Equal(t, 2, rel.Version)
 	assert.Equal(t, "0.2.0", rel.Chart.Metadata.Version)
 }
+
+func TestTelemetryDisabled(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name   string
+		values map[string]any
+		want   bool
+	}{
+		{name: "not set", values: make(map[string]any), want: false},
+		{name: "telemetry=false", values: map[string]any{"telemetry": false}, want: true},
+		{name: "telemetry=true", values: map[string]any{"telemetry": true}, want: false},
+		{name: "telemetry.enabled=false", values: map[string]any{"telemetry": map[string]any{"enabled": false}}, want: true},
+		{name: "telemetry.enabled=true", values: map[string]any{"telemetry": map[string]any{"enabled": true}}, want: false},
+		{name: "only telemetry.dryRun set", values: map[string]any{"telemetry": map[string]any{"dryRun": true}}, want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, TelemetryDisabled(tc.values))
+		})
+	}
+}

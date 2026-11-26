@@ -232,7 +232,7 @@ func (u *Upgrade) setupHelmInstaller(_ context.Context) error {
 	overrides := helm.NewValues(helm.Values{
 		ClusterType:        u.clusterType,
 		VersionMetadataURL: u.config.VersionMetadataURL,
-		DisableTelemetry:   u.config.DisableTelemetry,
+		DisableTelemetry:   u.config.DisableTelemetry || u.telemetryDisabledOnRelease(),
 	})
 
 	values := Must(helmutils.MergeVals(u.config.Values, overrides))
@@ -251,6 +251,19 @@ func (u *Upgrade) setupHelmInstaller(_ context.Context) error {
 	}
 	u.helmInstaller = installer
 	return nil
+}
+
+// telemetryDisabledOnRelease reports whether the installed release turned
+// telemetry off. The upgrade passes its own values without reusing the
+// release's, so an earlier opt-out must be carried over explicitly.
+func (u *Upgrade) telemetryDisabledOnRelease() bool {
+	namespace := u.kubeConnector.Namespace()
+	values, err := helm.ReleaseValues(u.config.KubeconfigPath, namespace, namespace)
+	if err != nil {
+		u.l.Debugf("Could not read the values of the installed release: %v", err)
+		return false
+	}
+	return helm.TelemetryDisabled(values)
 }
 
 func (u *Upgrade) printPostUpgradeMessage(ctx context.Context, out io.Writer) error {
