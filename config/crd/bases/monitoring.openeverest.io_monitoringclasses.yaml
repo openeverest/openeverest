@@ -195,6 +195,11 @@ spec:
                         maxItems: 32
                         type: array
                         x-kubernetes-list-type: set
+                      logs:
+                        description: |-
+                          Logs requires the component to publish log streams
+                          (logs: Native or Sidecar).
+                        type: boolean
                       metrics:
                         description: |-
                           Metrics requires the component to expose OpenMetrics

@@ -152,6 +152,15 @@ spec:
                           - Supported
                           - None
                           type: string
+                        logs:
+                          default: None
+                          description: Logs states how the component's logs reach
+                            a container stream.
+                          enum:
+                          - Native
+                          - Sidecar
+                          - None
+                          type: string
                         metrics:
                           default: None
                           description: Metrics states how the component exposes OpenMetrics.
