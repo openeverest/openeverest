@@ -58,6 +58,7 @@ func TestExtensionManagedEligibility(t *testing.T) {
 	}
 	connections := monitoringv1alpha1.SourceRequirements{Connection: true}
 	databases := monitoringv1alpha1.SourceRequirements{Connection: true, Kinds: []string{"mongodb", "postgresql"}}
+	logs := monitoringv1alpha1.SourceRequirements{Logs: true}
 	connectable := corev1alpha1.MonitoringComponentType{Connection: corev1alpha1.ConnectionSupported}
 	annotatable := corev1alpha1.MonitoringComponentType{Connection: corev1alpha1.ConnectionSupported, PodMetadata: corev1alpha1.PodMetadataSupported}
 	compatible := func(disruption monitoringv1alpha1.Disruption) monitoringv1alpha1.ProviderCompatibility {
@@ -196,6 +197,42 @@ func TestExtensionManagedEligibility(t *testing.T) {
 				map[string]string{"pxc": "mysql", "mongod": "mongodb"},
 			),
 			want: compatible(monitoringv1alpha1.DisruptionRollingRestart),
+		},
+		{
+			name:  "logs on container streams already",
+			class: class(logs, false),
+			provider: eligibilityProvider(
+				map[string]corev1alpha1.MonitoringComponentType{"mongod": {Logs: corev1alpha1.LogsSourceNative}},
+				nil,
+			),
+			want: compatible(monitoringv1alpha1.DisruptionNone),
+		},
+		{
+			name:  "logs through a tailer sidecar roll the pods",
+			class: class(logs, false),
+			provider: eligibilityProvider(
+				map[string]corev1alpha1.MonitoringComponentType{"mongod": {Logs: corev1alpha1.LogsSourceNative}, "pxc": {Logs: corev1alpha1.LogsSourceSidecar}},
+				nil,
+			),
+			want: compatible(monitoringv1alpha1.DisruptionRollingRestart),
+		},
+		{
+			name:  "a tailer sidecar does not roll the pods for a class without logs",
+			class: class(connections, false),
+			provider: eligibilityProvider(
+				map[string]corev1alpha1.MonitoringComponentType{"pxc": {Logs: corev1alpha1.LogsSourceSidecar, Connection: corev1alpha1.ConnectionSupported}},
+				nil,
+			),
+			want: compatible(monitoringv1alpha1.DisruptionNone),
+		},
+		{
+			name:  "logs required and not published",
+			class: class(logs, false),
+			provider: eligibilityProvider(
+				map[string]corev1alpha1.MonitoringComponentType{"pxc": connectable, "haproxy": {Logs: corev1alpha1.LogsSourceNone}},
+				nil,
+			),
+			want: incompatible(monitoringv1alpha1.ReasonIncompatible, `no component satisfies the requirements of MonitoringClass "agent"`),
 		},
 	}
 	for _, tt := range tests {

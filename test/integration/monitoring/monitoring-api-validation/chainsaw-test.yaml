@@ -627,6 +627,24 @@ spec:
           (contains($stderr, 'ca and insecureSkipVerify are mutually exclusive')): true
     - script:
         content: |
+          kubectl patch instance sources -n "$NAMESPACE" --subresource=status --type=merge --dry-run=server \
+            -o jsonpath='{.status.monitoring.sources.logs[0].container} {.status.monitoring.sources.logs[1].type}' \
+            -p '{"status":{"monitoring":{"sources":{"logs":[{"component":"engine","kind":"mysql","podSelector":{"core.openeverest.io/instance":"sources"},"container":"pxc","type":"error","format":"text","multilineStart":"^\\d{4}-"},{"component":"engine","kind":"mysql","podSelector":{"core.openeverest.io/instance":"sources"},"container":"slowlog","type":"mysql/slow","format":"json"}]}}}}'
+        check:
+          ($error): ~
+          ($stdout): pxc mysql/slow
+    - script:
+        content: |
+          kubectl patch instance sources -n "$NAMESPACE" --subresource=status --type=merge --dry-run=server \
+            -p '{"status":{"monitoring":{"sources":{"logs":[{"component":"engine","kind":"mysql","podSelector":{},"type":"Slow Log","format":"logfmt"}]}}}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'monitoring.sources.logs[0].container: Required value')): true
+          (contains($stderr, 'monitoring.sources.logs[0].podSelector in body should have at least 1 properties')): true
+          (contains($stderr, 'monitoring.sources.logs[0].type in body should match')): true
+          (contains($stderr, 'monitoring.sources.logs[0].format: Unsupported value')): true
+    - script:
+        content: |
           kubectl create --dry-run=server -f - <<'EOF'
           apiVersion: core.openeverest.io/v1alpha1
           kind: Provider
@@ -640,11 +658,13 @@ spec:
               integrations:
                 pmm: {authModes: [ServiceAccountToken, api-key]}
               componentTypes:
-                engine: {metrics: Exporter, podMetadata: Supported}
-                proxy: {podMetadata: Always}
+                engine: {metrics: Exporter, podMetadata: Supported, logs: Sidecar}
+                proxy: {podMetadata: Always, logs: Tail}
           EOF
         check:
           ($error != null): true
+          "(contains($stderr, 'spec.monitoring.componentTypes.proxy.logs: Unsupported value'))": true
+          (contains($stderr, 'componentTypes.engine.logs')): false
           (contains($stderr, 'spec.componentTypes.proxy.kind in body should match')): true
           (contains($stderr, 'componentTypes.engine.kind')): false
           "(contains($stderr, 'spec.monitoring.componentTypes.proxy.podMetadata: Unsupported value'))": true
@@ -652,7 +672,7 @@ spec:
           (contains($stderr, 'spec.monitoring.integrations.pmm.authModes[1] in body should match')): true
     - script:
         content: |
-          kubectl create --dry-run=server -o jsonpath='{.spec.monitoring.componentTypes.engine.podMetadata}' -f - <<'EOF'
+          kubectl create --dry-run=server -o jsonpath='{.spec.monitoring.componentTypes.engine.podMetadata} {.spec.monitoring.componentTypes.engine.logs}' -f - <<'EOF'
           apiVersion: core.openeverest.io/v1alpha1
           kind: Provider
           metadata:
@@ -666,7 +686,7 @@ spec:
           EOF
         check:
           ($error): ~
-          ($stdout): None
+          ($stdout): None None
     - script:
         content: |
           kubectl create --dry-run=server -f - <<'EOF'

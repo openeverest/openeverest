@@ -17,6 +17,7 @@ package reconciler
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -429,6 +430,9 @@ func (r *ProviderReconciler) monitoringSources(ctx context.Context, syncCtx *con
 	if dropped := len(computed.Connections) - len(validated.Connections); dropped > 0 {
 		return validated, fmt.Sprintf("%d of %d connection endpoints dropped", dropped, len(computed.Connections))
 	}
+	if dropped := len(computed.Logs) - len(validated.Logs); dropped > 0 {
+		return validated, fmt.Sprintf("%d of %d log streams dropped", dropped, len(computed.Logs))
+	}
 	return validated, ""
 }
 
@@ -540,6 +544,7 @@ func (r *ProviderReconciler) validateSources(ctx context.Context, syncCtx *contr
 	}
 	out.Metrics = validMetrics(in, spec, out.Credentials, out.Metrics, logger)
 	out.Connections = validConnections(in, spec, out.Credentials, out.Connections, logger)
+	out.Logs = validLogs(in, spec, out.Logs, logger)
 
 	out.Identity = v1alpha1.MonitoringIdentity{
 		ClusterID: clusterID,
@@ -666,6 +671,58 @@ func validConnections(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, creden
 		out = out[:maxMetricsEndpoints]
 	}
 	return out
+}
+
+// validLogs drops the log streams the Provider declaration or the Instance
+// status schema rejects, sets each kind to its component type's declared kind
+// (see endpointType) and keeps at most maxMetricsEndpoints.
+func validLogs(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, streams []v1alpha1.LogStream, logger logr.Logger) []v1alpha1.LogStream {
+	var declared map[string]v1alpha1.MonitoringComponentType
+	if spec.Monitoring != nil {
+		declared = spec.Monitoring.ComponentTypes
+	}
+
+	var out []v1alpha1.LogStream
+	for _, ls := range streams {
+		componentType, kind, kindValid := endpointType(in, spec, ls.Component, ls.Kind)
+		decl, isDeclared := declared[componentType]
+		switch {
+		case !isDeclared:
+			logger.Info("Dropping log stream of an undeclared component type", "component", ls.Component, "type", componentType)
+		case !kindValid:
+			logger.Info("Dropping log stream whose kind is not the declared kind of its component type",
+				"component", ls.Component, "type", componentType, "kind", ls.Kind, "declaredKind", kind,
+			)
+		case decl.Logs == "" || decl.Logs == v1alpha1.LogsSourceNone:
+			logger.Info("Dropping log stream of a component type declared without logs", "component", ls.Component, "type", componentType)
+		case ls.PodSelector[controller.InstanceLabel] != in.Name:
+			logger.Info("Dropping log stream whose pod selector lacks the Instance label", "component", ls.Component)
+		case ls.Container == "":
+			logger.Info("Dropping log stream without a container", "component", ls.Component)
+		case ls.Format != v1alpha1.LogFormatJSON && ls.Format != v1alpha1.LogFormatText:
+			logger.Info("Dropping log stream with an unsupported format", "component", ls.Component, "format", ls.Format)
+		case !validMultilineStart(ls.MultilineStart):
+			logger.Info("Dropping log stream whose multilineStart is not a regular expression", "component", ls.Component)
+		default:
+			ls.Kind = kind
+			out = append(out, ls)
+		}
+	}
+	if len(out) > maxMetricsEndpoints {
+		logger.Info("Dropping log streams beyond the limit", "limit", maxMetricsEndpoints, "dropped", len(out)-maxMetricsEndpoints)
+		out = out[:maxMetricsEndpoints]
+	}
+	return out
+}
+
+// validMultilineStart: collectors compile the expression, so a stream with
+// one that does not compile would break their pipeline rather than ours.
+func validMultilineStart(expr string) bool {
+	if expr == "" {
+		return true
+	}
+	_, err := regexp.Compile(expr)
+	return err == nil
 }
 
 // endpointType returns the type of an endpoint's component (from the

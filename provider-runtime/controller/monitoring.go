@@ -185,8 +185,8 @@ func (r Requirement) Else(current bool) bool {
 	return current
 }
 
-// RequiredSources is what the Instance's metrics source policy and the
-// classes bound to it need from it.
+// RequiredSources is what the Instance's source policies and the classes
+// bound to it need from it.
 // Bindings whose entry was removed from spec.monitoring.destinations are
 // ignored: only removing the entry removes what it asked for.
 type RequiredSources struct {
@@ -202,6 +202,11 @@ type RequiredSources struct {
 	// requires connections; the provider then publishes connection
 	// endpoints and the monitor credential. Resolved like Metrics.
 	Connections Requirement
+	// Logs is Required when spec.monitoring.sources.logs.policy is Always or
+	// an ExtensionManaged binding's class requires logs; the provider then
+	// publishes its log streams and, for logs: Sidecar, runs the tailers.
+	// Resolved like Metrics.
+	Logs Requirement
 	// Integrations has one key per integration the Provider declares in
 	// spec.monitoring.integrations or the provider returns from
 	// MonitoringIntegrations. An integration is Required while one of its
@@ -235,8 +240,13 @@ func (c *Context) RequiredSources() (RequiredSources, error) {
 	if c.in.GetMetricsSourcePolicy() != v1alpha1.MonitoringSourcePolicyAlways {
 		metrics = sourceRequirement(bindings, entries, func(r monitoringv1alpha1.SourceRequirements) bool { return r.Metrics })
 	}
+	logs := Required
+	if c.in.GetLogsSourcePolicy() != v1alpha1.MonitoringSourcePolicyAlways {
+		logs = sourceRequirement(bindings, entries, func(r monitoringv1alpha1.SourceRequirements) bool { return r.Logs })
+	}
 	return RequiredSources{
 		Metrics: metrics,
+		Logs:    logs,
 		Connections: sourceRequirement(bindings, entries, func(r monitoringv1alpha1.SourceRequirements) bool {
 			return r.Connection
 		}),

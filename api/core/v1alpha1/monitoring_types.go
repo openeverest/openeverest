@@ -74,6 +74,9 @@ type InstanceMonitoringSources struct {
 	// Metrics configures the Instance's OpenMetrics endpoints.
 	// +optional
 	Metrics *InstanceMetricsSource `json:"metrics,omitempty"`
+	// Logs configures the Instance's log streams.
+	// +optional
+	Logs *InstanceLogsSource `json:"logs,omitempty"`
 }
 
 // InstanceMetricsSource configures when the Instance serves OpenMetrics.
@@ -84,6 +87,20 @@ type InstanceMetricsSource struct {
 	// without a destination, for scrapers that OpenEverest does not
 	// configure. The serving endpoints are listed in
 	// status.monitoring.sources.metrics.
+	// +kubebuilder:default=OnDemand
+	// +optional
+	Policy MonitoringSourcePolicy `json:"policy,omitempty"`
+}
+
+// InstanceLogsSource configures when the Instance publishes its log streams.
+type InstanceLogsSource struct {
+	// Policy says when the provider publishes the Instance's log streams
+	// and runs the tailers of its file-based logs. OnDemand publishes them
+	// while a destination's class needs logs. Always publishes them without
+	// a destination, for log collectors that OpenEverest does not
+	// configure. Which logs the engine writes (e.g. the slow log) stays
+	// with the engine configuration. The published streams are listed in
+	// status.monitoring.sources.logs.
 	// +kubebuilder:default=OnDemand
 	// +optional
 	Policy MonitoringSourcePolicy `json:"policy,omitempty"`
@@ -111,6 +128,16 @@ func (in *Instance) GetMetricsSourcePolicy() MonitoringSourcePolicy {
 		return MonitoringSourcePolicyOnDemand
 	}
 	return m.Sources.Metrics.Policy
+}
+
+// GetLogsSourcePolicy returns spec.monitoring.sources.logs.policy, or
+// OnDemand when it is not set.
+func (in *Instance) GetLogsSourcePolicy() MonitoringSourcePolicy {
+	m := in.Spec.Monitoring
+	if m == nil || m.Sources == nil || m.Sources.Logs == nil || m.Sources.Logs.Policy == "" {
+		return MonitoringSourcePolicyOnDemand
+	}
+	return m.Sources.Logs.Policy
 }
 
 // InstanceMonitoringDestination sends the Instance's monitoring data to one
@@ -193,6 +220,23 @@ const (
 	MetricsSourceNone MetricsSource = "None"
 )
 
+// LogsSource states how a component type's logs reach a container stream.
+//
+// +kubebuilder:validation:Enum=Native;Sidecar;None
+type LogsSource string
+
+const (
+	// LogsSourceNative means the component's logs are already written to
+	// its containers' stdout and stderr.
+	LogsSourceNative LogsSource = "Native"
+	// LogsSourceSidecar means the provider can run a tailer sidecar that
+	// streams the component's file-based logs (e.g. slow or audit logs) to
+	// its stdout. Starting it rolls the pods.
+	LogsSourceSidecar LogsSource = "Sidecar"
+	// LogsSourceNone means no logs are available.
+	LogsSourceNone LogsSource = "None"
+)
+
 // ConnectionSupport states whether monitoring agents can connect to a
 // component type over its native protocol.
 //
@@ -271,6 +315,10 @@ type MonitoringComponentType struct {
 	// +kubebuilder:default=None
 	// +optional
 	Metrics MetricsSource `json:"metrics,omitempty"`
+	// Logs states how the component's logs reach a container stream.
+	// +kubebuilder:default=None
+	// +optional
+	Logs LogsSource `json:"logs,omitempty"`
 	// Connection states whether monitoring agents can connect to the
 	// component over its native protocol, with the monitor credential.
 	// +kubebuilder:default=None
@@ -286,7 +334,7 @@ type MonitoringComponentType struct {
 
 // MonitoringSources is the per-Instance publication of the monitoring
 // contract, computed by the provider and validated and written by
-// provider-runtime. Signals are keys: metrics today, logs and traces later.
+// provider-runtime. Signals are keys: metrics and logs.
 type MonitoringSources struct {
 	// Identity carries the labels every monitoring class must attach so
 	// destinations can tell Instances and clusters apart. Stamped by the
@@ -311,6 +359,11 @@ type MonitoringSources struct {
 	// +kubebuilder:validation:MaxItems=32
 	// +optional
 	Connections []ConnectionEndpoint `json:"connections,omitempty"`
+	// Logs lists the log streams that are currently being written.
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=32
+	// +optional
+	Logs []LogStream `json:"logs,omitempty"`
 }
 
 // MonitoringIdentity identifies the Instance towards monitoring destinations.
@@ -452,3 +505,57 @@ type ConnectionTLS struct {
 	// +optional
 	ClientCertificateSecretRef *common.SecretRef `json:"clientCertificateSecretRef,omitempty"`
 }
+
+// LogStream describes one log stream: the stdout and stderr of one container
+// of the selected pods. It never names a file, so collectors read only the
+// node's pod logs and need no access to data volumes; a provider streams a
+// file-based log through a container (e.g. a tailer sidecar) to publish it.
+type LogStream struct {
+	// Component is the Instance component name (e.g. "engine", "proxy").
+	// +kubebuilder:validation:Required
+	Component string `json:"component"`
+	// Kind is the kind of the component's type
+	// (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+	// A provider may leave it empty; a stream it computes with another kind
+	// is not published.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
+	Kind string `json:"kind"`
+	// PodSelector selects the pods writing the stream.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinProperties=1
+	PodSelector map[string]string `json:"podSelector"`
+	// Container is the name of the container whose stdout and stderr carry
+	// the stream.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Container string `json:"container"`
+	// Type is what the stream carries, free-form (e.g. "error", "slow",
+	// "audit", "general", or "<kind>/<type>" for an engine-specific one).
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
+	Type string `json:"type"`
+	// Format is how each record is encoded: "json" or "text".
+	// +kubebuilder:validation:Required
+	Format LogFormat `json:"format"`
+	// MultilineStart is a regular expression (RE2) matching the first line
+	// of a record, for text records that span several lines. Empty means
+	// one record per line.
+	// +kubebuilder:validation:MaxLength=256
+	// +optional
+	MultilineStart string `json:"multilineStart,omitempty"`
+}
+
+// LogFormat is how the records of a log stream are encoded.
+//
+// +kubebuilder:validation:Enum=json;text
+type LogFormat string
+
+const (
+	// LogFormatJSON means one JSON object per record.
+	LogFormatJSON LogFormat = "json"
+	// LogFormatText means plain-text records.
+	LogFormatText LogFormat = "text"
+)

@@ -336,6 +336,81 @@ func TestRequiredSources(t *testing.T) {
 	}
 }
 
+func TestRequiredSources_Logs(t *testing.T) {
+	t.Parallel()
+
+	logsClass := extensionManagedClass("loki", false)
+	logsClass.Spec.ExtensionManaged.Requires.Logs = true
+	tests := []struct {
+		name        string
+		entries     []string
+		logsPolicy  v1alpha1.MonitoringSourcePolicy
+		objs        []client.Object
+		wantLogs    Requirement
+		wantMetrics Requirement
+	}{
+		{
+			name:        "the Always logs policy without entries does not require metrics",
+			logsPolicy:  v1alpha1.MonitoringSourcePolicyAlways,
+			wantLogs:    Required,
+			wantMetrics: NotRequired,
+		},
+		{
+			name:        "the Always logs policy wins over an unresolved entry",
+			entries:     []string{"pending"},
+			logsPolicy:  v1alpha1.MonitoringSourcePolicyAlways,
+			wantLogs:    Required,
+			wantMetrics: Unresolved,
+		},
+		{
+			name:    "an ExtensionManaged class that requires logs",
+			entries: []string{"loki"},
+			objs: []client.Object{
+				monitoringBinding("loki", v1alpha1.MonitoringExecutionModeExtensionManaged, "loki", metav1.ConditionTrue),
+				logsClass,
+			},
+			wantLogs:    Required,
+			wantMetrics: NotRequired,
+		},
+		{
+			name:    "an ExtensionManaged class that requires only metrics",
+			entries: []string{"prometheus"},
+			objs: []client.Object{
+				monitoringBinding("prometheus", v1alpha1.MonitoringExecutionModeExtensionManaged, "prometheus", metav1.ConditionTrue),
+				extensionManagedClass("prometheus", true),
+			},
+			wantLogs:    NotRequired,
+			wantMetrics: Required,
+		},
+		{
+			name:        "an unresolved entry holds the logs",
+			entries:     []string{"pending"},
+			wantLogs:    Unresolved,
+			wantMetrics: Unresolved,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			in := monitoredInstance(tc.entries...)
+			if tc.logsPolicy != "" {
+				if in.Spec.Monitoring == nil {
+					in.Spec.Monitoring = &v1alpha1.InstanceMonitoringSpec{}
+				}
+				in.Spec.Monitoring.Sources = &v1alpha1.InstanceMonitoringSources{
+					Logs: &v1alpha1.InstanceLogsSource{Policy: tc.logsPolicy},
+				}
+			}
+			c := monitoringTestContext(t, in, tc.objs...)
+
+			got, err := c.RequiredSources()
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantLogs, got.Logs)
+			assert.Equal(t, tc.wantMetrics, got.Metrics)
+		})
+	}
+}
+
 func TestRequiredSources_ProviderMissing(t *testing.T) {
 	t.Parallel()
 	s := runtime.NewScheme()

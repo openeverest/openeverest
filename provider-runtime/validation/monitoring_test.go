@@ -102,3 +102,59 @@ func TestRun_MetricsSourcePolicy(t *testing.T) {
 		})
 	}
 }
+
+func TestRun_LogsSourcePolicy(t *testing.T) {
+	t.Parallel()
+
+	const noEffect = "spec.monitoring.sources.logs.policy: Always has no effect: " +
+		"the provider publishes no logs for the components of this Instance"
+	withPolicy := func(in *v1alpha1.Instance, policy v1alpha1.MonitoringSourcePolicy) *v1alpha1.Instance {
+		in.Spec.Monitoring = &v1alpha1.InstanceMonitoringSpec{Sources: &v1alpha1.InstanceMonitoringSources{
+			Logs: &v1alpha1.InstanceLogsSource{Policy: policy},
+		}}
+		return in
+	}
+	tests := []struct {
+		name       string
+		instance   *v1alpha1.Instance
+		monitoring *v1alpha1.ProviderMonitoring
+		wantNote   bool
+	}{
+		{
+			name:     "OnDemand without logs",
+			instance: withPolicy(replicaSet(nil), v1alpha1.MonitoringSourcePolicyOnDemand),
+		},
+		{
+			name:     "Always on a component that only serves metrics",
+			instance: withPolicy(replicaSet(nil), v1alpha1.MonitoringSourcePolicyAlways),
+			monitoring: &v1alpha1.ProviderMonitoring{ComponentTypes: map[string]v1alpha1.MonitoringComponentType{
+				"mongod": {Metrics: v1alpha1.MetricsSourceNative},
+			}},
+			wantNote: true,
+		},
+		{
+			name:     "Always on a component with a log tailer",
+			instance: withPolicy(replicaSet(nil), v1alpha1.MonitoringSourcePolicyAlways),
+			monitoring: &v1alpha1.ProviderMonitoring{ComponentTypes: map[string]v1alpha1.MonitoringComponentType{
+				"mongod": {Logs: v1alpha1.LogsSourceSidecar},
+			}},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			provider := testProvider(t)
+			provider.Spec.Monitoring = tc.monitoring
+			v := &recordingValidator{}
+
+			res := Run(t.Context(), v, controller.ValidationInput{Instance: tc.instance, Provider: provider})
+
+			require.Empty(t, res.Errors, "the policy never fails validation")
+			want := []string{"from the provider"}
+			if tc.wantNote {
+				want = append([]string{noEffect}, want...)
+			}
+			assert.Equal(t, want, res.Warnings)
+		})
+	}
+}
