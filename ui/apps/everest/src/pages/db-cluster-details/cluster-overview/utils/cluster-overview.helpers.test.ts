@@ -281,8 +281,9 @@ describe('collectSectionFields', () => {
         spec: { env: { API_KEY: 'secret' }, token: 's3cr3t' },
       });
 
+      // The row is flagged, so the view offers no copy of the mask.
       expect(env.mapEntries).toEqual([
-        { key: 'API_KEY', value: '***************' },
+        { key: 'API_KEY', value: '***************', masked: true },
       ]);
       expect(token.value).toBe('***************');
     });

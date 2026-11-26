@@ -60,3 +60,14 @@ export const SingleEntry: Story = {
     entries: [{ key: 'team', value: 'db' }],
   },
 };
+
+// A masked row has nothing worth copying, so it shows no copy button.
+export const WithMaskedValue: Story = {
+  args: {
+    label: 'Environment',
+    entries: [
+      { key: 'API_TOKEN', value: '***************', masked: true },
+      { key: 'REGION', value: 'eu-west-1' },
+    ],
+  },
+};

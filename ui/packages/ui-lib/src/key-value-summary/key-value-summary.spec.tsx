@@ -60,3 +60,19 @@ it('copies a row as key=value', () => {
 
   expect(writeText).toHaveBeenCalledWith('team=db');
 });
+
+it('offers no copy for a row that shows a mask', () => {
+  render(
+    <KeyValueSummary
+      entries={[
+        { key: 'TOKEN', value: '***************', masked: true },
+        { key: 'REGION', value: 'eu-west-1' },
+      ]}
+      label="Environment"
+    />
+  );
+  fireEvent.click(screen.getByTestId('key-value-summary-toggle'));
+
+  expect(screen.queryByLabelText('Copy TOKEN')).toBeNull();
+  expect(screen.getByLabelText('Copy REGION')).toBeInTheDocument();
+});

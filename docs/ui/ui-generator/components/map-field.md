@@ -158,7 +158,7 @@ podMonitorLabels:
   they come back in the order the API returns.
 - **Preview and overview**: an entry-count chip, e.g. *3 entries*. It opens a key/value table in a
   dialog, where each row can be copied as `key=value`. A row field with `type: password` is shown
-  masked, in the table too.
+  masked, in the table too, and such a row can't be copied.
 - **New row**: starts empty, and its key input gets the focus.
 - **Long keys and values**: one too long for its input ends in an ellipsis, and hovering the input
   shows it in full. Not for a field with `type: password`, and not for a field with its own

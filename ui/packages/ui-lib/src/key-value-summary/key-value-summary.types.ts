@@ -15,6 +15,8 @@
 export interface KeyValueEntry {
   key: string;
   value: string;
+  /** The row shows a mask in place of the entry, so it offers no copy. */
+  masked?: boolean;
 }
 
 export interface KeyValueSummaryProps {

@@ -17,3 +17,9 @@ export interface MapRow {
   key: string;
   value: string;
 }
+
+// An entry as a read-only view shows it.
+export interface MapDisplayRow extends MapRow {
+  // The key or the value is shown as a mask, not as stored.
+  masked?: boolean;
+}

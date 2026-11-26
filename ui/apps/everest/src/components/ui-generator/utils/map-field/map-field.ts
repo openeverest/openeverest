@@ -21,7 +21,7 @@ import {
   type MapComponent,
   isMapComponent,
 } from '../../ui-generator.types';
-import { maskPasswordValue } from '../display-value';
+import { isMaskedValue, maskPasswordValue } from '../display-value';
 import {
   deleteByPath,
   getByPath,
@@ -34,7 +34,7 @@ import {
 } from '../preprocess/normalized-component';
 import { walkLeafComponents } from '../schema-walker';
 import { getMapRow } from './key-value-widget';
-import type { MapRow } from './map-field.types';
+import type { MapDisplayRow, MapRow } from './map-field.types';
 
 export const isMapRow = (value: unknown): value is MapRow =>
   isPlainObject(value) &&
@@ -75,21 +75,30 @@ const toDisplayText = (value: unknown): string =>
 
 // Read-only views (preview, overview) show a map's entries in a key/value
 // table behind an entry-count chip. A row field typed as a password is
-// masked, as in its input. Reads both the form's rows and the saved map;
-// empty when there is no entry.
+// masked, as in its input, and the row says so: what it shows is no longer the
+// entry. Reads both the form's rows and the saved map; empty when there is no
+// entry.
 export const getMapFieldDisplayRows = (
   value: unknown,
   component: MapComponent
-): MapRow[] => {
+): MapDisplayRow[] => {
   const map = Array.isArray(value) ? rowsToObject(value) : value;
   if (!isPlainObject(map)) return [];
   const { key: keyField, value: valueField } = getMapRow(component).components;
   const show = (field: Component | ComponentGroup | undefined, text: string) =>
     field ? maskPasswordValue(field, text) : text;
-  return Object.entries(map).map(([key, entryValue]) => ({
-    key: show(keyField, key),
-    value: show(valueField, toDisplayText(entryValue)),
-  }));
+  const masks = (field: Component | ComponentGroup | undefined, text: string) =>
+    !!field && isMaskedValue(field, text);
+  return Object.entries(map).map(([key, entryValue]) => {
+    const text = toDisplayText(entryValue);
+    return {
+      key: show(keyField, key),
+      value: show(valueField, text),
+      ...((masks(keyField, key) || masks(valueField, text)) && {
+        masked: true,
+      }),
+    };
+  });
 };
 
 export const getMapFieldPaths = (

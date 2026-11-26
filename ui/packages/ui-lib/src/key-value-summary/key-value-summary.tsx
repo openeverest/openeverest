@@ -68,13 +68,22 @@ export const KeyValueSummary = ({
               fontWeight: 600,
               backgroundColor: theme.palette.background.paper,
             },
+            // A long key or value wraps at its separators first, and inside a
+            // word only when it has to.
             '& td, & th': {
               borderBottom: `1px solid ${theme.palette.divider}`,
-              wordBreak: 'break-all',
+              overflowWrap: 'anywhere',
             },
+            // The floors keep one very long key or value from squeezing the
+            // other column down to a letter or two per line. On a narrow
+            // screen each takes at most half of what the dialog's margins and
+            // the button column leave.
             '& td:first-of-type, & th:first-of-type': {
-              width: '58%',
+              minWidth: 'min(160px, calc(50vw - 67px))',
               pl: 3,
+            },
+            '& td:nth-of-type(2), & th:nth-of-type(2)': {
+              minWidth: 'min(120px, calc(50vw - 67px))',
             },
             '& td:last-of-type, & th:last-of-type': {
               width: 40,
@@ -101,22 +110,24 @@ export const KeyValueSummary = ({
             </TableRow>
           </TableHead>
           <TableBody>
-            {entries.map(({ key, value }, index) => (
+            {entries.map(({ key, value, masked }, index) => (
               // Masking can collapse keys into one string; the index keeps
               // the row key unique. The list is static, so it is safe.
               <TableRow key={`${index}:${key}`}>
                 <TableCell>{key}</TableCell>
                 <TableCell>{value}</TableCell>
                 <TableCell align="right">
-                  <CopyToClipboardButton
-                    textToCopy={`${key}=${value}`}
-                    buttonProps={{
-                      size: 'small',
-                      'aria-label': Messages.copyEntry(key),
-                      sx: { p: 0.5 },
-                    }}
-                    iconSx={{ fontSize: 16 }}
-                  />
+                  {!masked && (
+                    <CopyToClipboardButton
+                      textToCopy={`${key}=${value}`}
+                      buttonProps={{
+                        size: 'small',
+                        'aria-label': Messages.copyEntry(key),
+                        sx: { p: 0.5 },
+                      }}
+                      iconSx={{ fontSize: 16 }}
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             ))}

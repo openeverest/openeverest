@@ -25,7 +25,12 @@ export const isPasswordField = (item: Component | ComponentGroup): boolean =>
 
 // Read-only views (preview, overview) mask a password field's value, as its
 // input does. An empty value stays empty, so it still reads as unset.
+export const isMaskedValue = (
+  item: Component | ComponentGroup,
+  value: string
+): boolean => value !== '' && isPasswordField(item);
+
 export const maskPasswordValue = (
   item: Component | ComponentGroup,
   value: string
-): string => (value !== '' && isPasswordField(item) ? Messages.masked : value);
+): string => (isMaskedValue(item, value) ? Messages.masked : value);

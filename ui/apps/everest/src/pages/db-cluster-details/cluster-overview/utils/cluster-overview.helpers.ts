@@ -35,7 +35,7 @@ import {
   maskPasswordValue,
 } from 'components/ui-generator/utils/display-value';
 import { getMapFieldDisplayRows } from 'components/ui-generator/utils/map-field';
-import type { MapRow } from 'components/ui-generator/utils/map-field';
+import type { MapDisplayRow } from 'components/ui-generator/utils/map-field';
 import {
   getComponentSourcePath,
   getComponentTargetPaths,
@@ -57,7 +57,7 @@ export type SectionField = {
   path: string;
   value: string;
   // A map's entries; the card shows them as a count chip opening a table.
-  mapEntries?: MapRow[];
+  mapEntries?: MapDisplayRow[];
   // When set, the field renders its own read-only widget summary full-width
   // instead of the scalar `value` row.
   summary?: {

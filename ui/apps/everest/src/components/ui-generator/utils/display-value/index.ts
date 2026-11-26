@@ -12,4 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { isPasswordField, maskPasswordValue } from './display-value';
+export {
+  isMaskedValue,
+  isPasswordField,
+  maskPasswordValue,
+} from './display-value';

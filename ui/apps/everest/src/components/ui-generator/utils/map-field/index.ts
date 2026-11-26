@@ -25,4 +25,4 @@ export { buildMapFieldSchema } from './map-field-schema';
 export { expandKeyValueWidget, getMapRow } from './key-value-widget';
 export { type IgnoredMapField, resolveMapFields } from './resolve-map-fields';
 export { type MapLintIssue, lintMapFields } from './lint-map-fields';
-export type { MapRow } from './map-field.types';
+export type { MapDisplayRow, MapRow } from './map-field.types';

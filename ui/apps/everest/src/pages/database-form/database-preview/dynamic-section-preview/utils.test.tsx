@@ -252,6 +252,8 @@ describe('renderComponent - map field', () => {
     expect(screen.getByText('API_KEY')).toBeInTheDocument();
     expect(screen.getAllByText('***************')).toHaveLength(2);
     expect(screen.queryByText(/secret/)).not.toBeInTheDocument();
+    // A copy would hand over the mask, not the entry.
+    expect(screen.queryByLabelText('Copy API_KEY')).toBeNull();
   });
 
   it('shows a dash for a map with no entries', () => {

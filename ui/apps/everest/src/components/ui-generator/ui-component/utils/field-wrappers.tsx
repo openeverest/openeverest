@@ -19,6 +19,7 @@ import {
   FieldType,
 } from 'components/ui-generator/ui-generator.types';
 import { TruncatedValueTooltip } from 'components/ui-generator/ui-component/truncated-value-tooltip';
+import { isPasswordField } from 'components/ui-generator/utils/display-value';
 import { isNumberLikeField } from './is-number-like-field';
 
 type FieldWrapper = (
@@ -75,16 +76,13 @@ const tooltipWrapper: FieldWrapper = (element, item) => {
   );
 };
 
-const isMasked = (item: Component): boolean =>
-  item.uiType === FieldType.Text && item.fieldParams.type === 'password';
-
 const truncatedValueWrapper: FieldWrapper = (element, item, name) => {
   // A tooltip the provider wrote takes the hover, and a masked value stays
   // masked.
   const showsValue =
     item._renderOverrides?.showFullValueOnHover &&
     !item.fieldParams?.tooltip &&
-    !isMasked(item);
+    !isPasswordField(item);
   if (!showsValue) return element;
 
   return <TruncatedValueTooltip name={name}>{element}</TruncatedValueTooltip>;
