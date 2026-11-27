@@ -1161,6 +1161,7 @@ func TestReconcile_RequiredSourcesIncludeRenderedIntegrations(t *testing.T) {
 	assert.Equal(t, controller.RequiredSources{
 		Metrics:      controller.NotRequired,
 		Connections:  controller.NotRequired,
+		Logs:         controller.NotRequired,
 		Integrations: map[string]controller.Requirement{"pmm": controller.Required},
 	}, p.got, "pmm comes from MonitoringIntegrations: the Provider object declares no integration",
 	)

@@ -402,6 +402,24 @@ func (e ClusterInstancePresetSpecMonitoringDestinationsDestinationRefKind) Valid
 	}
 }
 
+// Defines values for ClusterInstancePresetSpecMonitoringSourcesLogsPolicy.
+const (
+	ClusterInstancePresetSpecMonitoringSourcesLogsPolicyAlways   ClusterInstancePresetSpecMonitoringSourcesLogsPolicy = "Always"
+	ClusterInstancePresetSpecMonitoringSourcesLogsPolicyOnDemand ClusterInstancePresetSpecMonitoringSourcesLogsPolicy = "OnDemand"
+)
+
+// Valid indicates whether the value is a known member of the ClusterInstancePresetSpecMonitoringSourcesLogsPolicy enum.
+func (e ClusterInstancePresetSpecMonitoringSourcesLogsPolicy) Valid() bool {
+	switch e {
+	case ClusterInstancePresetSpecMonitoringSourcesLogsPolicyAlways:
+		return true
+	case ClusterInstancePresetSpecMonitoringSourcesLogsPolicyOnDemand:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy.
 const (
 	ClusterInstancePresetSpecMonitoringSourcesMetricsPolicyAlways   ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy = "Always"
@@ -615,6 +633,24 @@ func (e InstanceSpecMonitoringDestinationsDestinationRefKind) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSpecMonitoringSourcesLogsPolicy.
+const (
+	InstanceSpecMonitoringSourcesLogsPolicyAlways   InstanceSpecMonitoringSourcesLogsPolicy = "Always"
+	InstanceSpecMonitoringSourcesLogsPolicyOnDemand InstanceSpecMonitoringSourcesLogsPolicy = "OnDemand"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecMonitoringSourcesLogsPolicy enum.
+func (e InstanceSpecMonitoringSourcesLogsPolicy) Valid() bool {
+	switch e {
+	case InstanceSpecMonitoringSourcesLogsPolicyAlways:
+		return true
+	case InstanceSpecMonitoringSourcesLogsPolicyOnDemand:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceSpecMonitoringSourcesMetricsPolicy.
 const (
 	InstanceSpecMonitoringSourcesMetricsPolicyAlways   InstanceSpecMonitoringSourcesMetricsPolicy = "Always"
@@ -705,6 +741,24 @@ func (e InstanceStatusMonitoringDestinationsMode) Valid() bool {
 	case InstanceStatusMonitoringDestinationsModeExtensionManaged:
 		return true
 	case InstanceStatusMonitoringDestinationsModeProviderManaged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceStatusMonitoringSourcesLogsFormat.
+const (
+	InstanceStatusMonitoringSourcesLogsFormatJson InstanceStatusMonitoringSourcesLogsFormat = "json"
+	InstanceStatusMonitoringSourcesLogsFormatText InstanceStatusMonitoringSourcesLogsFormat = "text"
+)
+
+// Valid indicates whether the value is a known member of the InstanceStatusMonitoringSourcesLogsFormat enum.
+func (e InstanceStatusMonitoringSourcesLogsFormat) Valid() bool {
+	switch e {
+	case InstanceStatusMonitoringSourcesLogsFormatJson:
+		return true
+	case InstanceStatusMonitoringSourcesLogsFormatText:
 		return true
 	default:
 		return false
@@ -873,6 +927,24 @@ const (
 func (e InstancePresetSpecMonitoringDestinationsDestinationRefKind) Valid() bool {
 	switch e {
 	case InstancePresetSpecMonitoringDestinationsDestinationRefKindMonitoringDestination:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetSpecMonitoringSourcesLogsPolicy.
+const (
+	InstancePresetSpecMonitoringSourcesLogsPolicyAlways   InstancePresetSpecMonitoringSourcesLogsPolicy = "Always"
+	InstancePresetSpecMonitoringSourcesLogsPolicyOnDemand InstancePresetSpecMonitoringSourcesLogsPolicy = "OnDemand"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecMonitoringSourcesLogsPolicy enum.
+func (e InstancePresetSpecMonitoringSourcesLogsPolicy) Valid() bool {
+	switch e {
+	case InstancePresetSpecMonitoringSourcesLogsPolicyAlways:
+		return true
+	case InstancePresetSpecMonitoringSourcesLogsPolicyOnDemand:
 		return true
 	default:
 		return false
@@ -1083,6 +1155,27 @@ func (e ProviderSpecMonitoringComponentTypesConnection) Valid() bool {
 	case ProviderSpecMonitoringComponentTypesConnectionNone:
 		return true
 	case ProviderSpecMonitoringComponentTypesConnectionSupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProviderSpecMonitoringComponentTypesLogs.
+const (
+	ProviderSpecMonitoringComponentTypesLogsNative  ProviderSpecMonitoringComponentTypesLogs = "Native"
+	ProviderSpecMonitoringComponentTypesLogsNone    ProviderSpecMonitoringComponentTypesLogs = "None"
+	ProviderSpecMonitoringComponentTypesLogsSidecar ProviderSpecMonitoringComponentTypesLogs = "Sidecar"
+)
+
+// Valid indicates whether the value is a known member of the ProviderSpecMonitoringComponentTypesLogs enum.
+func (e ProviderSpecMonitoringComponentTypesLogs) Valid() bool {
+	switch e {
+	case ProviderSpecMonitoringComponentTypesLogsNative:
+		return true
+	case ProviderSpecMonitoringComponentTypesLogsNone:
+		return true
+	case ProviderSpecMonitoringComponentTypesLogsSidecar:
 		return true
 	default:
 		return false
@@ -3168,6 +3261,18 @@ type ClusterInstancePreset struct {
 			// Sources Sources configures the monitoring sources the Instance runs whether or
 			// not a destination needs them.
 			Sources *struct {
+				// Logs Logs configures the Instance's log streams.
+				Logs *struct {
+					// Policy Policy says when the provider publishes the Instance's log streams
+					// and runs the tailers of its file-based logs. OnDemand publishes them
+					// while a destination's class needs logs. Always publishes them without
+					// a destination, for log collectors that OpenEverest does not
+					// configure. Which logs the engine writes (e.g. the slow log) stays
+					// with the engine configuration. The published streams are listed in
+					// status.monitoring.sources.logs.
+					Policy *ClusterInstancePresetSpecMonitoringSourcesLogsPolicy `json:"policy,omitempty"`
+				} `json:"logs,omitempty"`
+
 				// Metrics Metrics configures the Instance's OpenMetrics endpoints.
 				Metrics *struct {
 					// Policy Policy says when the provider runs the exporters and turns on the
@@ -3336,6 +3441,15 @@ type ClusterInstancePresetSpecMaintenanceAutoApproveUpTo string
 
 // ClusterInstancePresetSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
 type ClusterInstancePresetSpecMonitoringDestinationsDestinationRefKind string
+
+// ClusterInstancePresetSpecMonitoringSourcesLogsPolicy Policy says when the provider publishes the Instance's log streams
+// and runs the tailers of its file-based logs. OnDemand publishes them
+// while a destination's class needs logs. Always publishes them without
+// a destination, for log collectors that OpenEverest does not
+// configure. Which logs the engine writes (e.g. the slow log) stays
+// with the engine configuration. The published streams are listed in
+// status.monitoring.sources.logs.
+type ClusterInstancePresetSpecMonitoringSourcesLogsPolicy string
 
 // ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy Policy says when the provider runs the exporters and turns on the
 // optional metrics endpoints of the Instance's components. OnDemand runs
@@ -4519,6 +4633,18 @@ type Instance struct {
 			// Sources Sources configures the monitoring sources the Instance runs whether or
 			// not a destination needs them.
 			Sources *struct {
+				// Logs Logs configures the Instance's log streams.
+				Logs *struct {
+					// Policy Policy says when the provider publishes the Instance's log streams
+					// and runs the tailers of its file-based logs. OnDemand publishes them
+					// while a destination's class needs logs. Always publishes them without
+					// a destination, for log collectors that OpenEverest does not
+					// configure. Which logs the engine writes (e.g. the slow log) stays
+					// with the engine configuration. The published streams are listed in
+					// status.monitoring.sources.logs.
+					Policy *InstanceSpecMonitoringSourcesLogsPolicy `json:"policy,omitempty"`
+				} `json:"logs,omitempty"`
+
 				// Metrics Metrics configures the Instance's OpenMetrics endpoints.
 				Metrics *struct {
 					// Policy Policy says when the provider runs the exporters and turns on the
@@ -4833,6 +4959,37 @@ type Instance struct {
 					Labels *map[string]string `json:"labels,omitempty"`
 				} `json:"identity,omitempty"`
 
+				// Logs Logs lists the log streams that are currently being written.
+				Logs *[]struct {
+					// Component Component is the Instance component name (e.g. "engine", "proxy").
+					Component string `json:"component"`
+
+					// Container Container is the name of the container whose stdout and stderr carry
+					// the stream.
+					Container string `json:"container"`
+
+					// Format Format is how each record is encoded: "json" or "text".
+					Format InstanceStatusMonitoringSourcesLogsFormat `json:"format"`
+
+					// Kind Kind is the kind of the component's type
+					// (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+					// A provider may leave it empty; a stream it computes with another kind
+					// is not published.
+					Kind string `json:"kind"`
+
+					// MultilineStart MultilineStart is a regular expression (RE2) matching the first line
+					// of a record, for text records that span several lines. Empty means
+					// one record per line.
+					MultilineStart *string `json:"multilineStart,omitempty"`
+
+					// PodSelector PodSelector selects the pods writing the stream.
+					PodSelector map[string]string `json:"podSelector"`
+
+					// Type Type is what the stream carries, free-form (e.g. "error", "slow",
+					// "audit", "general", or "<kind>/<type>" for an engine-specific one).
+					Type string `json:"type"`
+				} `json:"logs,omitempty"`
+
 				// Metrics Metrics lists the OpenMetrics endpoints that are currently serving.
 				Metrics *[]struct {
 					// Auth Auth names the credential profile the scraper must authenticate with.
@@ -5016,6 +5173,15 @@ type InstanceSpecMaintenanceAutoApproveUpTo string
 // InstanceSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
 type InstanceSpecMonitoringDestinationsDestinationRefKind string
 
+// InstanceSpecMonitoringSourcesLogsPolicy Policy says when the provider publishes the Instance's log streams
+// and runs the tailers of its file-based logs. OnDemand publishes them
+// while a destination's class needs logs. Always publishes them without
+// a destination, for log collectors that OpenEverest does not
+// configure. Which logs the engine writes (e.g. the slow log) stays
+// with the engine configuration. The published streams are listed in
+// status.monitoring.sources.logs.
+type InstanceSpecMonitoringSourcesLogsPolicy string
+
 // InstanceSpecMonitoringSourcesMetricsPolicy Policy says when the provider runs the exporters and turns on the
 // optional metrics endpoints of the Instance's components. OnDemand runs
 // them while a destination's class needs metrics. Always runs them
@@ -5046,6 +5212,9 @@ type InstanceStatusMonitoringSourcesConnectionsPort1 = string
 type Instance_Status_Monitoring_Sources_Connections_Port struct {
 	union json.RawMessage
 }
+
+// InstanceStatusMonitoringSourcesLogsFormat Format is how each record is encoded: "json" or "text".
+type InstanceStatusMonitoringSourcesLogsFormat string
 
 // InstanceStatusMonitoringSourcesMetricsPort0 defines model for .
 type InstanceStatusMonitoringSourcesMetricsPort0 = int
@@ -6135,6 +6304,18 @@ type InstancePreset struct {
 			// Sources Sources configures the monitoring sources the Instance runs whether or
 			// not a destination needs them.
 			Sources *struct {
+				// Logs Logs configures the Instance's log streams.
+				Logs *struct {
+					// Policy Policy says when the provider publishes the Instance's log streams
+					// and runs the tailers of its file-based logs. OnDemand publishes them
+					// while a destination's class needs logs. Always publishes them without
+					// a destination, for log collectors that OpenEverest does not
+					// configure. Which logs the engine writes (e.g. the slow log) stays
+					// with the engine configuration. The published streams are listed in
+					// status.monitoring.sources.logs.
+					Policy *InstancePresetSpecMonitoringSourcesLogsPolicy `json:"policy,omitempty"`
+				} `json:"logs,omitempty"`
+
 				// Metrics Metrics configures the Instance's OpenMetrics endpoints.
 				Metrics *struct {
 					// Policy Policy says when the provider runs the exporters and turns on the
@@ -6303,6 +6484,15 @@ type InstancePresetSpecMaintenanceAutoApproveUpTo string
 
 // InstancePresetSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
 type InstancePresetSpecMonitoringDestinationsDestinationRefKind string
+
+// InstancePresetSpecMonitoringSourcesLogsPolicy Policy says when the provider publishes the Instance's log streams
+// and runs the tailers of its file-based logs. OnDemand publishes them
+// while a destination's class needs logs. Always publishes them without
+// a destination, for log collectors that OpenEverest does not
+// configure. Which logs the engine writes (e.g. the slow log) stays
+// with the engine configuration. The published streams are listed in
+// status.monitoring.sources.logs.
+type InstancePresetSpecMonitoringSourcesLogsPolicy string
 
 // InstancePresetSpecMonitoringSourcesMetricsPolicy Policy says when the provider runs the exporters and turns on the
 // optional metrics endpoints of the Instance's components. OnDemand runs
@@ -6547,6 +6737,10 @@ type MonitoringClass struct {
 				// (Provider.spec.componentTypes.<type>.kind) is listed eligible. Empty
 				// means any kind.
 				Kinds *[]string `json:"kinds,omitempty"`
+
+				// Logs Logs requires the component to publish log streams
+				// (logs: Native or Sidecar).
+				Logs *bool `json:"logs,omitempty"`
 
 				// Metrics Metrics requires the component to expose OpenMetrics
 				// (metrics: Native or Exporter).
@@ -7087,6 +7281,9 @@ type Provider struct {
 				// component over its native protocol, with the monitor credential.
 				Connection *ProviderSpecMonitoringComponentTypesConnection `json:"connection,omitempty"`
 
+				// Logs Logs states how the component's logs reach a container stream.
+				Logs *ProviderSpecMonitoringComponentTypesLogs `json:"logs,omitempty"`
+
 				// Metrics Metrics states how the component exposes OpenMetrics.
 				Metrics *ProviderSpecMonitoringComponentTypesMetrics `json:"metrics,omitempty"`
 
@@ -7270,6 +7467,9 @@ type Provider struct {
 // ProviderSpecMonitoringComponentTypesConnection Connection states whether monitoring agents can connect to the
 // component over its native protocol, with the monitor credential.
 type ProviderSpecMonitoringComponentTypesConnection string
+
+// ProviderSpecMonitoringComponentTypesLogs Logs states how the component's logs reach a container stream.
+type ProviderSpecMonitoringComponentTypesLogs string
 
 // ProviderSpecMonitoringComponentTypesMetrics Metrics states how the component exposes OpenMetrics.
 type ProviderSpecMonitoringComponentTypesMetrics string

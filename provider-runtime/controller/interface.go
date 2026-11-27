@@ -462,8 +462,8 @@ type UpgradeProvider interface {
 
 // MonitoringSourcesProvider is an optional interface a provider implements to
 // publish what an Instance exposes to monitoring (credentials, OpenMetrics
-// endpoints and native-protocol connection endpoints), which ExtensionManaged
-// MonitoringClasses consume.
+// endpoints, native-protocol connection endpoints and log streams), which
+// ExtensionManaged MonitoringClasses consume.
 //
 // A provider whose component types declare connection: Supported publishes,
 // while RequiredSources().Connections asks for it, one connection endpoint
@@ -472,6 +472,13 @@ type UpgradeProvider interface {
 // Context.MonitoringPodAnnotations(component) into each component's pod
 // template on every Sync, for classes whose agents discover databases
 // through pod annotations.
+//
+// A provider whose component types declare logs: Native or Sidecar
+// publishes, while RequiredSources().Logs asks for it, one log stream per
+// container stream being written (error log, slow log, ...). For logs:
+// Sidecar it runs a tailer container that streams the file-based logs to
+// its stdout and publishes that container. Whether the engine writes a log
+// at all (e.g. the slow log) stays with the engine configuration.
 //
 // When a provider implements MonitoringSourcesProvider or
 // MonitoringIntegrationsProvider the runtime:
@@ -489,19 +496,23 @@ type UpgradeProvider interface {
 //	// +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringbindings/status,verbs=patch
 //	// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get
 type MonitoringSourcesProvider interface {
-	// MonitoringSources returns the endpoints that are currently serving.
+	// MonitoringSources returns the endpoints that are currently serving
+	// and the log streams that are currently being written.
 	// The runtime drops duplicate credential profiles and credentials whose
-	// Secret is not controlled by the Instance; it drops endpoints of
-	// component types the Provider does not declare or declares with
-	// metrics None (connection None for connection endpoints), endpoints
-	// whose pod selector lacks the Instance label, metrics endpoints with a
-	// scheme other than http or https and endpoints naming a credential
-	// profile missing from credentials, and keeps at most 32 of each.
-	// Endpoints of a component type without a kind, or whose kind differs
-	// from the type's declared kind (Provider.spec.componentTypes.<type>.kind),
-	// are dropped too; an empty kind is set to the declared one. The runtime
-	// overwrites identity. Returning nil clears the published sources; an
-	// error keeps the previous ones.
+	// Secret is not controlled by the Instance; it drops endpoints and log
+	// streams of component types the Provider does not declare or declares
+	// with metrics None (connection None for connection endpoints, logs None
+	// for log streams), endpoints and log streams whose pod selector lacks
+	// the Instance label, metrics endpoints with a scheme other than http or
+	// https, endpoints naming a credential profile missing from credentials,
+	// and log streams without a container, with a format other than json or
+	// text or with a multilineStart that does not compile; it keeps at most
+	// 32 of each. Endpoints and log streams of a component type without a
+	// kind, or whose kind differs from the type's declared kind
+	// (Provider.spec.componentTypes.<type>.kind), are dropped too; an empty
+	// kind is set to the declared one. The runtime overwrites identity.
+	// Returning nil clears the published sources; an error keeps the
+	// previous ones.
 	MonitoringSources(c *Context) (*corev1alpha1.MonitoringSources, error)
 }
 

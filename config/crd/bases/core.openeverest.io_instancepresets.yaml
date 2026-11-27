@@ -1810,6 +1810,24 @@ spec:
                       Sources configures the monitoring sources the Instance runs whether or
                       not a destination needs them.
                     properties:
+                      logs:
+                        description: Logs configures the Instance's log streams.
+                        properties:
+                          policy:
+                            default: OnDemand
+                            description: |-
+                              Policy says when the provider publishes the Instance's log streams
+                              and runs the tailers of its file-based logs. OnDemand publishes them
+                              while a destination's class needs logs. Always publishes them without
+                              a destination, for log collectors that OpenEverest does not
+                              configure. Which logs the engine writes (e.g. the slow log) stays
+                              with the engine configuration. The published streams are listed in
+                              status.monitoring.sources.logs.
+                            enum:
+                            - OnDemand
+                            - Always
+                            type: string
+                        type: object
                       metrics:
                         description: Metrics configures the Instance's OpenMetrics
                           endpoints.

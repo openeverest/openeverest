@@ -169,6 +169,10 @@ type SourceRequirements struct {
 	// connections from monitoring agents (connection: Supported).
 	// +optional
 	Connection bool `json:"connection,omitempty"`
+	// Logs requires the component to publish log streams
+	// (logs: Native or Sidecar).
+	// +optional
+	Logs bool `json:"logs,omitempty"`
 	// Kinds, when set, makes only the components whose type's kind
 	// (Provider.spec.componentTypes.<type>.kind) is listed eligible. Empty
 	// means any kind.

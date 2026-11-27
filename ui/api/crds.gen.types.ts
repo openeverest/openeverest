@@ -2217,6 +2217,21 @@ export interface components {
                      *     not a destination needs them.
                      */
                     sources?: {
+                        /** @description Logs configures the Instance's log streams. */
+                        logs?: {
+                            /**
+                             * @description Policy says when the provider publishes the Instance's log streams
+                             *     and runs the tailers of its file-based logs. OnDemand publishes them
+                             *     while a destination's class needs logs. Always publishes them without
+                             *     a destination, for log collectors that OpenEverest does not
+                             *     configure. Which logs the engine writes (e.g. the slow log) stays
+                             *     with the engine configuration. The published streams are listed in
+                             *     status.monitoring.sources.logs.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy?: "OnDemand" | "Always";
+                        };
                         /** @description Metrics configures the Instance's OpenMetrics endpoints. */
                         metrics?: {
                             /**
@@ -3702,6 +3717,21 @@ export interface components {
                      *     not a destination needs them.
                      */
                     sources?: {
+                        /** @description Logs configures the Instance's log streams. */
+                        logs?: {
+                            /**
+                             * @description Policy says when the provider publishes the Instance's log streams
+                             *     and runs the tailers of its file-based logs. OnDemand publishes them
+                             *     while a destination's class needs logs. Always publishes them without
+                             *     a destination, for log collectors that OpenEverest does not
+                             *     configure. Which logs the engine writes (e.g. the slow log) stays
+                             *     with the engine configuration. The published streams are listed in
+                             *     status.monitoring.sources.logs.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy?: "OnDemand" | "Always";
+                        };
                         /** @description Metrics configures the Instance's OpenMetrics endpoints. */
                         metrics?: {
                             /**
@@ -4079,6 +4109,43 @@ export interface components {
                                 [key: string]: string;
                             };
                         };
+                        /** @description Logs lists the log streams that are currently being written. */
+                        logs?: {
+                            /** @description Component is the Instance component name (e.g. "engine", "proxy"). */
+                            component: string;
+                            /**
+                             * @description Container is the name of the container whose stdout and stderr carry
+                             *     the stream.
+                             */
+                            container: string;
+                            /**
+                             * @description Format is how each record is encoded: "json" or "text".
+                             * @enum {string}
+                             */
+                            format: "json" | "text";
+                            /**
+                             * @description Kind is the kind of the component's type
+                             *     (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                             *     A provider may leave it empty; a stream it computes with another kind
+                             *     is not published.
+                             */
+                            kind: string;
+                            /**
+                             * @description MultilineStart is a regular expression (RE2) matching the first line
+                             *     of a record, for text records that span several lines. Empty means
+                             *     one record per line.
+                             */
+                            multilineStart?: string;
+                            /** @description PodSelector selects the pods writing the stream. */
+                            podSelector: {
+                                [key: string]: string;
+                            };
+                            /**
+                             * @description Type is what the stream carries, free-form (e.g. "error", "slow",
+                             *     "audit", "general", or "<kind>/<type>" for an engine-specific one).
+                             */
+                            type: string;
+                        }[];
                         /** @description Metrics lists the OpenMetrics endpoints that are currently serving. */
                         metrics?: {
                             /** @description Auth names the credential profile the scraper must authenticate with. */
@@ -5461,6 +5528,21 @@ export interface components {
                      *     not a destination needs them.
                      */
                     sources?: {
+                        /** @description Logs configures the Instance's log streams. */
+                        logs?: {
+                            /**
+                             * @description Policy says when the provider publishes the Instance's log streams
+                             *     and runs the tailers of its file-based logs. OnDemand publishes them
+                             *     while a destination's class needs logs. Always publishes them without
+                             *     a destination, for log collectors that OpenEverest does not
+                             *     configure. Which logs the engine writes (e.g. the slow log) stays
+                             *     with the engine configuration. The published streams are listed in
+                             *     status.monitoring.sources.logs.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy?: "OnDemand" | "Always";
+                        };
                         /** @description Metrics configures the Instance's OpenMetrics endpoints. */
                         metrics?: {
                             /**
@@ -5831,6 +5913,11 @@ export interface components {
                          *     means any kind.
                          */
                         kinds?: string[];
+                        /**
+                         * @description Logs requires the component to publish log streams
+                         *     (logs: Native or Sidecar).
+                         */
+                        logs?: boolean;
                         /**
                          * @description Metrics requires the component to expose OpenMetrics
                          *     (metrics: Native or Exporter).
@@ -6483,6 +6570,12 @@ export interface components {
                              * @enum {string}
                              */
                             connection?: "Supported" | "None";
+                            /**
+                             * @description Logs states how the component's logs reach a container stream.
+                             * @default None
+                             * @enum {string}
+                             */
+                            logs?: "Native" | "Sidecar" | "None";
                             /**
                              * @description Metrics states how the component exposes OpenMetrics.
                              * @default None

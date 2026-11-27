@@ -237,10 +237,13 @@ func componentEligibility(provider *corev1alpha1.Provider, componentType string,
 	return eligible
 }
 
-// meetsRequirements: the component exposes metrics and accepts connections
-// if the class requires them.
+// meetsRequirements: the component exposes metrics, publishes logs and
+// accepts connections if the class requires them.
 func meetsRequirements(ct corev1alpha1.MonitoringComponentType, req monitoringv1alpha1.SourceRequirements) bool {
 	if req.Metrics && (ct.Metrics == "" || ct.Metrics == corev1alpha1.MetricsSourceNone) {
+		return false
+	}
+	if req.Logs && (ct.Logs == "" || ct.Logs == corev1alpha1.LogsSourceNone) {
 		return false
 	}
 	return !req.Connection || ct.Connection == corev1alpha1.ConnectionSupported
@@ -265,10 +268,13 @@ func kindUnsupportedMessage(provider *corev1alpha1.Provider, class *monitoringv1
 }
 
 // disruption is what binding the class does to a component's pods: an
-// exporter is started as a sidecar and requested pod metadata is rendered
-// into the pod template, both of which roll them.
+// exporter or a log tailer is started as a sidecar and requested pod
+// metadata is rendered into the pod template, all of which roll them.
 func disruption(ct corev1alpha1.MonitoringComponentType, em *monitoringv1alpha1.ExtensionManagedFulfilment) monitoringv1alpha1.Disruption {
 	if em.Requires.Metrics && ct.Metrics == corev1alpha1.MetricsSourceExporter {
+		return monitoringv1alpha1.DisruptionRollingRestart
+	}
+	if em.Requires.Logs && ct.Logs == corev1alpha1.LogsSourceSidecar {
 		return monitoringv1alpha1.DisruptionRollingRestart
 	}
 	if em.PodMetadata != nil {

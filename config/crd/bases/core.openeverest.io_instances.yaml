@@ -1830,6 +1830,24 @@ spec:
                       Sources configures the monitoring sources the Instance runs whether or
                       not a destination needs them.
                     properties:
+                      logs:
+                        description: Logs configures the Instance's log streams.
+                        properties:
+                          policy:
+                            default: OnDemand
+                            description: |-
+                              Policy says when the provider publishes the Instance's log streams
+                              and runs the tailers of its file-based logs. OnDemand publishes them
+                              while a destination's class needs logs. Always publishes them without
+                              a destination, for log collectors that OpenEverest does not
+                              configure. Which logs the engine writes (e.g. the slow log) stays
+                              with the engine configuration. The published streams are listed in
+                              status.monitoring.sources.logs.
+                            enum:
+                            - OnDemand
+                            - Always
+                            type: string
+                        type: object
                       metrics:
                         description: Metrics configures the Instance's OpenMetrics
                           endpoints.
@@ -2422,6 +2440,74 @@ spec:
                               openeverest_namespace, openeverest_provider, k8s_cluster_id).
                             type: object
                         type: object
+                      logs:
+                        description: Logs lists the log streams that are currently
+                          being written.
+                        items:
+                          description: |-
+                            LogStream describes one log stream: the stdout and stderr of one container
+                            of the selected pods. It never names a file, so collectors read only the
+                            node's pod logs and need no access to data volumes; a provider streams a
+                            file-based log through a container (e.g. a tailer sidecar) to publish it.
+                          properties:
+                            component:
+                              description: Component is the Instance component name
+                                (e.g. "engine", "proxy").
+                              type: string
+                            container:
+                              description: |-
+                                Container is the name of the container whose stdout and stderr carry
+                                the stream.
+                              maxLength: 63
+                              minLength: 1
+                              type: string
+                            format:
+                              description: 'Format is how each record is encoded:
+                                "json" or "text".'
+                              enum:
+                              - json
+                              - text
+                              type: string
+                            kind:
+                              description: |-
+                                Kind is the kind of the component's type
+                                (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                                A provider may leave it empty; a stream it computes with another kind
+                                is not published.
+                              pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                              type: string
+                            multilineStart:
+                              description: |-
+                                MultilineStart is a regular expression (RE2) matching the first line
+                                of a record, for text records that span several lines. Empty means
+                                one record per line.
+                              maxLength: 256
+                              type: string
+                            podSelector:
+                              additionalProperties:
+                                type: string
+                              description: PodSelector selects the pods writing the
+                                stream.
+                              minProperties: 1
+                              type: object
+                            type:
+                              description: |-
+                                Type is what the stream carries, free-form (e.g. "error", "slow",
+                                "audit", "general", or "<kind>/<type>" for an engine-specific one).
+                              maxLength: 63
+                              pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                              type: string
+                          required:
+                          - component
+                          - container
+                          - format
+                          - kind
+                          - podSelector
+                          - type
+                          type: object
+                        maxItems: 32
+                        type: array
+                        x-kubernetes-list-type: atomic
                       metrics:
                         description: Metrics lists the OpenMetrics endpoints that
                           are currently serving.
