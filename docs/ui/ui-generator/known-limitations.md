@@ -13,8 +13,9 @@ documented in the main [Readme](./Readme.md).
   strings; a number, quantity, toggle or select value (with a `dataSource` too) is being
   considered. Such a map isn't rendered or sent, and an edit keeps its saved value. See
   [Not Supported Yet](components/map-field.md#not-supported-yet) for the whole list.
-- **On a row's field:** `defaultValue`, `celExpressions`, `dataSource` and component-level `modes`.
-  The UI ignores them.
+- **On a row's field:** `defaultValue` (a new row starts empty; the map's own `defaultValue` sets
+  the initial entries), `celExpressions`, `dataSource` and component-level `modes`. The UI ignores
+  them.
 - **Lists:** `uiType: list` (strings or objects) is planned; until then it's an unknown `uiType`.
 - **Several paths** on a map: an edit reads only the first, so such a map isn't rendered.
 - **CEL:** `celExpressions` on the map, or on a row's key or value. `regex` on the map. The UI
