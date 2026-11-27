@@ -46,7 +46,7 @@ flowchart TD
     an unknown `uiType` — not rendered or sent, and an edit keeps its saved value — so the
     toggleable rules below don't see it.
   - **`lintMapFields`** (`utils/map-field/lint-map-fields.ts`) — warns (dev-time) about what a
-    rendered map field ignores or can't use: `regex` / CEL on the map, CEL, a `dataSource` or a
+    rendered map field ignores or can't use: `regex` on the map, CEL, a `dataSource` or a
     default / badge on a row's field, a `defaultValue` that isn't a map of strings (`getSchemaDefault` ignores it),
     limits no map meets.
   - **`toMapRow`** (`utils/map-field/map-row.ts`) — prepares a map's row from its `itemTemplate`
@@ -101,8 +101,21 @@ flowchart TD
   - **`convertToNestedSchema`** — flat fields → nested `z.object`. A parent object is optional when
     all of its fields are, so edit mode accepts an instance that lacks it (e.g. no
     `spec.components.engine.parameters` when Engine configuration is unset).
-  - **`applyCelValidation(schema, celExprs, originalData?, toggleables?)`** — attaches CEL (in edit
-    mode the `original` namespace — persisted instance data — is available).
+  - **`applyCelValidation(schema, celExprs, originalData?, toggleables?, celValueReaders?)`** —
+    attaches CEL (in edit mode the `original` namespace — persisted instance data — is available).
+    A rule evaluates the form's values, except at the paths of fields whose codec has `toCel`
+    (`getCelValueReaders`, `readValuesForCel` in `utils/field-codecs/`): a `map` is read as what
+    it writes, so a provider writes the rule against the API. That is the map, and nothing while
+    it has no entries: the path is removed along with the objects that leaves empty, as
+    postprocess does for the payload, and a rule asks for it with `has()`. Reading never adds a
+    value where the form holds none. `original` is read the same way. A path with no parent
+    (`labels`) can't be asked for with `has()`, so it stays as the form holds it. A `quantity`
+    has no `toCel`: a rule compares the number in `unit`.
+  - **CEL dependencies** — `extractCelFieldPaths` collects the dotted paths of an expression
+    (quoted strings left out, so a map key like `'example.com/role'` isn't one), and the form
+    re-runs the rule when a field at one of them changes (`useCelValidation`).
+    `watchFieldsReadByCel` turns a path inside a `toCel` field (`spec.labels.team`) into that
+    field's path (`spec.labels`): the form has one field for the whole value.
   - **Toggleable children** — `schema.or(z.any())`; the real rules run in
     `applyToggleableValidation` only while the switch is on, and their CEL carries `activeWhen`.
     CEL on other fields sees switched-off paths as absent and re-runs when the switch flips.
@@ -118,11 +131,21 @@ flowchart TD
 
 - Collects initial values from `fieldParams.defaultValue` (create). A `secret` field never takes
   one: a Secret is namespaced, while the schema is cluster-wide (`getSchemaDefault`).
-- **Map fields** keep rows (`[{ key, value }]`) in the form, while the schema's `defaultValue`
-  and the instance hold the API shape (a map). `getSchemaDefault` and `extractInstanceValues`
-  convert it with `objectToRows` (`utils/map-field/`); `writeMapFieldsInApiShape` converts
-  back in postprocess. Zod transforms can't do it: the create wizard runs the generated schema in
+- **Field codecs** (`utils/field-codecs/`) — a field whose form value differs from its API value
+  has a codec: `toForm` (a saved value → the form), `toApi` (the form → the API, given the value
+  stored at the same path), `defaultToForm` (a schema default → the form, when the default is
+  written in the API shape), `toCel` (what a CEL rule reads, when not the form's value) and
+  `ownsWholeValue`. `getFieldCodec(component)` returns it, and the
+  stages below call it instead of branching on the field type. Two fields have one today:
+  - **map** (`utils/map-field/map-field-codec.ts`) — rows (`[{ key, value }]`) in the form, a map
+    in the API and in the schema's `defaultValue`; owns its whole value.
+  - **quantity** (`utils/quantity/quantity-codec.ts`) — a number in `unit` in the form and in
+    the schema's `defaultValue`, a Kubernetes quantity string in the API.
+
+  A new field type that converts adds its resolver to `RESOLVERS` in `field-codecs.ts`; no stage
+  changes. Zod transforms can't do the conversion: the create wizard runs the generated schema in
   a `superRefine`, so its output never reaches submit.
+- `getSchemaDefault` reads a default through the codec's `defaultToForm`, when it has one.
 - **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` drops the previous
   topology's values with `dropOtherTopologyValues` (`utils/topology-scope/`), then merges the new
   topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
@@ -130,8 +153,8 @@ flowchart TD
 - **`extractInstanceValues`** — reads values from the instance (by `sourcePath`). In edit it uses
   **only** the instance, so edit doesn't inject defaults; in restore and for a preset it falls back
   to schema defaults. A field hidden in the mode has no `sourcePath`, so restore doesn't copy its
-  value from the source. A `quantity` field is read through `readQuantity` into a number in
-  `unit` (or cores / bytes when `unit` is omitted).
+  value from the source. A field with a codec is read through its `toForm`: a `quantity` into a
+  number in `unit` (or cores / bytes when `unit` is omitted), a `map` into rows.
 - **Toggleable switches** — `false` on create; when values come from an instance or preset, on
   if any of the group's `childPaths` has a value.
 
@@ -238,21 +261,23 @@ Read-only and disabled fields keep their value.
     topologies' paths, walking all sections regardless of `sectionsOrder` (leftovers from a topology
     switch, e.g. `spec.components.mixCoord` after switching Milvus cluster → standalone). Paths shared with the selected topology, or nested under/over one of its paths, are
     kept; values no topology binds (`dbName`, `backup`, …) are untouched.
-  - **`writeMapFieldsInApiShape`** — a `map` field's rows → its map at the source path;
-    empty rows are dropped, and no filled row leaves the path unset. Runs before multi-path, so
-    targets get the map. A value that isn't rows, like a saved map a form loaded as it is, is left
-    untouched.
   - **`extractMultiPathMappings` / `applyMultiPathMappings`** — one value → all `targetPaths`.
-  - **`extractQuantityMappings` / `applyQuantitiesToFormData`** — number in `unit` → quantity
-    string (`10` → `"10Gi"`). When `originalData` is set and the form number still equals the
-    stored quantity, the stored string is kept (`"10240Mi"` stays). Runs before badges.
+  - **`writeFieldsInApiShape`** (`utils/field-codecs/`) — every field with a codec is written
+    through its `toApi`, at each path it writes. Runs after multi-path, so each path is compared
+    with what is stored at that very path, and before badges. Walks all sections regardless of
+    `sectionsOrder`: the values of a section left out of it are sent too.
+    - **quantity** — number in `unit` → quantity string (`10` → `"10Gi"`). When `originalData` is
+      set and the form number still equals the stored quantity, the stored string is kept
+      (`"10240Mi"` stays).
+    - **map** — rows → the map; empty rows are dropped, and no filled row leaves the path unset.
+      A value that isn't rows, like a saved map a form loaded as it is, is left untouched.
   - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`). Skips
     `quantity` fields (they use `unit`, not `badge` / `badgeToApi`).
   - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
     they are deleted together with the form-only `toggleable-switches` key.
   - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`, and the objects that leaves
-    empty. It doesn't look inside a map field's value (`getMapFieldTargetPaths`): there an empty
-    string is an entry, like a label with an empty value.
+    empty. It doesn't look inside the value of a field that owns it whole (`getWholeValuePaths`),
+    like a map: there an empty string is an entry, like a label with an empty value.
 
 **Principle:** the mapping source is the same `_normalized` computed in preprocess.
 
@@ -417,7 +442,8 @@ components:
 | CEL validation             | `utils/schema-builder/cel-validation/`                      |
 | Defaults                   | `utils/default-values/`                                     |
 | Instance values            | `utils/default-values/extract-instance-values.ts`           |
-| Quantity codec             | `utils/quantity/`                                           |
+| Field codecs (form ↔ API)  | `utils/field-codecs/`                                       |
+| Quantity read / write      | `utils/quantity/`                                           |
 | Section editability        | `utils/section-editable/is-section-editable.ts`             |
 | Renderer                   | `utils/component-renderer/render-component.tsx`             |
 | UI component mapper        | `ui-component/`                                             |

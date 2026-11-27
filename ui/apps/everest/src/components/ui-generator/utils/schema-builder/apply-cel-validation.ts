@@ -15,11 +15,8 @@
 import { z } from 'zod';
 import type { ToggleableMeta } from 'components/ui-generator/ui-generator.types';
 import { validateCelExpression } from './cel-validation';
-import {
-  deepClone,
-  deleteByPathAndEmptyParents,
-  isPlainObject,
-} from '../object-path/object-path';
+import { type CelValueReader, readValuesForCel } from '../field-codecs';
+import { deepClone, deleteByPathBelowRoot } from '../object-path/object-path';
 import { getSwitchedOffPaths, isToggleableOn } from '../toggleable/toggleable';
 import type { CelExpValidation } from './schema-builder.types';
 
@@ -32,14 +29,7 @@ const withoutSwitchedOffFields = (
   const offPaths = getSwitchedOffPaths(toggleables, data);
   if (offPaths.length === 0) return data;
   const visible = deepClone(data);
-  offPaths.forEach((path) => {
-    const [root, ...rest] = path.split('.');
-    const scope = visible[root];
-    // Keep the root (e.g. `spec`): CEL fails on an unknown variable, not on an absent field.
-    if (isPlainObject(scope) && rest.length > 0) {
-      deleteByPathAndEmptyParents(scope, rest.join('.'));
-    }
-  });
+  offPaths.forEach((path) => deleteByPathBelowRoot(visible, path));
   return visible;
 };
 
@@ -47,14 +37,22 @@ export const applyCelValidation = (
   schema: z.ZodTypeAny,
   celExpValidations: CelExpValidation[],
   originalData?: Record<string, unknown>,
-  toggleables: ToggleableMeta[] = []
+  toggleables: ToggleableMeta[] = [],
+  celValueReaders: CelValueReader[] = []
 ): z.ZodTypeAny => {
   if (celExpValidations.length === 0) {
     return schema;
   }
 
+  // `original` is read like the form's values, so a rule can compare the two.
+  const celOriginal =
+    originalData && readValuesForCel(originalData, celValueReaders);
+
   return schema.superRefine((data, ctx) => {
-    const celData = withoutSwitchedOffFields(data, toggleables);
+    const celData = readValuesForCel(
+      withoutSwitchedOffFields(data, toggleables),
+      celValueReaders
+    );
 
     celExpValidations.forEach(({ path, celExpressions, activeWhen }) => {
       if (activeWhen && !isToggleableOn(data, activeWhen)) return;
@@ -64,7 +62,7 @@ export const applyCelValidation = (
         const validationResult = validateCelExpression(
           celExpr,
           celData,
-          originalData
+          celOriginal
         );
 
         if (!validationResult.isValid) {

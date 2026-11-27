@@ -13,15 +13,14 @@ documented in the main [Readme](./Readme.md).
   strings; a number, quantity, toggle or select value (with a `dataSource` too) is being
   considered. Such a map isn't rendered or sent, and an edit keeps its saved value. See
   [Not Supported Yet](components/map-field.md#not-supported-yet) for the whole list.
-- **On a row's field:** `defaultValue`, `celExpressions`, `dataSource` and component-level `modes`.
-  The UI ignores them.
+- **On a row's field:** `defaultValue` (a new row starts empty; the map's own `defaultValue` sets
+  the initial entries), `celExpressions`, `dataSource` and component-level `modes`. The UI ignores
+  them.
 - **Lists:** `uiType: list` (strings or objects) is planned; until then it's an unknown `uiType`.
 - **Several paths** on a map: an edit reads only the first, so such a map isn't rendered.
-- **CEL:** `celExpressions` on the map, or on a row's key or value. `regex` on the map. The UI
-  ignores them and `provider-sdk generate` rejects them.
-- **CEL of other fields reading a map:** CEL rules see the form's rows (`[{key, value}, …]`), not
-  the map the field writes: `'team' in spec.labels` is always false and `spec.labels['team']`
-  fails with a CEL expression error. Don't reference a map field from CEL yet.
+- **CEL on a row's key or value**, and `regex` on the map. The UI ignores them and
+  `provider-sdk generate` rejects them. A rule on the map itself or on another field can read
+  the map, see [Reading a Map Field](validation.md#reading-a-map-field).
 - **A saved value that isn't a map of strings** (possible only where the API takes free-form
   `parameters`, e.g. written with kubectl): an edit reads it as rows, so saving the section writes
   a number or boolean back as a string (`3` → `"3"`), an object as `"[object Object]"`, and

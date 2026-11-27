@@ -16,19 +16,26 @@ import { useEffect, useRef } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { isPlainObject } from 'components/ui-generator/utils/object-path';
 
-// What the map's own rules read from each row: its key, and whether the row
-// counts as filled.
-const toRowSignature = (row: unknown) =>
-  isPlainObject(row) ? [row.key, row.key !== '' || row.value !== ''] : null;
+// What the map's built-in rules read from each row: its key, and whether the
+// row counts as filled. A CEL rule on the map may read the value too.
+const toRowSignature = (row: unknown, withValues: boolean) => {
+  if (!isPlainObject(row)) return null;
+  return withValues
+    ? [row.key, row.value]
+    : [row.key, row.key !== '' || row.value !== ''];
+};
 
 // Some issues span rows: a duplicate key, the entry count, a value without a
-// key. Typing in one row validates only that row's input, so the whole map is
-// re-validated whenever a key changes or a row fills or empties.
-export const useRevalidateMap = (name: string) => {
+// key, a CEL rule on the map. Typing in one row validates only that row's
+// input, so the whole map is re-validated whenever a key changes or a row
+// fills or empties, and on any change of a value when a CEL rule may read it.
+export const useRevalidateMap = (name: string, withValues: boolean) => {
   const { control, trigger } = useFormContext();
   const rows: unknown = useWatch({ control, name });
   const signature = JSON.stringify(
-    (Array.isArray(rows) ? rows : []).map(toRowSignature)
+    (Array.isArray(rows) ? rows : []).map((row) =>
+      toRowSignature(row, withValues)
+    )
   );
   const validatedSignature = useRef(signature);
 

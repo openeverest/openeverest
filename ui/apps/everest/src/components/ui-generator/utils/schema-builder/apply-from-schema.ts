@@ -138,7 +138,7 @@ export const applyValidationFromSchema = (
   return { fieldSchema, celData };
 };
 
-const extractCelValidationData = (
+export const extractCelValidationData = (
   celExpressions: CelExpression[],
   fieldId: string
 ): CelValidationData => {

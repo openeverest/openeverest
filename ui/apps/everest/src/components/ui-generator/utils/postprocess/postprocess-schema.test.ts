@@ -339,6 +339,66 @@ describe('postprocessSchemaData', () => {
       });
     });
 
+    it('converts a quantity at every path it writes, each against what is stored there', () => {
+      const limitsAndRequests: TopologyUISchemas = {
+        ha: {
+          sections: {
+            resources: {
+              components: {
+                memory: {
+                  uiType: FieldType.Quantity,
+                  path: [
+                    'spec.resources.limits.memory',
+                    'spec.resources.requests.memory',
+                  ],
+                  fieldParams: { label: 'Memory', unit: 'Gi' },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const result = postprocessSchemaData(
+        { spec: { resources: { limits: { memory: 10 } } } },
+        {
+          schema: limitsAndRequests,
+          selectedTopology: 'ha',
+          originalData: {
+            spec: {
+              resources: {
+                limits: { memory: '10240Mi' },
+                requests: { memory: '8Gi' },
+              },
+            },
+          },
+        }
+      );
+
+      expect(result).toEqual({
+        spec: {
+          resources: {
+            limits: { memory: '10240Mi' },
+            requests: { memory: '10Gi' },
+          },
+        },
+      });
+    });
+
+    it('converts a quantity in a section `sectionsOrder` leaves out, since its values are sent too', () => {
+      const result = postprocessSchemaData(
+        { spec: { resources: { cpu: 0.5, memory: 10 } } },
+        {
+          schema: { ha: { ...quantitySchema.ha, sectionsOrder: [] } },
+          selectedTopology: 'ha',
+        }
+      );
+
+      expect(result).toEqual({
+        spec: { resources: { cpu: '0.5', memory: '10Gi' } },
+      });
+    });
+
     it('rewrites a changed quantity in the field unit', () => {
       const result = postprocessSchemaData(
         { spec: { resources: { cpu: 1, memory: 12 } } },

@@ -174,7 +174,7 @@ tier:
 
 In this example, the `self` keyword refers to the current field's value. The validation passes when the tier is 'pro' or 'enterprise', or when the number of users is less than 10.
 
-**Note:** All validation rules only apply when a value is entered. Empty fields will pass validation by default since fields are optional unless explicitly marked as `required: true`.
+**Note:** The rules other than `celExpressions` only apply when a value is entered: an empty field passes them unless it is marked `required: true`. A CEL rule runs for an empty field too, see [Optional Fields and `has()`](../validation.md#optional-fields-and-has).
 
 ## Behavior:
 

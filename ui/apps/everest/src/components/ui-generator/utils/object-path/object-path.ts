@@ -135,6 +135,19 @@ export const deleteByPathAndEmptyParents = (
   }
 };
 
+// Like deleteByPathAndEmptyParents, but the first segment (e.g. `spec`) stays,
+// empty or not: CEL fails on an unknown variable, not on an absent field.
+export const deleteByPathBelowRoot = (
+  obj: Record<string, unknown>,
+  path: string
+): void => {
+  const [root, ...rest] = path.split('.');
+  const scope = obj[root];
+  if (isPlainObject(scope) && rest.length > 0) {
+    deleteByPathAndEmptyParents(scope, rest.join('.'));
+  }
+};
+
 export const flattenObject = (obj: unknown, prefix = ''): FlatEntry[] => {
   const result: FlatEntry[] = [];
   if (!isPlainObject(obj)) return result;

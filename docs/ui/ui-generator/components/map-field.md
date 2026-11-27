@@ -9,6 +9,7 @@
 - [The Row](#the-row)
   - [Not Supported Yet](#not-supported-yet)
 - [Validation](#validation)
+  - [A CEL Rule on the Map](#a-cel-rule-on-the-map)
 - [Examples](#examples)
   - [Key/Value Map](#keyvalue-map)
   - [Validated Keys](#validated-keys)
@@ -101,13 +102,13 @@ Rules for the map as a whole:
 - `required`: At least one entry
 - `min`: At least this many entries
 - `max`: At most this many entries
+- `celExpressions`: CEL rules about the map, see [A CEL Rule on the Map](#a-cel-rule-on-the-map)
 
 On the map, `min` and `max` count entries, the way they count characters on a
 [text field](text-field.md). The map's `min` and `max` are whole numbers of 0 or more, and `min`
 can't be above `max` in any form mode, or no map would pass: `provider-sdk generate` rejects that
-(rule `map-invalid-limits`). Only filled rows count. `regex` and `celExpressions` aren't supported
-on the map yet: the UI ignores them and `provider-sdk generate` rejects them (rule
-`map-ignored-option`).
+(rule `map-invalid-limits`). Only filled rows count. `regex` isn't supported on the map: the UI
+ignores it and `provider-sdk generate` rejects it (rule `map-ignored-option`).
 
 On a row's field, `min` and `max` are still a text field's: `max: 63` there limits the length of a
 key or a value, not the number of entries.
@@ -116,6 +117,41 @@ A count error shows under the rows in place of the helper text and says what to 
 `Remove 1 entry (at most 2 allowed)`. It doesn't hide the rows' own errors, which stay under
 their inputs. The map is checked again as the user types, whenever a key changes or a row fills
 or empties.
+
+### A CEL Rule on the Map
+
+A rule reads the map at its `path` as the map it writes, `{ key: value }`:
+
+```yaml
+annotations:
+  uiType: map
+  path: spec.components.proxy.service.annotations
+  fieldParams:
+    label: Annotations
+  validation:
+    celExpressions:
+      - celExpr: >-
+          !has(spec.components.proxy.service.annotations) ||
+          spec.components.proxy.service.annotations.all(k, !k.startsWith('kubernetes.io/'))
+        message: Keys under kubernetes.io/ are reserved
+```
+
+- **No entries, no map.** A map with no entries writes nothing, so the rule finds it unset and
+  asks for it with `has()` first. Without that the user sees `CEL expression error: …`.
+- **Every entry.** `.all(k, …)` and `.exists(k, …)` run a condition for each key `k`; the value
+  is `<path>[k]`.
+- **Other fields.** The rule can read any field.
+- **When it runs.** Again whenever a key or a value changes.
+- **Where the error shows.** Under the rows, in place of the helper text, like a count error. It
+  names no row, so say in `message` which entries are wrong. One error shows there at a time: a
+  count error first, then the rule's. The rows' own errors stay under their inputs.
+- **A rule on another field** reads the map the same way, and its error shows under that field.
+
+More expressions are in [Reading a Map Field](../validation.md#reading-a-map-field).
+
+Not supported yet: a rule on a row's key or value, see [Not Supported Yet](#not-supported-yet).
+Such a rule needs the row it stands in (this key, this value), which CEL isn't given yet. Until
+then, check the entries from the map with `.all(k, …)`.
 
 These rules always apply, without being set:
 

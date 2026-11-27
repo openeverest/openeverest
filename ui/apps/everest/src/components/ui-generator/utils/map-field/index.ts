@@ -12,16 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export {
-  getMapFieldDisplayRows,
-  getMapFieldPaths,
-  getMapFieldTargetPaths,
-  isStringMap,
-  objectToRows,
-  rowsToObject,
-  writeMapFieldsInApiShape,
-} from './map-field';
-export { buildMapFieldSchema } from './map-field-schema';
+export { getMapFieldDisplayRows } from './map-field';
+export { getMapFieldCodec } from './map-field-codec';
+export { MAP_ROOT_ERROR_PATH, buildMapFieldSchema } from './map-field-schema';
 export { getMapRow, getRowFieldRole, toMapRow } from './map-row';
 export { type IgnoredMapField, resolveMapFields } from './resolve-map-fields';
 export { type MapLintIssue, lintMapFields } from './lint-map-fields';

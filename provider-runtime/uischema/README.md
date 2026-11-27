@@ -82,13 +82,13 @@ They run on every map field `m` the UI renders (no [map rule](#map-rules) matche
 
 | Rule | Condition |
 |------|-----------|
-| `map-ignored-option` | `m` sets an option the UI ignores: `regex` or a non-empty `celExpressions` in `m.validation` or in one of its `modes.<mode>` branches; or, for a row field `r = m.itemTemplate.components.<name>`: a non-empty `celExpressions` in `r.validation` or its mode branches; `defaultValue`, `badge` or `badgeToApi` in `r.fieldParams`; `defaultValue` in `r.fieldParams.modes.<mode>`; or `dataSource` or `modes` on `r`. An option counts as set when its key is present. |
+| `map-ignored-option` | `m` sets an option the UI ignores: `regex` in `m.validation` or in one of its `modes.<mode>` branches; or, for a row field `r = m.itemTemplate.components.<name>`: a non-empty `celExpressions` in `r.validation` or its mode branches; `defaultValue`, `badge` or `badgeToApi` in `r.fieldParams`; `defaultValue` in `r.fieldParams.modes.<mode>`; or `dataSource` or `modes` on `r`. An option counts as set when its key is present. |
 | `map-invalid-default` | `m.fieldParams.defaultValue`, or `m.fieldParams.modes.<mode>.defaultValue`, is present and is not a map whose values are all strings |
 | `map-invalid-limits` | in a form mode's validation, `min` or `max` is present and is not a whole number of 0 or more, or both are and `min > max`. A mode's validation is `m.validation` without `modes`, with `modes.<mode>` over it unless that branch sets `inheritShared: false`; `m.validation` itself is checked too. |
 
 **Effect.** The UI renders the field and ignores the option (`map-ignored-option`), starts the field empty (`map-invalid-default`), or applies limits no map meets (`map-invalid-limits`).
 
-**Why.** None of these is supported yet: a row starts empty and writes only its key and value, takes no options from an API, is the same field in every form mode, and CEL can't read a map or a row. A default that isn't a map of strings would be written back as text. Limits that clash block every save.
+**Why.** None of these is supported yet: a row starts empty and writes only its key and value, takes no options from an API, is the same field in every form mode, and a rule set on a row's field has no row to read yet (a rule on the map or on another field can read the map). A default that isn't a map of strings would be written back as text. Limits that clash block every save.
 
 ## Reserved key rule: `reserved-key`
 

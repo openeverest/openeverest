@@ -117,7 +117,7 @@ tier:
 
 In this example, the `self` keyword refers to the current field's value. The validation passes when the tier is 'pro' or 'enterprise', or when the number of users is less than 10.
 
-**Note:** All validation rules only apply when a value is entered. Empty fields will pass validation by default since fields are optional unless explicitly marked as `required: true`.
+**Note:** The rules other than `celExpressions` only apply when a value is entered: an empty field passes them unless it is marked `required: true`. A CEL rule runs for an empty field too, see [Optional Fields and `has()`](#optional-fields-and-has).
 
 More CEL examples can be found in the documentation for a specific field in the **examples => CEL section**
 
@@ -186,6 +186,89 @@ validation:
         - celExpr: "spec.sharding.shards >= original.spec.sharding.shards"
           message: Number of shards cannot be decreased
 ```
+
+### Optional Fields and `has()`
+
+A rule may run while a field it reads has no value. Such a field is then either **unset** or
+holds its **empty value**:
+
+- an empty text or select field is unset or `''`, and a toggle that is off is unset or `false`.
+  Which one depends on the field's own `validation`, on the form mode and on whether the instance
+  was saved with it, so allow both;
+- an empty number, quantity or [map](components/map-field.md) field is unset in every mode;
+- every field of a [toggleable group](groups.md#toggleable-group) that is off is unset.
+
+Reading an unset field fails with a CEL error: the form can't be submitted, and the user sees
+`CEL expression error: …` in place of your `message`. So a rule that reads a field which may have
+no value asks for it with `has()` first, and for a text or select field allows the empty string
+too:
+
+```yaml
+celExpressions:
+  - celExpr: "!has(spec.replicas) || spec.replicas % 2 == 1"
+    message: Use an odd number of nodes
+  - celExpr: "!has(spec.note) || spec.note == '' || size(spec.note) <= 80"
+    message: Keep the note under 80 characters
+```
+
+- `has()` of a nested path is false when an object above it is missing, so
+  `has(spec.components.proxy.service.type)` needs no check of `spec.components.proxy` before it.
+  The first segment is the exception: `has()` can't ask for it, and a rule that reads a path
+  under a missing one fails. `spec` is there in practice. Another one, such as `config`, is
+  missing in `edit` when the instance holds no value for any field under it.
+- The same goes for a path under `original`: the saved instance may not hold the field.
+  `original` itself exists only in `edit`, where the user changes a saved instance, and `has()`
+  can't ask for it. So keep a rule that reads `original` under `validation.modes.edit`, as in the
+  example above.
+- Try the rule in a new form and when editing an instance saved without the field: a rule
+  without `has()` can pass in the first and fail in the second.
+
+### Reading a Map Field
+
+A rule reads a [map field](components/map-field.md) as the map it writes, `{ key: value }`, at
+the map's `path`. The rule may sit on another field or on the map itself; its error shows under
+the field it sits on. A map with no entries writes nothing, so the rule finds it unset: ask for
+it with `has()` first, as for any [optional field](#optional-fields-and-has). The same goes for
+the saved map at `original.<path>`.
+
+| To check                              | Write                                                                                                 |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| there are no entries                  | `!has(spec.labels)`                                                                                   |
+| a key is set                          | `has(spec.labels) && 'team' in spec.labels`                                                           |
+| the value of a key                    | `has(spec.labels) && 'team' in spec.labels && spec.labels['team'] == 'db'`                            |
+| the number of entries                 | `!has(spec.labels) \|\| size(spec.labels) <= 5`                                                       |
+| every key                             | `!has(spec.labels) \|\| spec.labels.all(k, k.startsWith('example.com/'))`                             |
+| every value                           | `!has(spec.labels) \|\| spec.labels.all(k, spec.labels[k] != '')`                                     |
+| no saved entry is removed (edit mode) | `!has(original.spec.labels) \|\| (has(spec.labels) && original.spec.labels.all(k, k in spec.labels))` |
+
+- **A key that isn't set.** `spec.labels['team']` fails with a CEL error instead of your
+  `message`, so check the key with `in` first, as in the table.
+- **Rows the user hasn't finished.** A row with no key isn't an entry, so the rule doesn't see it.
+
+In the section edit dialog the rule runs again whenever the map's rows change. A rule on the map
+itself does so in every form.
+
+```yaml
+externalAccess:
+  uiType: select
+  path: spec.components.proxy.service.type
+  fieldParams:
+    label: External access
+    options:
+      - { label: ClusterIP, value: ClusterIP }
+      - { label: LoadBalancer, value: LoadBalancer }
+  validation:
+    celExpressions:
+      - celExpr: >-
+          !has(spec.components.proxy.service.type) ||
+          spec.components.proxy.service.type != 'LoadBalancer' ||
+          (has(spec.components.proxy.service.annotations) &&
+          'service.beta.kubernetes.io/aws-load-balancer-type' in spec.components.proxy.service.annotations)
+        message: Add the aws-load-balancer-type annotation for a LoadBalancer
+```
+
+A rule on a row's key or value isn't supported yet: check the entries from the map with
+`.all(k, …)`, see [A CEL Rule on the Map](components/map-field.md#a-cel-rule-on-the-map).
 
 ### Full Example: Mongo Node Edit Constraints
 

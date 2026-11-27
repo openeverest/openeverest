@@ -30,18 +30,10 @@ import {
   applyBadgesToFormData,
 } from '../badge-to-api/badge-to-api';
 import {
-  extractQuantityMappings,
-  applyQuantitiesToFormData,
-} from '../quantity';
-import {
   TOGGLEABLE_SWITCHES_KEY,
   getInactiveToggleablePaths,
 } from '../toggleable/toggleable';
-import {
-  getMapFieldPaths,
-  getMapFieldTargetPaths,
-  writeMapFieldsInApiShape,
-} from '../map-field';
+import { getWholeValuePaths, writeFieldsInApiShape } from '../field-codecs';
 
 export type PostprocessInput = Record<string, unknown>;
 
@@ -236,35 +228,33 @@ export const postprocessSchemaData = (
     options?.schema && options.selectedTopology
       ? options.schema[options.selectedTopology]?.sections
       : undefined;
-  const inApiShape = deepClone(scoped);
-  Object.values(sections ?? {}).forEach(({ components }) =>
-    writeMapFieldsInApiShape(inApiShape, getMapFieldPaths(components))
-  );
-
-  const mapped = applyMultiPathMappings(inApiShape, allMappings);
+  const mapped = applyMultiPathMappings(scoped, allMappings);
 
   const coerced =
     options?.schema && options.selectedTopology
       ? coerceSchemaNumbers(mapped, options.schema, options.selectedTopology)
       : mapped;
 
-  // Quantity paths must become strings before badge append; they are never
-  // coerced to JSON numbers (that is what broke fractional CPU).
-  const quantityMappings =
-    options?.schema && options.selectedTopology
-      ? extractQuantityMappings(options.schema, options.selectedTopology)
-      : [];
-  const withQuantities = applyQuantitiesToFormData(
-    coerced,
-    quantityMappings,
-    options?.originalData
-  );
+  // After the multi-path copies, so each path a field writes is converted on
+  // its own: a quantity is compared with what is stored at that very path.
+  // Before the badges: a quantity must be a string by then, never a JSON
+  // number (that is what broke fractional CPU).
+  const inApiShape = deepClone(coerced);
+  Object.values(sections ?? {}).forEach((section) => {
+    if (section?.components) {
+      writeFieldsInApiShape(
+        inApiShape,
+        section.components,
+        options?.originalData
+      );
+    }
+  });
 
   const badgeMappings =
     options?.schema && options.selectedTopology
       ? extractBadgeMappings(options.schema, options.selectedTopology)
       : [];
-  const withBadges = applyBadgesToFormData(withQuantities, badgeMappings);
+  const withBadges = applyBadgesToFormData(inApiShape, badgeMappings);
 
   const withoutInactive = deepClone(withBadges);
   (sections ? getInactiveToggleablePaths(sections, formValues) : []).forEach(
@@ -274,8 +264,8 @@ export const postprocessSchemaData = (
 
   return removeEmptyFieldValues(
     withoutInactive,
-    Object.values(sections ?? {}).flatMap(({ components }) =>
-      getMapFieldTargetPaths(components)
+    Object.values(sections ?? {}).flatMap((section) =>
+      section?.components ? getWholeValuePaths(section.components) : []
     )
   );
 };

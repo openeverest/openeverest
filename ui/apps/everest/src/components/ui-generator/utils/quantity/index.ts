@@ -12,14 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export {
-  readQuantity,
-  writeQuantity,
-  formatQuantity,
-  quantitiesEqual,
-} from './quantity';
-export {
-  extractQuantityMappings,
-  applyQuantitiesToFormData,
-  type QuantityMapping,
-} from './apply-quantities';
+export { formatQuantity } from './quantity';
+export { getQuantityFieldCodec } from './quantity-codec';

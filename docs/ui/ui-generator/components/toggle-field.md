@@ -28,7 +28,7 @@ A boolean on/off switch for enabling features (backups, PITR, monitoring, and si
 
 ## Behavior
 
-- **Default value:** When `fieldParams.defaultValue` is omitted, the form initializes the field to `false`.
+- **Default value:** When `fieldParams.defaultValue` is omitted, the form initializes the field to `false` in `new`, `restore` and `import`. In `edit`, a toggle the instance was saved without stays unset, so a CEL rule that reads it asks with `has()` first (see [Optional Fields and `has()`](../validation.md#optional-fields-and-has)).
 - **Helper text:** `fieldParams.helperText` renders as a caption under the main label — `helperText` is the same universal param used by every other field, so provider authors don't need a toggle-specific key. Validation errors (e.g. from CEL expressions) appear separately in a red `FormHelperText` below the switch, so a toggle can show its description and an error at the same time.
 - **Validation errors:** Field-level validation errors (e.g. from CEL expressions) are shown in a red `FormHelperText` below the switch.
 - **Postprocess:** `false` is preserved in the API payload (not treated as an empty value).

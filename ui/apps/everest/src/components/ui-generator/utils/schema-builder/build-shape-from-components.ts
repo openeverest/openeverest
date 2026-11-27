@@ -24,8 +24,15 @@ import {
 import { ZOD_SCHEMA_MAP } from 'components/ui-generator/constants';
 import { generateFieldId } from '../component-renderer/generate-field-id';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
-import { buildMapFieldSchema, getMapRow } from '../map-field';
-import { applyValidationFromSchema } from './apply-from-schema';
+import {
+  MAP_ROOT_ERROR_PATH,
+  buildMapFieldSchema,
+  getMapRow,
+} from '../map-field';
+import {
+  applyValidationFromSchema,
+  extractCelValidationData,
+} from './apply-from-schema';
 import { resolveValidationForMode } from '../validation/resolve-validation-for-mode';
 import {
   TOGGLEABLE_SWITCHES_KEY,
@@ -109,6 +116,10 @@ export const buildShapeFromComponents = (
       // Each row against its own fields' rules, built here like any field's. A
       // shape this version doesn't implement isn't validated, so its value
       // passes through like an unknown uiType's.
+      const mapValidation = resolveValidationForMode(
+        component.validation,
+        formMode
+      );
       fieldSchema = isMapComponent(component)
         ? buildMapFieldSchema(
             buildShapeFromComponents(
@@ -116,9 +127,24 @@ export const buildShapeFromComponents = (
               '',
               formMode
             ).schemaShape,
-            resolveValidationForMode(component.validation, formMode)
+            mapValidation
           )
         : z.any().optional();
+
+      // A rule on the map reads it by its path, like a rule on any field. Its
+      // error goes where the map's count errors go, beside the rows' own.
+      if (isMapComponent(component) && mapValidation?.celExpressions?.length) {
+        const { celExpValidation, celDependencyGroup } =
+          extractCelValidationData(mapValidation.celExpressions, fieldId);
+        if (celExpValidation) {
+          celExpValidations.push({
+            ...celExpValidation,
+            path: [fieldId, ...MAP_ROOT_ERROR_PATH],
+            activeWhen: activeSwitch,
+          });
+        }
+        if (celDependencyGroup) celDependencyGroups.push(celDependencyGroup);
+      }
     } else if (resolvedValidation) {
       // Create a component with resolved (flat) validation for the downstream pipeline
       const resolvedComponent = {

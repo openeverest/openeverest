@@ -246,6 +246,35 @@ cases:
     issues:
       - { rule: toggleable-cel-unguarded, topology: replicaSet, group: advanced.monitoring, field: backup.retention }
 
+  - name: a map's own CEL rule must guard the group's path too
+    uiSchema:
+      replicaSet:
+        sections:
+          backup:
+            components:
+              labels:
+                uiType: map
+                path: spec.backup.labels
+                fieldParams: { label: Labels }
+                validation:
+                  celExpressions:
+                    - celExpr: "!has(spec.backup.labels) || spec.monitoring.interval > 0"
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key }
+                    value: { uiType: text, path: value }
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  interval: { uiType: number, path: spec.monitoring.interval, fieldParams: { label: Interval } }
+    issues:
+      - { rule: toggleable-cel-unguarded, topology: replicaSet, group: advanced.monitoring, field: backup.labels }
+
   - name: a has() on the exact path guards the reference
     uiSchema:
       replicaSet:

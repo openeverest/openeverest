@@ -14,9 +14,16 @@
 
 import { orderComponents } from 'components/ui-generator/utils/component-renderer/order-components';
 import { getRowFieldRole } from 'components/ui-generator/utils/map-field';
-import type { ComponentGroup } from '../ui-generator.types';
+import type { ComponentGroup, MapComponent } from '../ui-generator.types';
 import { Messages } from './map-field.messages';
 import type { RowState } from './map-field.types';
+
+// Whether the map carries a CEL rule of its own, in any form mode.
+export const hasOwnCelRule = ({ validation }: MapComponent): boolean =>
+  !!validation &&
+  [validation, ...Object.values(validation.modes ?? {})].some(
+    (rules) => !!rules.celExpressions?.length
+  );
 
 // One row's fields: each named for the row ("Key 2"), disabled with the map,
 // showing a cut-off value on hover, and the first one focused when the row was
