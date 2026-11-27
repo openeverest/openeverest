@@ -128,6 +128,10 @@ func TestCollector(t *testing.T) {
 			Spec:       extensionsv1alpha1.InstalledExtensionSpec{Type: extensionsv1alpha1.InstalledExtensionTypeProvider, Version: "1.2.0"},
 			Status:     extensionsv1alpha1.InstalledExtensionStatus{Phase: extensionsv1alpha1.InstalledExtensionPhaseInstalled},
 		},
+		&extensionsv1alpha1.Plugin{
+			ObjectMeta: metav1.ObjectMeta{Name: "plugin-hub"},
+			Spec:       extensionsv1alpha1.PluginSpec{Version: "0.3.0"},
+		},
 		&corev1alpha1.Provider{
 			ObjectMeta: metav1.ObjectMeta{Name: "percona-server-mongodb"},
 			Status: corev1alpha1.ProviderStatus{
@@ -152,6 +156,9 @@ func TestCollector(t *testing.T) {
 		&backupv1alpha1.BackupStorage{
 			ObjectMeta: metav1.ObjectMeta{Name: "store", Namespace: ns},
 			Spec:       backupv1alpha1.BackupStorageSpec{BackupStorageClassRef: common.ObjectRef{Name: "s3"}},
+			Status: backupv1alpha1.BackupStorageStatus{
+				Conditions: []metav1.Condition{condition(backupv1alpha1.BackupStorageConditionAccepted, "False")},
+			},
 		},
 		&monitoringv1alpha1.MonitoringDestination{
 			ObjectMeta: metav1.ObjectMeta{Name: "dest", Namespace: ns},
@@ -165,6 +172,14 @@ func TestCollector(t *testing.T) {
 			Spec: corev1alpha1.InstanceSpec{
 				ProviderRef: common.ObjectRef{Name: "percona-server-mongodb"},
 				Version:     "8.0",
+				Backup: &corev1alpha1.InstanceBackupSpec{
+					Enabled: true,
+					Storages: []corev1alpha1.InstanceBackupStorage{
+						{StorageRef: common.ObjectRef{Name: "store"}, Schedules: []corev1alpha1.InstanceBackupSchedule{{Name: "daily", Enabled: true}}},
+						{StorageRef: common.ObjectRef{Name: "never"}, Schedules: []corev1alpha1.InstanceBackupSchedule{{Name: "hourly", Enabled: true}}},
+						{StorageRef: common.ObjectRef{Name: "unscheduled"}},
+					},
+				},
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"engine": {
 						Replicas: ptr.To[int32](3),
@@ -269,6 +284,9 @@ func TestCollector(t *testing.T) {
 		db1("openeverest_instance_resource_limits", "component", "engine", "resource", "cpu"):                                        3,
 		db1("openeverest_instance_pitr_available", "storage", "store"):                                                               1,
 		db1("openeverest_instance_last_successful_backup_timestamp_seconds", "storage", "store"):                                     float64(lastBackup.Unix()),
+		db1("openeverest_instance_last_successful_backup_timestamp_seconds", "storage", "never"):                                     0,
+		series("openeverest_plugin_info", "name", "plugin-hub", "version", "0.3.0"):                                                  1,
+		series("openeverest_backup_storage_accepted", "name", "store", labelNamespace, "team-a", "status", "false"):                  1,
 		db1("openeverest_backups", "state", "Succeeded", "storage", "store"):                                                         2,
 		db1("openeverest_backups", "state", "Failed", "storage", "store"):                                                            1,
 		series("openeverest_backups", labelInstance, "", labelNamespace, "team-a", "state", "Succeeded", "storage", "store"):         1,
@@ -281,6 +299,9 @@ func TestCollector(t *testing.T) {
 	}
 	assert.NotContains(t, got, db1("openeverest_instance_resource_limits", "component", "engine", "resource", "memory"),
 		"a resource the spec doesn't set is not exported",
+	)
+	assert.NotContains(t, got, db1("openeverest_instance_last_successful_backup_timestamp_seconds", "storage", "unscheduled"),
+		"a storage without an enabled schedule is not expected to have backups",
 	)
 	for s := range got {
 		assert.NotContains(t, s, `condition="Synced"`, "only summary conditions are exported")

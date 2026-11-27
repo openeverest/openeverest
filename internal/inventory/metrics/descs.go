@@ -52,6 +52,10 @@ var (
 		"Phase of an installed extension: 1 for the current phase, 0 for the others.",
 		"type", "name", "phase",
 	)
+	pluginInfo = newDesc("plugin_info",
+		"A Plugin, whether installed from the catalog or with Helm. Always 1.",
+		"name", "version",
+	)
 	providerInfo = newDesc("provider_info",
 		"A Provider, whether installed from the catalog or with Helm. Always 1.",
 		labelProvider, "contract_version",
@@ -73,6 +77,10 @@ var (
 	backupStorageInfo = newDesc("backup_storage_info",
 		"A BackupStorage. Always 1.",
 		labelNamespace, "name", "class",
+	)
+	backupStorageAccepted = newDesc("backup_storage_accepted",
+		"Accepted condition of a BackupStorage: 1 for the current status, 0 for the others.",
+		labelNamespace, "name", "status",
 	)
 	monitoringDestinationInfo = newDesc("monitoring_destination_info",
 		"A MonitoringDestination. Always 1.",
@@ -116,12 +124,13 @@ var (
 		labelNamespace, labelInstance, "storage",
 	)
 	instanceLastSuccessfulBackup = newDesc("instance_last_successful_backup_timestamp_seconds",
-		"Unix time the latest successful Backup of an Instance to a backup storage completed.",
+		"Unix time the latest successful Backup of an Instance to a backup storage completed, "+
+			"or 0 for a storage with an enabled schedule and no successful Backup yet.",
 		labelNamespace, labelInstance, "storage",
 	)
 
 	backupsCount = newDesc("backups",
-		"Number of Backups by state. instance is empty for backups imported from external data.",
+		"Number of Backups by state. openeverest_instance is empty for backups imported from external data.",
 		labelNamespace, labelInstance, "storage", "state",
 	)
 	restoresCount = newDesc("restores",
@@ -131,8 +140,8 @@ var (
 
 	allDescs = []*prometheus.Desc{
 		buildInfo,
-		extensionInfo, extensionPhase, providerInfo, providerCondition,
-		classInfo, classAccepted, backupStorageInfo, monitoringDestinationInfo, monitoringDestinationReady,
+		extensionInfo, extensionPhase, pluginInfo, providerInfo, providerCondition,
+		classInfo, classAccepted, backupStorageInfo, backupStorageAccepted, monitoringDestinationInfo, monitoringDestinationReady,
 		instanceInfo, instancePhase, instanceCondition, instanceComponentReplicas,
 		instanceResourceRequests, instanceResourceLimits, instancePITRAvailable, instanceLastSuccessfulBackup,
 		backupsCount, restoresCount,

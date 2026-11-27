@@ -90,8 +90,11 @@ func NewCollector(reader client.Reader, opts Options, log logr.Logger) *Collecto
 	return &Collector{reader: reader, opts: opts, log: log}
 }
 
-// CacheSynced returns an Options.Synced that checks informers already exist
-// and have synced, without starting or waiting for any.
+// CacheSynced returns an Options.Synced that reports whether the informer of
+// every inventory kind has synced, without waiting for any. GetInformer starts
+// an informer for a kind the cache doesn't hold yet, so every kind in
+// inventory.Kinds() must already be watched by a controller, and the
+// controller's RBAC must allow listing and watching it.
 func CacheSynced(informers cache.Informers) func(ctx context.Context) bool {
 	return func(ctx context.Context) bool {
 		for _, obj := range inventory.Kinds() {
@@ -154,12 +157,13 @@ func (c *Collector) emitInventory(e *emitter) {
 
 func emitSnapshot(e *emitter, s *inventory.Snapshot) {
 	emitExtensions(e, s.InstalledExtensions)
+	emitPlugins(e, s.Plugins)
 	emitProviders(e, s.Providers)
 	emitClasses(e, s)
 	emitBackupStorages(e, s.BackupStorages)
 	emitMonitoringDestinations(e, s.MonitoringDestinations)
 	emitInstances(e, s.Instances)
-	emitBackups(e, s.Backups)
+	emitBackups(e, s.Backups, s.Instances)
 	emitRestores(e, s.Restores)
 }
 
@@ -169,6 +173,12 @@ func emitExtensions(e *emitter, extensions []extensionsv1alpha1.InstalledExtensi
 		typ := string(ie.Spec.Type)
 		e.gauge(extensionInfo, 1, typ, ie.Name, ie.Spec.Version)
 		e.oneHot(extensionPhase, string(ie.Status.Phase), extensionPhases, typ, ie.Name)
+	}
+}
+
+func emitPlugins(e *emitter, plugins []extensionsv1alpha1.Plugin) {
+	for i := range plugins {
+		e.gauge(pluginInfo, 1, plugins[i].Name, plugins[i].Spec.Version)
 	}
 }
 
@@ -220,6 +230,12 @@ func emitBackupStorages(e *emitter, storages []backupv1alpha1.BackupStorage) {
 	for i := range storages {
 		bs := &storages[i]
 		e.gauge(backupStorageInfo, 1, bs.Namespace, bs.Name, bs.Spec.BackupStorageClassRef.Name)
+		for _, cond := range bs.Status.Conditions {
+			if cond.Type == backupv1alpha1.BackupStorageConditionAccepted {
+				e.conditionStatus(backupStorageAccepted, cond, bs.Namespace, bs.Name)
+				break
+			}
+		}
 	}
 }
 
@@ -309,7 +325,7 @@ type backupKey struct{ namespace, instance, storage, state string }
 
 type storageKey struct{ namespace, instance, storage string }
 
-func emitBackups(e *emitter, backups []backupv1alpha1.Backup) {
+func emitBackups(e *emitter, backups []backupv1alpha1.Backup, instances []corev1alpha1.Instance) {
 	counts := make(map[backupKey]int)
 	lastSuccess := make(map[storageKey]time.Time)
 	for i := range backups {
@@ -338,6 +354,32 @@ func emitBackups(e *emitter, backups []backupv1alpha1.Backup) {
 	for k, t := range lastSuccess {
 		e.gauge(instanceLastSuccessfulBackup, float64(t.Unix()), k.namespace, k.instance, k.storage)
 	}
+	// A storage with an enabled schedule but no successful Backup yet reports
+	// 0, so a staleness alert also finds backups that have never succeeded.
+	for k := range scheduledStorages(instances) {
+		if _, ok := lastSuccess[k]; !ok {
+			e.gauge(instanceLastSuccessfulBackup, 0, k.namespace, k.instance, k.storage)
+		}
+	}
+}
+
+func scheduledStorages(instances []corev1alpha1.Instance) map[storageKey]struct{} {
+	keys := make(map[storageKey]struct{})
+	for i := range instances {
+		inst := &instances[i]
+		if inst.Spec.Backup == nil || !inst.Spec.Backup.Enabled {
+			continue
+		}
+		for _, st := range inst.Spec.Backup.Storages {
+			for _, sch := range st.Schedules {
+				if sch.Enabled {
+					keys[storageKey{inst.Namespace, inst.Name, st.StorageRef.Name}] = struct{}{}
+					break
+				}
+			}
+		}
+	}
+	return keys
 }
 
 type restoreKey struct{ namespace, instance, state string }
@@ -367,15 +409,20 @@ func stateOrUnknown(state string) string {
 // a repeated condition type must not take /metrics down.
 type emitter struct {
 	metrics []prometheus.Metric
-	seen    map[string]struct{}
+	seen    map[seriesKey]struct{}
+}
+
+type seriesKey struct {
+	desc   *prometheus.Desc
+	labels string
 }
 
 func newEmitter() *emitter {
-	return &emitter{seen: make(map[string]struct{})}
+	return &emitter{seen: make(map[seriesKey]struct{})}
 }
 
 func (e *emitter) gauge(desc *prometheus.Desc, value float64, labels ...string) {
-	key := desc.String() + "\x00" + strings.Join(labels, "\x00")
+	key := seriesKey{desc, strings.Join(labels, "\x00")}
 	if _, ok := e.seen[key]; ok {
 		return
 	}
