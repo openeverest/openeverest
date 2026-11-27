@@ -6941,7 +6941,7 @@ type Plugin struct {
 
 		// Permissions Permissions declares what OpenEverest API resources this plugin needs access to.
 		Permissions *[]struct {
-			// Resource Resource is the OpenEverest API resource (e.g. "database-clusters").
+			// Resource Resource is the OpenEverest API resource (e.g. "instances").
 			Resource string `json:"resource"`
 
 			// Verb Verb is the action (e.g. "read", "create", "update", "delete").

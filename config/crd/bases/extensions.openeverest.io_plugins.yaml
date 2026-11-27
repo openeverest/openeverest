@@ -230,7 +230,7 @@ spec:
                   properties:
                     resource:
                       description: Resource is the OpenEverest API resource (e.g.
-                        "database-clusters").
+                        "instances").
                       type: string
                     verb:
                       description: Verb is the action (e.g. "read", "create", "update",

@@ -175,7 +175,7 @@ type PluginPermission struct {
 	// +required
 	Verb string `json:"verb"`
 
-	// Resource is the OpenEverest API resource (e.g. "database-clusters").
+	// Resource is the OpenEverest API resource (e.g. "instances").
 	// +required
 	Resource string `json:"resource"`
 }
