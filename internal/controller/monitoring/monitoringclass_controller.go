@@ -31,7 +31,8 @@ import (
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	contractmonitoring "github.com/openeverest/openeverest/v2/contract/monitoring"
+	"github.com/openeverest/openeverest/v2/internal/controller/ssa"
 )
 
 // ClassCompatibilityReconciler publishes MonitoringClass.status.providers,
@@ -79,7 +80,7 @@ func (r *ClassCompatibilityReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 		entries = append(entries, entry)
 	}
-	return ctrl.Result{}, rtmonitoring.ApplyStatus(ctx, r.Client, class, rtmonitoring.CompatibilityFieldOwner,
+	return ctrl.Result{}, ssa.ApplyStatus(ctx, r.Client, class, contractmonitoring.CompatibilityFieldOwner,
 		map[string]any{"providers": entries},
 	)
 }

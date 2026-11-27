@@ -26,14 +26,18 @@ import {
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
 import { dropOtherTopologyValues } from 'components/ui-generator/utils/topology-scope';
-import { ClusterInstancePreset } from 'shared-types/api.types';
-import { usePresetFormSync } from '../preset-selection';
+import {
+  DroppedPresetNotice,
+  PresetStatus,
+  SelectablePreset,
+  usePresetFormSync,
+} from '../preset-selection';
 import { DbWizardType } from '../database-form-schema';
 
 interface PresetSource {
-  selectedPreset: ClusterInstancePreset | null;
-  presetName: string;
-  presetSelected: boolean;
+  selectedPreset: SelectablePreset | null;
+  presetId: string;
+  status: PresetStatus;
 }
 
 interface UseDatabaseFormSyncArgs {
@@ -43,6 +47,7 @@ interface UseDatabaseFormSyncArgs {
   defaultTopology: string;
   selectedTopology: string | undefined;
   defaultNamespace: string | undefined;
+  namespace: string;
   preset: PresetSource;
   reset: UseFormReset<DbWizardType>;
   getValues: UseFormGetValues<DbWizardType>;
@@ -65,11 +70,12 @@ export const useDatabaseFormSync = ({
   defaultTopology,
   selectedTopology,
   defaultNamespace,
+  namespace,
   preset,
   reset,
   getValues,
   setValue,
-}: UseDatabaseFormSyncArgs) => {
+}: UseDatabaseFormSyncArgs): DroppedPresetNotice => {
   // Source 0 — default namespace: a new instance starts in the first
   // namespace. Only an empty value is filled, so a namespace the user chose is
   // never replaced when the list changes.
@@ -83,14 +89,16 @@ export const useDatabaseFormSync = ({
   }, [mode, defaultNamespace, getValues, setValue]);
 
   // Source 1 — preset: populates the form from the selected preset and reverts
-  // on clear. Owns topology while a preset is selected.
-  usePresetFormSync({
+  // on clear, or when the pick stops being available. Owns topology while a preset is selected.
+  const droppedPresetNotice = usePresetFormSync({
     mode,
     uiSchema,
     defaultValues,
     defaultTopology,
     selectedPreset: preset.selectedPreset,
-    presetName: preset.presetName,
+    presetId: preset.presetId,
+    status: preset.status,
+    namespace,
     reset,
     getValues,
   });
@@ -111,7 +119,7 @@ export const useDatabaseFormSync = ({
     prevTopologyTypeRef.current = topologyType;
 
     // Preset owns topology while selected; its own sync handles population.
-    if (preset.presetSelected) return;
+    if (preset.status !== 'none') return;
 
     const topologyDefaults = getDefaultValues(uiSchema, topologyType);
     const merged = mergeTopologyDefaults(
@@ -125,4 +133,6 @@ export const useDatabaseFormSync = ({
     reset(merged as DbWizardType, { keepDirty: true, keepIsSubmitted: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTopology, uiSchema]);
+
+  return droppedPresetNotice;
 };

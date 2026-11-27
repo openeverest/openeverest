@@ -30,7 +30,7 @@ const basicInfoFieldsSchema = z.object({
   [DbWizardFormFields.k8sNamespace]: z.string().nullable(),
   topology: z.object({ type: z.string() }),
   // UI-only picker; excluded from the Instance spec by NON_SPEC_FORM_FIELDS.
-  [DbWizardFormFields.presetName]: z.string().optional(),
+  [DbWizardFormFields.presetId]: z.string().optional(),
 });
 
 const basicInfoSchema = (dbInstances: DbInstanceName[]) =>

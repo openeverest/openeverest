@@ -148,3 +148,42 @@ func (p *MyProvider) Sync(c *controller.Context) error { ... }
 func (p *MyProvider) Status(c *controller.Context) (controller.Status, error) { ... }
 func (p *MyProvider) Cleanup(c *controller.Context) error { ... }
 ```
+
+## Starting on a compatible OpenEverest
+
+`reconciler.Start` holds a new build of the provider until the installed
+OpenEverest supports the contract version it links, `contract.Version`, before
+it starts the controllers and the admission webhook and metrics servers. The
+checks at install time and at admission miss some apply paths, such as
+manifests rendered ahead of time or an image overridden after install; a check
+in the build itself covers them all. It compares that version with the window
+core publishes on the `providers.core.openeverest.io` CRD, and honours an
+acknowledgement on the Provider (`openeverest.io/compatibility-acknowledged`) or
+in core's list on that CRD (`openeverest.io/acknowledged-extensions`). A core
+that publishes no window supports no build.
+
+- **Only a new rollout waits:** a build whose version differs from the
+  Provider's `status.contractVersion`, or one whose Provider has none yet. A
+  build with that version starts without the check, so a restart, a node drain
+  or a core rolled back underneath the provider never stops it.
+- **While it waits,** `/healthz` answers and `/readyz` does not, it logs why,
+  records a Warning Event on its Provider naming the OpenEverest it waits for,
+  and reads the CRD again every 15 seconds. It starts by itself once
+  OpenEverest is upgraded. Under the chart's default `RollingUpdate` the pods of
+  the previous build keep serving meanwhile; with `Recreate` the wait is
+  downtime. The chart's readiness probe must use the `/readyz` of
+  `reconciler.WithServer`: a pod with no readiness probe counts as ready while
+  it waits, and the rollout removes the previous build.
+- **Once it starts,** it writes its version to the Provider's
+  `status.contractVersion` with server-side apply, retrying until the Provider
+  exists.
+
+The gate needs these rules. The last one is among the base rules providers
+already declare; add the others to your `internal/provider/rbac.go`, with your
+Provider's name in `resourceNames`, and run `make generate`:
+
+```go
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,resourceNames=providers.core.openeverest.io,verbs=get
+// +kubebuilder:rbac:groups=core.openeverest.io,resources=providers/status,resourceNames=<provider>,verbs=patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
+```

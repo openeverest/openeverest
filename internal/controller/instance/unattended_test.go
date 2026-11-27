@@ -42,8 +42,8 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/config/crd/bases"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
-	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	"github.com/openeverest/openeverest/v2/contract"
+	"github.com/openeverest/openeverest/v2/internal/controller/ssa"
 )
 
 //nolint:gochecknoglobals // fixed reference time
@@ -73,8 +73,8 @@ func testProviderObject(name string, created time.Time) *corev1alpha1.Provider {
 // pickedUp marks an Instance as a provider-runtime marks the Instances it
 // reconciles.
 func pickedUp(in *corev1alpha1.Instance) {
-	in.Finalizers = []string{controller.ProviderFinalizer}
-	in.Labels = map[string]string{controller.ProviderLabel: testProvider}
+	in.Finalizers = []string{contract.ProviderFinalizer}
+	in.Labels = map[string]string{contract.ProviderLabel: testProvider}
 }
 
 // observed says that a provider reported on generation, and that the spec
@@ -141,11 +141,19 @@ func newHarness(t *testing.T, objs ...client.Object) *harness {
 	h := &harness{t: t, now: t0}
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1alpha1.AddToScheme(scheme))
+	// The builder sets resourceVersion on the objects it is given, which
+	// parallel tests share.
+	seeded := make([]client.Object, 0, len(objs))
+	for _, obj := range objs {
+		copied, ok := obj.DeepCopyObject().(client.Object)
+		require.True(t, ok)
+		seeded = append(seeded, copied)
+	}
 	h.c = fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithTypeConverters(crdTypeConverter(t), managedfields.NewDeducedTypeConverter()).
 		WithReturnManagedFields().
-		WithObjects(objs...).
+		WithObjects(seeded...).
 		WithStatusSubresource(&corev1alpha1.Instance{}).
 		Build()
 	// Only the reconciler's applies are recorded, not the stand-in
@@ -196,7 +204,7 @@ func (h *harness) catchUp() {
 	h.t.Helper()
 	in := &corev1alpha1.Instance{}
 	require.NoError(h.t, h.c.Get(h.t.Context(), h.key(), in))
-	require.NoError(h.t, rtmonitoring.ApplyStatus(h.t.Context(), h.c, in, controller.StatusFieldOwner(testProvider),
+	require.NoError(h.t, ssa.ApplyStatus(h.t.Context(), h.c, in, contract.ProviderStatusFieldOwner(testProvider),
 		map[string]any{"observedGeneration": in.Generation, "phase": string(corev1alpha1.InstancePhasePending)},
 	))
 }
@@ -218,7 +226,7 @@ func (h *harness) seed(status metav1.ConditionStatus, reason string) {
 	withCondition(status, reason)(in)
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&in.Status.Conditions[len(in.Status.Conditions)-1])
 	require.NoError(h.t, err)
-	require.NoError(h.t, rtmonitoring.ApplyStatus(h.t.Context(), h.c, in, UnattendedFieldOwner,
+	require.NoError(h.t, ssa.ApplyStatus(h.t.Context(), h.c, in, UnattendedFieldOwner,
 		map[string]any{"conditions": []any{raw}},
 	))
 }
@@ -535,12 +543,12 @@ func TestNotRespondingMessage(t *testing.T) {
 		{name: "finalizer and label", mutate: pickedUp, want: pickedUpMessage},
 		{
 			name:   "finalizer only",
-			mutate: func(in *corev1alpha1.Instance) { in.Finalizers = []string{controller.ProviderFinalizer} },
+			mutate: func(in *corev1alpha1.Instance) { in.Finalizers = []string{contract.ProviderFinalizer} },
 			want:   pickedUpMessage,
 		},
 		{
 			name:   "label only",
-			mutate: func(in *corev1alpha1.Instance) { in.Labels = map[string]string{controller.ProviderLabel: testProvider} },
+			mutate: func(in *corev1alpha1.Instance) { in.Labels = map[string]string{contract.ProviderLabel: testProvider} },
 			want:   pickedUpMessage,
 		},
 		{

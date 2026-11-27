@@ -44,7 +44,7 @@ export enum DbWizardForm {
   provider = 'provider',
   k8sNamespace = 'k8sNamespace',
   topology = 'topology.type',
-  presetName = 'presetName',
+  presetId = 'presetId',
 }
 
 export const DbWizardFormFields = {

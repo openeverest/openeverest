@@ -14,6 +14,7 @@
 
 export * from './preset-selection-context';
 export * from './preset-selection.constants';
+export * from './preset-selection.types';
 export * from './preset-selection.utils';
 export * from './hooks';
 export { PresetSelectCards } from './preset-select-cards';

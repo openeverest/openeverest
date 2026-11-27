@@ -29,6 +29,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
@@ -127,7 +128,7 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 	// any provider code runs. The Restore is terminally Failed: retrying
 	// cannot succeed until the user picks a different class or drops the
 	// PITR options.
-	if pitrErr := controller.ValidateRestorePITR(restore, bc); pitrErr != nil {
+	if pitrErr := referents.ValidateRestorePITR(restore, bc); pitrErr != nil {
 		logger.Info("Rejecting restore", "reason", pitrErr.Error())
 		restore.Status.State = backupv1alpha1.RestoreStateFailed
 		restore.Status.Message = pitrErr.Error()
@@ -260,7 +261,7 @@ func backupClassNameForRestore(ctx context.Context, c client.Client, restore *ba
 		return backup.Spec.ClassRef.Name, nil
 
 	case backupv1alpha1.DataSourceTypePointInTime:
-		name := controller.RestoreStreamInstanceName(restore)
+		name := referents.RestoreStreamInstanceName(restore)
 		instance := &corev1alpha1.Instance{}
 		if err := c.Get(ctx, client.ObjectKey{
 			Namespace: restore.Namespace,

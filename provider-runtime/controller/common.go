@@ -42,6 +42,8 @@ import (
 	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	s3class "github.com/openeverest/openeverest/v2/backupstorageclasses/s3"
+	"github.com/openeverest/openeverest/v2/contract"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 	"github.com/openeverest/openeverest/v2/provider-runtime/internal/backupclass"
 )
 
@@ -169,9 +171,9 @@ func (c *Context) PodLabels(component string) map[string]string {
 	c.labelledComponents[component] = struct{}{}
 
 	return map[string]string{
-		ProviderLabel:  c.providerName,
-		InstanceLabel:  c.Name(),
-		ComponentLabel: component,
+		contract.ProviderLabel: c.providerName,
+		InstanceLabel:          c.Name(),
+		ComponentLabel:         component,
 	}
 }
 
@@ -393,7 +395,7 @@ func (c *Context) ObjectMeta(name string) metav1.ObjectMeta {
 		Labels: map[string]string{
 			"app.kubernetes.io/managed-by": "everest",
 			"app.kubernetes.io/instance":   c.Name(),
-			ProviderLabel:                  c.providerName,
+			contract.ProviderLabel:         c.providerName,
 		},
 	}
 }
@@ -1070,14 +1072,6 @@ const IndexBackupInstanceName = "spec.origin.instanceRef.name"
 // IndexRestoreInstanceName is the field index path used for Restore.spec.instanceRef.name.
 const IndexRestoreInstanceName = "spec.instanceRef.name"
 
-// ProviderLabel is the label key used to identify which provider
-// manages an Instance. Set automatically by the provider reconciler.
-const ProviderLabel = "core.openeverest.io/provider"
-
-// ProviderFinalizer is the finalizer the provider reconciler adds to an
-// Instance when it picks the Instance up, and removes once cleanup is done.
-const ProviderFinalizer = "everest.percona.com/provider-finalizer"
-
 // InstanceLabel and ComponentLabel identify the Instance and component a pod
 // belongs to. See Context.PodLabels.
 const (
@@ -1472,7 +1466,7 @@ func (c *Context) resolveBackupOrigin(
 		return nil, nil, fmt.Errorf("get source Backup %q: %w", backupName, err)
 	}
 
-	if vErr := ValidateBackupSucceeded(src); vErr != nil {
+	if vErr := referents.ValidateBackupSucceeded(src); vErr != nil {
 		// A backup that has not Succeeded is a state to wait in, not a
 		// reconcile failure, so the validation error becomes status. One
 		// that is still running finishes by itself; one that failed or is
@@ -1531,7 +1525,7 @@ func (c *Context) resolvePointInTimeOrigin(
 		}, nil
 	}
 
-	if vErr := ValidatePITRStorage(ds.PointInTime, srcInstance); vErr != nil {
+	if vErr := referents.ValidatePITRStorage(ds.PointInTime, srcInstance); vErr != nil {
 		// Terminal rather than a wait: requeueing cannot turn a storage that
 		// is not archiving into one that is, so this is reported as status.
 		failed := &DataSourceStatus{
@@ -1609,7 +1603,7 @@ func hasInstanceStorage(b *v1alpha1.InstanceBackupSpec, name string) bool {
 //	}
 func RequestsForInstancesMatching(ctx context.Context, c client.Client, providerName string, opts ...client.ListOption) ([]reconcile.Request, error) {
 	// Add label selector to opts for efficient server-side filtering
-	opts = append(opts, client.MatchingLabels{ProviderLabel: providerName})
+	opts = append(opts, client.MatchingLabels{contract.ProviderLabel: providerName})
 
 	list := &v1alpha1.InstanceList{}
 	if err := c.List(ctx, list, opts...); err != nil {

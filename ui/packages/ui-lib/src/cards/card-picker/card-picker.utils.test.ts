@@ -62,15 +62,17 @@ describe('card-picker utils', () => {
       expect(itemMatches(item, ['prod', 'missing'])).toBe(false);
     });
 
-    it('falls back to title/subtitle/detail when no searchText, case-insensitively', () => {
+    it('falls back to title/badge/subtitle/detail when no searchText, case-insensitively', () => {
       const noSearch: CardPickerItem = {
         id: '2',
         title: 'Analytics',
+        badge: { label: 'Cluster-wide' },
         subtitle: 'Sharded',
         detail: '7 NODES',
       };
 
       expect(itemMatches(noSearch, ['sharded'])).toBe(true);
+      expect(itemMatches(noSearch, ['cluster-wide'])).toBe(true);
       expect(itemMatches(noSearch, ['nodes'])).toBe(true);
       expect(itemMatches(noSearch, ['storageclass'])).toBe(false);
     });

@@ -52,8 +52,8 @@ import (
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract/definitions"
 	"github.com/openeverest/openeverest/v2/pkg/common"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 // Kind is the kind of object that defines a Secret.
@@ -242,7 +242,7 @@ func validateProviderSecret(ctx context.Context, g Getter, ref Ref, secret *core
 		return sourceError(ref, err)
 	}
 
-	if err := controller.ValidateSecretSchema(secret, &provider.Spec); err != nil {
+	if err := definitions.ValidateSecretSchema(secret, &provider.Spec); err != nil {
 		return errors.Join(ErrInvalidSecret, err)
 	}
 	return nil

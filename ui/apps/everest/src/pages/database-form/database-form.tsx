@@ -296,16 +296,24 @@ export const DatabasePage = () => {
     name: DbWizardFormFields.provider,
   });
 
-  const selectedPreset = useWatch({
+  const selectedPresetId = useWatch({
     control,
-    name: DbWizardFormFields.presetName,
+    name: DbWizardFormFields.presetId,
   });
 
+  // Presets are offered only for a new instance, so restore and import
+  // request none.
+  const presetProvider =
+    mode === FormMode.New && typeof selectedProvider === 'string'
+      ? selectedProvider
+      : undefined;
   const presetSelection = usePresetSelection(
     clusterName,
-    typeof selectedProvider === 'string' ? selectedProvider : undefined,
-    typeof selectedPreset === 'string' ? selectedPreset : ''
+    presetProvider,
+    namespace || '',
+    typeof selectedPresetId === 'string' ? selectedPresetId : ''
   );
+  const presetSelected = presetSelection.status !== 'none';
 
   // ── Monitoring step (shown when a class is compatible with the provider)
   const monitoringStep = useMonitoringStep(
@@ -319,22 +327,27 @@ export const DatabasePage = () => {
   // Single owner of programmatic form writes: default the namespace, populate
   // from the picked preset (and revert on clear) and merge topology defaults
   // on a manual switch. Must stay below the useWatch calls above.
-  useDatabaseFormSync({
+  const droppedPresetNotice = useDatabaseFormSync({
     mode,
     uiSchema,
     defaultValues: defaultValues ?? {},
     defaultTopology,
     selectedTopology,
     defaultNamespace,
+    namespace: namespace || '',
     preset: {
       selectedPreset: presetSelection.selectedPreset,
-      presetName: presetSelection.presetName,
-      presetSelected: presetSelection.presetSelected,
+      presetId: presetSelection.presetId,
+      status: presetSelection.status,
     },
     reset,
     getValues,
     setValue,
   });
+  const presetSelectionContext = useMemo(
+    () => ({ ...presetSelection, ...droppedPresetNotice }),
+    [presetSelection, droppedPresetNotice]
+  );
 
   // Static step definitions
   const staticSteps = useMemo((): StepDefinition[] => {
@@ -463,7 +476,7 @@ export const DatabasePage = () => {
     // Preset mode: create straight from the selected preset spec (one-click),
     // bypassing the wizard's field-by-field spec build. Never fall through to a
     // manual create while a preset is picked but its spec is not yet loaded.
-    if (mode === FormMode.New && presetSelection.presetSelected) {
+    if (mode === FormMode.New && presetSelected) {
       if (!presetSelection.selectedPreset) {
         return;
       }
@@ -474,7 +487,6 @@ export const DatabasePage = () => {
             typeof selectedProvider === 'string' ? selectedProvider : '',
           dbName: data.dbName,
           k8sNamespace: data.k8sNamespace ?? '',
-          presetName: presetSelection.presetName,
         }),
         {
           onSuccess: () => {
@@ -602,16 +614,16 @@ export const DatabasePage = () => {
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>
         <FormProvider {...methods}>
-          <PresetSelectionContext.Provider value={presetSelection}>
+          <PresetSelectionContext.Provider value={presetSelectionContext}>
             {/* A selected preset owns the values: its spec is sent verbatim, so
                 auto-selected options would only mislead the preview. */}
             <DataSourcePrefetcher
               sections={engine.sections}
               namespace={namespace}
-              autoSelect={!presetSelection.presetSelected}
+              autoSelect={!presetSelected}
             />
             {/* Restore fixes the namespace, and a selected preset owns the values. */}
-            {mode === FormMode.New && !presetSelection.presetSelected && (
+            {mode === FormMode.New && !presetSelected && (
               <SecretNamespaceSync
                 sections={engine.sections}
                 namespace={namespace}
@@ -623,8 +635,10 @@ export const DatabasePage = () => {
               activeStep={nav.activeStepIndex}
               isSubmitting={isCreating}
               hasErrors={stepsWithErrors.length > 0}
-              presetSelected={presetSelection.presetSelected}
-              presetPending={presetSelection.presetPending}
+              presetSelected={presetSelected}
+              presetPending={
+                presetSelected && presetSelection.status !== 'ready'
+              }
               onSubmit={handleSubmit(onSubmit)}
               onCancel={() => navigate('/databases')}
               handleNextStep={handleNext}
@@ -636,7 +650,7 @@ export const DatabasePage = () => {
                 deploy isn't supported yet. Revisit once presets×plugins is
                 designed (SDK/BE work) so plugin config can co-exist with a
                 preset instead of being hidden. */}
-            {nav.activeStepIndex === 0 && !presetSelection.presetSelected && (
+            {nav.activeStepIndex === 0 && !presetSelected && (
               <PluginFormSections
                 formValues={methods.getValues() as Record<string, unknown>}
                 namespace={namespace || ''}
@@ -646,7 +660,7 @@ export const DatabasePage = () => {
               />
             )}
             <DatabaseFormSideDrawer
-              disabled={loadingClusterValues || presetSelection.presetSelected}
+              disabled={loadingClusterValues || presetSelected}
               activeStepId={nav.activeStepId}
               handleSectionEdit={handleSectionEdit}
               stepsWithErrors={stepsWithErrors}
