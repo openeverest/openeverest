@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import type { ComponentType } from 'react';
-import type { WidgetComponent, WidgetType } from './ui-generator.types';
+import type { AnyWidgetType, WidgetComponent } from './ui-generator.types';
 
 // Read-only counterpart of WidgetRegistry: a widget-typed component renders its
 // own summary in display surfaces (cluster overview, wizard preview) instead of
@@ -38,4 +38,6 @@ export interface WidgetSummary {
   digest: (value: unknown) => WidgetSummaryRow[];
 }
 
-export type WidgetSummaryRegistry = Partial<Record<WidgetType, WidgetSummary>>;
+export type WidgetSummaryRegistry = Partial<
+  Record<AnyWidgetType, WidgetSummary>
+>;

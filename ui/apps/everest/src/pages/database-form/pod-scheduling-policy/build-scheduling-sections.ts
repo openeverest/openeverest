@@ -13,10 +13,10 @@
 // limitations under the License.
 
 import {
+  InternalWidgetType,
   Section,
   WidgetTarget,
   WIDGET_UI_TYPE,
-  WidgetType,
 } from 'components/ui-generator/ui-generator.types';
 
 // One section per resolved target, each holding a single affinity widget bound
@@ -31,7 +31,7 @@ export const buildAffinitySections = (
         components: {
           affinity: {
             uiType: WIDGET_UI_TYPE,
-            widgetType: WidgetType.Affinity,
+            widgetType: InternalWidgetType.Affinity,
             path,
           },
         },

@@ -16,12 +16,13 @@ import { ComponentType, ReactNode } from 'react';
 import { Provider } from 'shared-types/api.types';
 import type { kubernetesUnit } from 'utils/k8ResourceParser';
 
-export enum FormMode {
-  New = 'new',
-  Edit = 'edit',
-  Restore = 'restore',
-  Import = 'import',
-}
+export const FormMode = {
+  New: 'new',
+  Edit: 'edit',
+  Restore: 'restore',
+  Import: 'import',
+} as const;
+export type FormMode = (typeof FormMode)[keyof typeof FormMode];
 
 export type ComponentModeOverrides = Partial<
   Record<FormMode, { uiType?: FieldType | 'hidden' }>
@@ -54,35 +55,44 @@ export interface DataSource {
   provider: string;
 }
 
-export enum FieldType {
-  Number = 'number',
-  Quantity = 'quantity',
-  Select = 'select',
-  Text = 'text',
-  Toggle = 'toggle',
-  Hidden = 'hidden',
-  Secret = 'secret',
-}
+export const FieldType = {
+  Number: 'number',
+  Quantity: 'quantity',
+  Select: 'select',
+  Text: 'text',
+  Toggle: 'toggle',
+  Hidden: 'hidden',
+  Secret: 'secret',
+} as const;
+export type FieldType = (typeof FieldType)[keyof typeof FieldType];
 
-export enum WidgetType {
-  // Public marker a provider authors to place the scheduling section; the
-  // consumer expands it (per-component support, tabs) at render time.
-  PodSchedulingPolicy = 'podSchedulingPolicy',
-  // Internal to the scheduling orchestrator's own UIGenerator, not authored by
-  // providers.
-  Affinity = 'affinity',
-}
+// Public markers providers may author. The consumer expands them at render time.
+export const WidgetType = {
+  PodSchedulingPolicy: 'podSchedulingPolicy',
+} as const;
+export type WidgetType = (typeof WidgetType)[keyof typeof WidgetType];
+
+// Host-only widgets injected by the scheduling orchestrator — not authored by
+// providers, so kept out of the public WidgetType contract.
+export const InternalWidgetType = {
+  Affinity: 'affinity',
+} as const;
+export type InternalWidgetType =
+  (typeof InternalWidgetType)[keyof typeof InternalWidgetType];
+
+export type AnyWidgetType = WidgetType | InternalWidgetType;
 
 // Host-rendered component; `widgetType` picks the renderer, like `groupType`
 // picks a group's layout.
 export const WIDGET_UI_TYPE = 'widget' as const;
 
-export enum GroupType {
-  Accordion = 'accordion',
-  Bordered = 'bordered',
-  Line = 'line',
-  Toggleable = 'toggleable',
-}
+export const GroupType = {
+  Accordion: 'accordion',
+  Bordered: 'bordered',
+  Line: 'line',
+  Toggleable: 'toggleable',
+} as const;
+export type GroupType = (typeof GroupType)[keyof typeof GroupType];
 
 interface CommonFieldParams {
   label?: string;
@@ -180,14 +190,17 @@ export type ToggleValidation = Omit<CommonValidation, 'required'> & {
   required?: never;
 };
 
+// Literal keys (not `typeof FieldType.X`): the const and type share the name
+// `FieldType`, so a type-position `typeof FieldType.X` resolves the type alias
+// and is not a usable computed key.
 export type FieldParamsMap = {
-  [FieldType.Number]: NumberFieldParams;
-  [FieldType.Quantity]: QuantityFieldParams;
-  [FieldType.Select]: SelectFieldParams;
-  [FieldType.Text]: TextFieldParams;
-  [FieldType.Toggle]: ToggleFieldParams;
-  [FieldType.Hidden]: CommonFieldParams;
-  [FieldType.Secret]: SecretFieldParams;
+  number: NumberFieldParams;
+  quantity: QuantityFieldParams;
+  select: SelectFieldParams;
+  text: TextFieldParams;
+  toggle: ToggleFieldParams;
+  hidden: CommonFieldParams;
+  secret: SecretFieldParams;
 };
 
 type PathOrId =
@@ -233,13 +246,13 @@ export type NumberValidation = CommonValidation & {
 };
 
 export type ValidationMap = {
-  [FieldType.Number]: NumberValidation;
-  [FieldType.Quantity]: NumberValidation;
-  [FieldType.Text]: TextValidation;
-  [FieldType.Select]: CommonValidation;
-  [FieldType.Toggle]: ToggleValidation;
-  [FieldType.Hidden]: CommonValidation;
-  [FieldType.Secret]: CommonValidation;
+  number: NumberValidation;
+  quantity: NumberValidation;
+  text: TextValidation;
+  select: CommonValidation;
+  toggle: ToggleValidation;
+  hidden: CommonValidation;
+  secret: CommonValidation;
 };
 
 type ComponentCommonFields = {
@@ -269,7 +282,7 @@ export interface WidgetTarget {
 
 export type WidgetComponent = ComponentCommonFields & {
   uiType: typeof WIDGET_UI_TYPE;
-  widgetType: WidgetType;
+  widgetType: AnyWidgetType;
   validation?: CommonValidation;
   // No widget type reads schema params yet; add per-widget params here when one does.
   fieldParams?: never;
@@ -301,7 +314,7 @@ export type WidgetRendererProps = {
   item: WidgetComponent;
 };
 export type WidgetRenderer = ComponentType<WidgetRendererProps>;
-export type WidgetRegistry = Partial<Record<WidgetType, WidgetRenderer>>;
+export type WidgetRegistry = Partial<Record<AnyWidgetType, WidgetRenderer>>;
 
 export type ComponentGroup = {
   uiType: 'group' | 'hidden';

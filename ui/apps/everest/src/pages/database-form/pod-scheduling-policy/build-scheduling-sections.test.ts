@@ -14,8 +14,8 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  InternalWidgetType,
   WIDGET_UI_TYPE,
-  WidgetType,
 } from 'components/ui-generator/ui-generator.types';
 import { buildAffinitySections } from './build-scheduling-sections';
 
@@ -32,7 +32,7 @@ describe('buildAffinitySections', () => {
     expect(Object.keys(sections)).toEqual(['engine', 'proxy']);
     expect(sections.engine.components.affinity).toEqual({
       uiType: WIDGET_UI_TYPE,
-      widgetType: WidgetType.Affinity,
+      widgetType: InternalWidgetType.Affinity,
       path: 'spec.components.engine.schedulingPolicy.affinity',
     });
   });

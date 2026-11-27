@@ -41,7 +41,10 @@ const createQuantitySchema = (
     label?: string;
   } = {}
 ): TopologyUISchemas => {
-  const testQuantity: Extract<Component, { uiType: FieldType.Quantity }> = {
+  const testQuantity: Extract<
+    Component,
+    { uiType: (typeof FieldType)['Quantity'] }
+  > = {
     uiType: FieldType.Quantity,
     path: config.path ?? 'spec.resources.cpu',
     fieldParams: {

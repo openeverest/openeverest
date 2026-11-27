@@ -101,6 +101,9 @@ const renderField = (patched: Component) =>
 const renderStorageClassField = ({
   formMode = FormMode.New,
   storedStorageClass = '',
+}: {
+  formMode?: FormMode;
+  storedStorageClass?: string;
 } = {}) => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
