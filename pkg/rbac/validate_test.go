@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -78,6 +79,50 @@ func TestValidatePolicy(t *testing.T) {
 			if !errors.Is(err, tc.err) {
 				t.Fatalf("unexpected error %v", err)
 			}
+		})
+	}
+}
+
+// Regression for gh #3713: the "policy syntax error" prefix must appear only
+// once in the error returned by ValidatePolicy, across the three failure
+// classes reported on the issue (unknown resource, unknown action, missing
+// role). Pre-fix the prefix was added both by validatePolicy inside
+// newEnforcer and again by ValidatePolicy at the call site.
+func TestValidatePolicyErrorNotDoublePrefixed(t *testing.T) {
+	t.Parallel()
+	testcases := []struct {
+		name    string
+		path    string
+		wantMsg string
+	}{
+		{
+			name:    "unknown resource",
+			path:    "./testdata/policy-6-bad.csv",
+			wantMsg: "unknown resource name 'non-existent-resource'",
+		},
+		{
+			name:    "unknown action",
+			path:    "./testdata/policy-8-bad.csv",
+			wantMsg: "unknown action 'read*'",
+		},
+		{
+			name:    "missing role",
+			path:    "./testdata/policy-4-bad.csv",
+			wantMsg: "role 'role:notexists' does not exist",
+		},
+	}
+
+	ctx := context.Background()
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidatePolicy(ctx, nil, tc.path)
+			require.Error(t, err)
+			require.ErrorIs(t, err, errPolicySyntax)
+			msg := err.Error()
+			require.Equal(t, 1, strings.Count(msg, errPolicySyntax.Error()),
+				"prefix %q should appear exactly once, got: %q", errPolicySyntax.Error(), msg)
+			require.Contains(t, msg, tc.wantMsg)
 		})
 	}
 }
