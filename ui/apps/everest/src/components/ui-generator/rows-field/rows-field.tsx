@@ -18,43 +18,58 @@ import {
   useFieldArray,
   useFormContext,
   useFormState,
+  useWatch,
 } from 'react-hook-form';
 import { Box, Divider, FormHelperText, IconButton, Stack } from '@mui/material';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { ActionableLabeledContent } from '@percona/ui-lib';
 import {
   createAddedRow,
-  getMapRow,
+  getRow,
+  getRowsFieldKind,
   isAddedRow,
-} from 'components/ui-generator/utils/map-field';
+  isOneEmptyRow,
+} from 'components/ui-generator/utils/rows-field';
 import { useUiGeneratorContext } from '../ui-generator-context';
-import { Messages } from './map-field.messages';
-import { GroupType } from '../ui-generator.types';
-import { MapFieldProps } from './map-field.types';
-import { hasOwnCelRule, toRowAtIndex } from './map-field.utils';
-import { useRevalidateMap } from './use-revalidate-map';
+import { Messages } from './rows-field.messages';
+import { GroupType, RowsFieldParams } from '../ui-generator.types';
+import { RowLocks, RowsFieldProps } from './rows-field.types';
+import { getRowAccess, hasOwnCelRule, toRowAtIndex } from './rows-field.utils';
+import { useRevalidateRows } from './use-revalidate-rows';
 
-// Edits a map as rows. Each row is the item template's fields, drawn by the UI
-// Generator like any other field, so every param and rule of theirs applies.
-// What a schema locks (a disabled row field, `disableRemove`) holds for the
-// rows the form opened with: a row the user adds is theirs to fill or remove.
-export const MapField = ({
+// Edits a map or a list as rows. Each row is the item template's fields, drawn
+// by the UI Generator like any other field, so every param and rule of theirs
+// applies. What a schema locks (a disabled row field, `disableRemove`) holds
+// for the rows the form opened with: a row the user adds is theirs to fill or
+// remove. The field never shows no rows: its values come with one empty row
+// while it has no entries, and removing the last row leaves one.
+export const RowsField = ({
   item,
   name,
   children: renderRow,
-}: MapFieldProps) => {
-  const { fieldParams } = item;
+}: RowsFieldProps) => {
+  // A schema may leave `fieldParams` out, and a form that skips preprocess
+  // gets the field as written.
+  const fieldParams: RowsFieldParams = item.fieldParams ?? {};
   const { loadingDefaultsForEdition } = useUiGeneratorContext();
-  const disabled = !!loadingDefaultsForEdition || !!fieldParams.disabled;
-  const row = getMapRow(item);
+  const locks: RowLocks = {
+    disabled: !!loadingDefaultsForEdition || !!fieldParams.disabled,
+    disableAdd: !!fieldParams.disableAdd,
+    disableRemove: !!fieldParams.disableRemove,
+  };
+  const kind = getRowsFieldKind(item);
+  const row = getRow(item);
   // Stacked inputs of one row sit as close as two rows do, so a line tells the
   // rows apart.
   const stacked = row.groupType !== GroupType.Line;
   const { control } = useFormContext();
   const { errors } = useFormState({ control, name });
-  const { fields, append, remove } = useFieldArray({ control, name });
+  const { fields, append, remove, replace } = useFieldArray({ control, name });
+  // `fields` keeps a row as it was added; what is typed in it is in the form.
+  const rows: unknown = useWatch({ control, name });
+  const onlyEmptyRow = isOneEmptyRow(rows, kind);
   const [focusNewRow, setFocusNewRow] = useState(false);
-  useRevalidateMap(name, hasOwnCelRule(item));
+  useRevalidateRows(name, rows, kind, hasOwnCelRule(item));
 
   // autoFocus acts once, as the new row mounts. Dropping the flag right after
   // keeps a row that remounts later (indexes shift on a remove) from taking
@@ -63,9 +78,9 @@ export const MapField = ({
     if (focusNewRow) setFocusNewRow(false);
   }, [focusNewRow]);
 
-  const mapError = get(errors, name);
+  const fieldError = get(errors, name);
   const errorMessage: string | undefined =
-    mapError?.root?.message ?? mapError?.message;
+    fieldError?.root?.message ?? fieldError?.message;
 
   return (
     <ActionableLabeledContent
@@ -73,9 +88,9 @@ export const MapField = ({
       actionButtonProps={{
         dataTestId: `${name}-add`,
         buttonText: fieldParams.addButtonLabel ?? Messages.add,
-        disabled: disabled || !!fieldParams.disableAdd,
+        disabled: locks.disabled || locks.disableAdd,
         onClick: () => {
-          append(createAddedRow(), { shouldFocus: false });
+          append(createAddedRow(kind), { shouldFocus: false });
           setFocusNewRow(true);
         },
       }}
@@ -86,12 +101,13 @@ export const MapField = ({
       >
         {fields.map((field, index) => {
           const added = isAddedRow(field);
+          const access = getRowAccess(locks, { added, onlyEmptyRow });
           return (
             <Stack key={field.id} direction="row" alignItems="center" gap={1}>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 {renderRow(
                   toRowAtIndex(row, index, {
-                    disabled,
+                    disabled: access.disabled,
                     added,
                     focus: focusNewRow && index === fields.length - 1,
                   }),
@@ -100,8 +116,12 @@ export const MapField = ({
               </Box>
               <IconButton
                 aria-label={Messages.remove(index + 1)}
-                disabled={disabled || (!!fieldParams.disableRemove && !added)}
-                onClick={() => remove(index)}
+                disabled={access.removeDisabled}
+                onClick={() =>
+                  fields.length > 1
+                    ? remove(index)
+                    : replace([createAddedRow(kind)])
+                }
               >
                 <DeleteOutlineOutlinedIcon />
               </IconButton>
@@ -110,7 +130,9 @@ export const MapField = ({
         })}
       </Stack>
       {(errorMessage || fieldParams.helperText) && (
-        <FormHelperText error={!!errorMessage}>
+        // The next field's floating label reaches up into the gap below, which
+        // would leave the text closer to that field than to its own rows.
+        <FormHelperText error={!!errorMessage} sx={{ mb: 1 }}>
           {errorMessage ?? fieldParams.helperText}
         </FormHelperText>
       )}

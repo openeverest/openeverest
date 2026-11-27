@@ -13,17 +13,39 @@
 // limitations under the License.
 
 import type { ReactNode } from 'react';
-import type { ComponentGroup, MapComponent } from '../ui-generator.types';
+import type { ComponentGroup, RowsComponent } from '../ui-generator.types';
 
-export interface MapFieldProps {
-  item: MapComponent;
+export interface RowsFieldProps {
+  item: RowsComponent;
   name: string;
   // Renders one row's fields; `root` is the row's form path, e.g. `labels.2`.
   children: (row: ComponentGroup, root: string) => ReactNode;
 }
 
+// What the field's params say about its rows as a whole.
+export interface RowLocks {
+  // The field is disabled, and every row with it.
+  disabled: boolean;
+  disableAdd: boolean;
+  disableRemove: boolean;
+}
+
+// What tells one row from the others for those locks.
+export interface RowStanding {
+  // The user added the row since the form opened, or it is the empty row a
+  // field with no entries opens with.
+  added: boolean;
+  // It is the field's only row, and nothing is typed in it.
+  onlyEmptyRow: boolean;
+}
+
+export interface RowAccess {
+  disabled: boolean;
+  removeDisabled: boolean;
+}
+
 export interface RowState {
-  // The map is disabled, and every row with it.
+  // The row's inputs are disabled.
   disabled: boolean;
   // The user added the row since the form opened, so a `disabled` of its own
   // fields doesn't apply to it.

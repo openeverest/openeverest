@@ -17,6 +17,7 @@
   - [FieldParams-level modes](#fieldparams-level-modes)
   - [Validation-level modes](#validation-level-modes)
 - Field Types
+  - [List Field](components/list-field.md) (Tech Preview)
   - [Map Field](components/map-field.md) (Tech Preview)
   - [Number Field](components/number-field.md)
   - [Quantity Field](components/quantity-field.md)
@@ -252,7 +253,8 @@ For now, the documented and supported `fieldParams.modes` overrides are:
 - `defaultValue`
 - `autoFocus`
 
-A [map field](components/map-field.md#locking-rows) also takes `disableAdd` and `disableRemove`.
+A [map field](components/map-field.md#locking-rows) and a
+[list field](components/list-field.md#locking-rows) also take `disableAdd` and `disableRemove`.
 
 ```yaml
 dbName:
@@ -310,8 +312,9 @@ Settings shows a destination's address only when the `destination` form writes `
 
 No absolute paths and no array segments (`[]`): an empty `[]` has no index to bind to, and
 an absolute path hard-codes the resource shape so the section can't be reused elsewhere.
-To edit a map, use a [map field](components/map-field.md); binding into an array is not
-supported yet — see [Known Limitations](known-limitations.md#maps-and-lists).
+To edit a map, use a [map field](components/map-field.md); to edit a list of strings, a
+[list field](components/list-field.md). Binding into an array, e.g. to one field of a list of
+objects, is not supported yet — see [Known Limitations](known-limitations.md#maps-and-lists).
 
 ### Components Order
 

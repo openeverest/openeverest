@@ -76,3 +76,46 @@ it('offers no copy for a row that shows a mask', () => {
   expect(screen.queryByLabelText('Copy TOKEN')).toBeNull();
   expect(screen.getByLabelText('Copy REGION')).toBeInTheDocument();
 });
+
+describe('with entries that have no key, as a list has', () => {
+  const values = [{ value: '10.0.0.0/8' }, { value: '192.168.0.0/16' }];
+
+  it('shows the values alone, with no key column', () => {
+    render(<KeyValueSummary entries={values} label="Source ranges" />);
+
+    const toggle = screen.getByTestId('key-value-summary-toggle');
+    expect(toggle).toHaveTextContent('2 entries');
+
+    fireEvent.click(toggle);
+    expect(
+      screen.getAllByRole('columnheader').map((header) => header.textContent)
+    ).toEqual(['Value', '']);
+    expect(screen.getAllByRole('row')[1].querySelectorAll('td')).toHaveLength(
+      2
+    );
+    expect(screen.getByText('192.168.0.0/16')).toBeInTheDocument();
+  });
+
+  it('copies a row as its value', () => {
+    const writeText = vi.fn();
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(<KeyValueSummary entries={values} label="Source ranges" />);
+    fireEvent.click(screen.getByTestId('key-value-summary-toggle'));
+    fireEvent.click(screen.getByLabelText('Copy 192.168.0.0/16'));
+
+    expect(writeText).toHaveBeenCalledWith('192.168.0.0/16');
+  });
+
+  it('offers no copy for a value that shows a mask', () => {
+    render(
+      <KeyValueSummary
+        entries={[{ value: '***************', masked: true }]}
+        label="Tokens"
+      />
+    );
+    fireEvent.click(screen.getByTestId('key-value-summary-toggle'));
+
+    expect(screen.queryByLabelText(/^Copy/)).toBeNull();
+  });
+});

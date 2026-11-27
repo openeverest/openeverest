@@ -24,8 +24,8 @@ flowchart TD
 
 - **`preprocessSchema(schema, provider, formMode?)`** — for each component:
   - **`stripEngineKeys`** (`strip-engine-keys.ts`) — runs before anything reads the schema and
-    drops (dev warning) every key starting with `_` from a component, a map's `itemTemplate` and
-    its fields included: those are the engine's own
+    drops (dev warning) every key starting with `_` from a component, the `itemTemplate` of a map
+    or a list and the fields in it included: those are the engine's own
     (`_normalized`, `_row`, `_toggleable`, `_widgetTargets`, `_renderOverrides`), and a later stage
     would take a schema-set one for the engine's, e.g. a widget's `_widgetTargets`, which no
     resolver overwrites when the widget has none.
@@ -39,22 +39,30 @@ flowchart TD
   - **`dataSource` validation** — for a component with `dataSource: { provider }`, warns (dev-time) if
     the provider is not registered. Options are not resolved here — they are loaded at runtime by
     `DataSourceField` and prefetched by `DataSourcePrefetcher`.
-  - **`resolveMapFields`** (`utils/map-field/resolve-map-fields.ts`) — runs first, over the whole
-    topology, and drops (dev warning) a `map` field whose item template `isMapComponent` doesn't
-    accept, one with several paths (an edit reads only the first), or one whose path another field
-    writes, sits in or writes inside: a map writes its whole value. A dropped field is ignored like
-    an unknown `uiType` — not rendered or sent, and an edit keeps its saved value — so the
-    toggleable rules below don't see it.
-  - **`lintMapFields`** (`utils/map-field/lint-map-fields.ts`) — warns (dev-time) about what a
-    rendered map field ignores or can't use: `regex` on the map, CEL, a `dataSource` or a
-    default / badge on a row's field, a `defaultValue` that isn't a map of strings (`getSchemaDefault` ignores it),
-    limits no map meets.
-  - **`toMapRow`** (`utils/map-field/map-row.ts`) — prepares a map's row from its `itemTemplate`
-    into `_row`: the group as the schema writes it, each field named `Key` or `Value` until the
-    schema says otherwise, minus what a row can't act on yet (`defaultValue`, `badge`,
-    `badgeToApi`, `celExpressions`, `dataSource`, component-level `modes`). A row field is the key or the value by its
-    `path` (`getRowFieldRole`), not by its name. `applyModeOverrides` reaches into `_row` too. A
-    form that skips preprocess gets the same row from `getMapRow`.
+  - **`resolveRowsFields`** (`utils/rows-field/resolve-rows-fields.ts`) — runs first, over the
+    whole topology, and drops (dev warning) a `map` or a `list` field whose item template
+    `isRowsComponent` doesn't accept, one with several paths (an edit reads only the first), or one
+    whose path another field writes, sits in or writes inside: such a field writes its whole
+    value. A dropped field is ignored like an unknown `uiType` — not rendered or sent, and an edit
+    keeps its saved value — so the toggleable rules below don't see it. See
+    [Rows fields](#rows-fields-map-and-list).
+  - **`lintRowsFields`** (`utils/rows-field/lint-rows-fields.ts`) — warns (dev-time) about what a
+    rendered map or list ignores or can't use: `regex` on the field, CEL, a `dataSource` or a
+    default / badge on a row's field, the rules that have nothing to check on its kind (`unique`
+    on a map, `required` on a list's item), a `defaultValue` that isn't in the shape the field
+    writes (`getSchemaDefault` ignores it), limits no value meets, and limits no form can meet: in
+    a mode whose form starts from the default (`new`, `import`; a preset picked in `new` isn't
+    taken into account), `disableAdd` with fewer default entries than `required` / `min` need, or
+    `disableRemove` with more than `max` allows.
+  - **`withRow`** (`utils/rows-field/rows-field-kinds.ts`) — prepares the row from the field's
+    `itemTemplate` into `_row`, and gives the field the `fieldParams` a schema may leave out. A
+    map's row is the group as the schema writes it. A list's is a
+    `line` group of the one item field, given `path: value` (`toListRow`). `prepareRow` then names
+    each field `Key` or `Value` until the schema says otherwise, and takes away what a row can't
+    act on yet (`defaultValue`, `badge`, `badgeToApi`, `celExpressions`, `dataSource`,
+    component-level `modes`). A row field is the key or the value by its `path`
+    (`getRowFieldRole`), not by its name. `applyModeOverrides` reaches into `_row` too. A form that
+    skips preprocess gets the same row from `getRow`.
   - **`resolveToggleable`** (`utils/toggleable/toggleable.ts`) — sets
     `_toggleable: { switchName, childPaths }` on a `toggleable` group. The switch is
     named after the group's key path (`toggleable-switches.advanced~monitoring`), so form modes
@@ -64,7 +72,7 @@ flowchart TD
   - **`findUnguardedCelReferences`** (`utils/toggleable/find-unguarded-cel-references.ts`) —
     warns (dev-time) when a CEL rule outside a working toggleable reads one of its paths without
     `has()` on that exact path: while the group is off the path is absent and the rule fails.
-  - The Go validator `provider-runtime/uischema` applies the same map, toggleable, lint and
+  - The Go validator `provider-runtime/uischema` applies the same map, list, toggleable, lint and
     reserved-key rules to provider schemas, and `provider-sdk generate` rejects a schema that breaks one. Every file in
     `provider-runtime/uischema/testdata/` is a case set both are tested against
     (`utils/preprocess/preprocess-shared-cases.test.ts` here), so a rule changes on both sides.
@@ -91,27 +99,31 @@ flowchart TD
   - **`buildShapeFromComponents`** — `ZOD_SCHEMA_MAP[uiType]` (base zod type) +
     `applyValidationFromSchema` (min/max/regex/required/…) + CEL expression collection. A field
     without `validation` is optional, like a validated field without `required: true`.
-    A `map` field gets `buildMapFieldSchema` (`utils/map-field/`) even without `validation`: it
-    validates the rows the form keeps against the row's own fields (their shape built by this same
-    `buildShapeFromComponents`), plus a unique key, a key in every filled row, and `required` /
-    `min` / `max` on filled rows. Empty rows pass. A count issue goes to the map's
-    `root`, where RHF keeps an array's own error, so it sits beside the rows' issues instead of
-    replacing them. Its output is each filled row as its fields parse it (e.g. a trimmed key), and
-    duplicates are found on that key.
+    A `map` or a `list` field gets `buildRowsFieldSchema` (`utils/rows-field/`) even without
+    `validation`: it validates the rows the form keeps against the row's own fields (their shape
+    built by this same `buildShapeFromComponents`), plus what the field's kind asks of the part of
+    a row its entry goes by (a map's key: one in every filled row, and unique; a list's value:
+    unique only with `validation.unique`), and `required` / `min` / `max` on filled rows. Empty
+    rows pass. A count issue goes to the field's `root`, where RHF keeps an array's own error, so
+    it sits beside the rows' issues instead of replacing them. Its output is each filled row as
+    its fields parse it (e.g. a trimmed key), and duplicates are found on that.
     The row's shape is built twice. A row the form opened with is checked against the row as it
     is, so a disabled field of it skips its rules like any disabled field. A row the user added
-    (marked in the form data, see [Render](#4-render)) is checked against `toAddedMapRow(row)`,
+    (marked in the form data, see [Render](#4-render)) is checked against `toAddedRow(row)`,
     the row with its fields' `disabled` cleared, so the field's rules apply to it. A disabled map
-    skips validation whole, added rows too.
+    or list skips validation whole, added rows too.
+    An array that holds something other than rows, as a form that loads a saved list unconverted
+    ends up with, fails at `root`: its inputs don't show what would be saved.
   - **`convertToNestedSchema`** — flat fields → nested `z.object`. A parent object is optional when
     all of its fields are, so edit mode accepts an instance that lacks it (e.g. no
     `spec.components.engine.parameters` when Engine configuration is unset).
   - **`applyCelValidation(schema, celExprs, originalData?, toggleables?, celValueReaders?)`** —
     attaches CEL (in edit mode the `original` namespace — persisted instance data — is available).
     A rule evaluates the form's values, except at the paths of fields whose codec has `toCel`
-    (`getCelValueReaders`, `readValuesForCel` in `utils/field-codecs/`): a `map` is read as what
-    it writes, so a provider writes the rule against the API. That is the map, and nothing while
-    it has no entries: the path is removed along with the objects that leaves empty, as
+    (`getCelValueReaders`, `readValuesForCel` in `utils/field-codecs/`): a `map` or a `list` is
+    read as what it writes, so a provider writes the rule against the API. That is the map or the
+    array of strings, and nothing while it has no entries: the path is removed along with the
+    objects that leaves empty, as
     postprocess does for the payload, and a rule asks for it with `has()`. Reading never adds a
     value where the form holds none. `original` is read the same way. A path with no parent
     (`labels`) can't be asked for with `has()`, so it stays as the form holds it. A `quantity`
@@ -119,8 +131,9 @@ flowchart TD
   - **CEL dependencies** — `extractCelFieldPaths` collects the dotted paths of an expression
     (quoted strings left out, so a map key like `'example.com/role'` isn't one), and the form
     re-runs the rule when a field at one of them changes (`useCelValidation`).
-    `watchFieldsReadByCel` turns a path inside a `toCel` field (`spec.labels.team`) into that
-    field's path (`spec.labels`): the form has one field for the whole value.
+    `watchFieldsReadByCel` turns a path inside a `toCel` field (`spec.labels.team`, or the
+    `spec.args.all` of a macro) into that field's path (`spec.labels`, `spec.args`): the form has
+    one field for the whole value.
   - **Toggleable children** — `schema.or(z.any())`; the real rules run in
     `applyToggleableValidation` only while the switch is on, and their CEL carries `activeWhen`.
     CEL on other fields sees switched-off paths as absent and re-runs when the switch flips.
@@ -139,29 +152,55 @@ flowchart TD
 - **Field codecs** (`utils/field-codecs/`) — a field whose form value differs from its API value
   has a codec: `toForm` (a saved value → the form), `toApi` (the form → the API, given the value
   stored at the same path), `defaultToForm` (a schema default → the form, when the default is
-  written in the API shape), `toCel` (what a CEL rule reads, when not the form's value) and
-  `ownsWholeValue`. `getFieldCodec(component)` returns it, and the
-  stages below call it instead of branching on the field type. Two fields have one today:
+  written in the API shape), `emptyToForm` (what the form holds with nothing saved and no
+  default, when not the type's empty value), `toCel` (what a CEL rule reads, when not the form's
+  value) and `ownsWholeValue`. `getFieldCodec(component)` returns it, and the
+  stages below call it instead of branching on the field type. Three fields have one today:
   - **map** (`utils/map-field/map-field-codec.ts`) — rows (`[{ key, value }]`) in the form, a map
     in the API and in the schema's `defaultValue`; owns its whole value. It reads a row's `key`
     and `value` only, so the mark of an added row (`ADDED_ROW_FLAG`) stays in the form: it reaches
     neither the API, nor CEL, nor a read-only view.
+  - **list** (`utils/list-field/list-field-codec.ts`) — rows (`[{ value }]`) in the form, since a
+    form array holds objects, an array of strings in the API and in the schema's `defaultValue`;
+    owns its whole value. Rows are written in their order, and a row with no value is left out.
   - **quantity** (`utils/quantity/quantity-codec.ts`) — a number in `unit` in the form and in
     the schema's `defaultValue`, a Kubernetes quantity string in the API.
 
   A new field type that converts adds its resolver to `RESOLVERS` in `field-codecs.ts`; no stage
   changes. Zod transforms can't do the conversion: the create wizard runs the generated schema in
   a `superRefine`, so its output never reaches submit.
-- `getSchemaDefault` reads a default through the codec's `defaultToForm`, when it has one.
-- **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` drops the previous
-  topology's values with `dropOtherTopologyValues` (`utils/topology-scope/`), then merges the new
-  topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
-  defaults, not stale values.
+
+  The map's and the list's are built by `createRowsFieldCodec`
+  (`utils/rows-field/rows-field-codec.ts`) from the kind's conversions. It gives the form **one
+  empty row** wherever the field has no entries: for a saved or default value without any
+  (`toForm`, `defaultToForm`) and for no value at all (`emptyToForm`). The row is marked as added,
+  so no lock holds for it, and it is an empty row like any other: not written, not counted, not
+  read by CEL. It comes with the form's values rather than from the component, so the form holds
+  it from its first render: its values equal its `defaultValues`, and react-hook-form doesn't see
+  the form as dirty. That matters where a form acts on dirty state: the wizard's leave guard and
+  restore reset, a dialog's close-on-click-outside, the monitoring destination's restart notice.
+
+  The empty row is no value, so it is the last thing a field gets and never stands in the way of
+  a value. Two helpers of `field-codecs.ts` keep that true where values are put together:
+  `withEmptyFormValues` gives the row to the fields that hold nothing, for a form with no defaults
+  under its values (the section edit modal), and `withoutEmptyFormValues` takes away the rows of
+  a field with no entry, before a merge that fills only what is unset (the topology switch).
+- `getSchemaDefault` reads a default through the codec's `defaultToForm`, when it has one. A
+  field with no usable default gets `getEmptyFormValue`: the codec's `emptyToForm`, or else the
+  empty value of its type.
+- **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` calls
+  `switchTopologyValues` (`utils/topology-scope/`): it drops the previous topology's values with
+  `dropOtherTopologyValues`, then fills what is unset with the new topology's defaults
+  (`mergeTopologyDefaults`). Switching back therefore starts from defaults, not stale values. A
+  map or a list with no entry counts as unset there (`withoutEmptyFormValues`), so at a path both
+  topologies bind the empty row gives way to the new topology's default; rows the user filled
+  stay.
 - **`extractInstanceValues`** — reads values from the instance (by `sourcePath`). In edit it uses
-  **only** the instance, so edit doesn't inject defaults; in restore and for a preset it falls back
-  to schema defaults. A field hidden in the mode has no `sourcePath`, so restore doesn't copy its
+  **only** the instance, so edit doesn't inject defaults and what it returns can be laid over
+  defaults (a section form does). In restore and for a preset it
+  falls back to schema defaults. A field hidden in the mode has no `sourcePath`, so restore doesn't copy its
   value from the source. A field with a codec is read through its `toForm`: a `quantity` into a
-  number in `unit` (or cores / bytes when `unit` is omitted), a `map` into rows.
+  number in `unit` (or cores / bytes when `unit` is omitted), a `map` or a `list` into rows.
 - **Toggleable switches** — `false` on create; when values come from an instance or preset, on
   if any of the group's `childPaths` has a value.
 
@@ -182,20 +221,28 @@ flowchart TD
 - **`renderComponent({ item, name, root })`** — recursive traversal:
   - `group` / `hidden` → recurse into nested `components`;
   - leaf → `generateFieldId(item, name)` joined with `root` (form field name) →
-    - `secret` → `SecretField`; `map` → `MapField`: `useFieldArray` rows, each rendered by
+    - `secret` → `SecretField`; `map` and `list` → `RowsField` (`rows-field/`): `useFieldArray`
+      rows, each rendered by
       `renderComponent` from the row group under `root` `<path>.<index>` (so row fields are
       ordinary fields; `_renderOverrides` names them `Key 2` etc. and has a value its input cuts
       off shown on hover, see `TruncatedValueTooltip`), with add / remove buttons, the
-      map's own error (`root`), and re-validation of the whole map (`useRevalidateMap`) when a key
-      changes or a row fills or empties, since a duplicate, the count and a value without a key
+      field's own error (`root`), and re-validation of the whole field (`useRevalidateRows`) when
+      what a row's entry goes by changes (a map's key, a list's value) or a row fills or empties,
+      since a duplicate, the count and a value without a key
       span rows. The Add button appends a row marked as added (`createAddedRow`, the
       `ADDED_ROW_FLAG` key of the row in the form data). The rows a form is initialised with, or
       `reset()` with loaded values (an instance, a restore source, a preset, defaults), come from
-      the codec, unmarked, so they are rows the form opened with. The topology switch resets the
+      the codec, unmarked, so they are rows the form opened with; the one empty row of a field
+      with no entries is marked. The topology switch resets the
       form with its current values and keeps the marks. For a marked row `toRowAtIndex` clears a
-      row field's own `disabled` and `readOnly` (`toAddedMapRow`), and `fieldParams.disableRemove` leaves its Remove button enabled;
-      `fieldParams.disableAdd` disables Add. The map's own `disabled` disables all of it, marked
-      rows too;
+      row field's own `disabled` and `readOnly` (`toAddedRow`), and `fieldParams.disableRemove`
+      leaves its Remove button enabled; `fieldParams.disableAdd` disables Add. The field's own
+      `disabled` disables all of it, marked rows too. The field never shows no rows: its values
+      come with one empty row (see the codecs above), and removing the last row replaces it with
+      one. `getRowAccess` decides each row: a marked row is disabled under `disableAdd`, where it
+      can only be that empty row, and the Remove button of the only row is disabled while the row
+      is empty. The text under the rows (helper text or error) keeps a `theme.spacing(1)` gap
+      below it;
     - has `dataSource` → `<ComponentErrorBoundary><DataSourceField><UIComponent/></DataSourceField></ComponentErrorBoundary>`
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.
@@ -285,15 +332,44 @@ Read-only and disabled fields keep their value.
       (`"10240Mi"` stays).
     - **map** — rows → the map; empty rows are dropped, and no filled row leaves the path unset.
       A value that isn't rows, like a saved map a form loaded as it is, is left untouched.
+    - **list** — rows → the array of their values, in the order of the rows; the same goes for
+      empty rows, no filled row and a value that isn't rows.
   - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`). Skips
     `quantity` fields (they use `unit`, not `badge` / `badgeToApi`).
   - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
     they are deleted together with the form-only `toggleable-switches` key.
   - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`, and the objects that leaves
     empty. It doesn't look inside the value of a field that owns it whole (`getWholeValuePaths`),
-    like a map: there an empty string is an entry, like a label with an empty value.
+    a map or a list: in a map an empty string is an entry, like a label with an empty value.
 
 **Principle:** the mapping source is the same `_normalized` computed in preprocess.
+
+## Rows fields: map and list
+
+**Files:** `utils/rows-field/`, `utils/map-field/`, `utils/list-field/`, `rows-field/`
+
+A `map` and a `list` are one kind of field to the engine: a field the form edits as rows
+(`useFieldArray`) and writes whole to one path. Everything about rows is written once, in
+`utils/rows-field/` and the `RowsField` component, and takes what differs from the field's
+`RowsFieldKind` (`getRowsFieldKind`). The stages have one branch for both (`isRowsComponent`), or
+none where a codec does the work.
+
+| Shared (`utils/rows-field/`, `rows-field/`)                                             | Per kind (`utils/map-field/`, `utils/list-field/`)                                       |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `RowsField`: label, Add, rows, Remove, divider, locks, errors, re-validation, focus     | The row template: a map's is the authored group; a list's is built from its item         |
+| `createRowsFieldCodec`: the codec, with the one empty row of a field with no entries    | The conversions: rows to an object, rows to an array, and back                           |
+| `prepareRow` / `toAddedRow`: the row as drawn, and as a row added since draws it        | What a row holds (`roles`): `key` and `value`, or `value` alone                          |
+| `buildRowsFieldSchema`: rows, filled-row count, `root` issue, added rows, the output    | What an entry goes by (`identity`) and when it must be unique (`isUnique`), its messages |
+| `resolveRowsFields`: one path, owned alone                                              | The default check (`isValidDefault`) and the rule-name prefix (`uiType`)                 |
+| `lintRowsFields`: ignored options, limits                                               | The rules with nothing to check (`ignoredRules`, `ignoredRowFieldRules`)                 |
+| `getRowsFieldDisplayEntries`: the entries a read-only view shows, masked like the input | The entries of a value (`toEntries`)                                                     |
+
+In the shared code, `rows-field-kinds.ts` alone tells the two apart by `uiType`. A third kind,
+such as a list of objects, adds its `RowsFieldKind` and its row template there, and its codec to
+the codec registry.
+
+A read-only view (wizard preview, instance overview) shows either as ui-lib's `KeyValueSummary`:
+an entry-count chip that opens a table, with a key column only when the entries have keys.
 
 ## Section edit modal flow
 
@@ -302,14 +378,14 @@ flowchart TD
   OVERVIEW["Overview page"] --> EDITABLE["isSectionEditable(section, Edit)"]
   EDITABLE --> MODAL["SectionEditModal"]
   MODAL --> MODE["applyModeOverrides(sections, Edit)"]
-  MODE --> VALUES["extractInstanceValues(editSections, instance)"]
+  MODE --> VALUES["withEmptyFormValues(<br/>extractInstanceValues(editSections, instance))"]
   VALUES --> ORIGINAL["originalDataForCel =<br/>stripBadges(deepMerge(instance, defaultValues))"]
   ORIGINAL --> ZOD_EDIT["buildSectionZodSchema(…, { originalData })"]
   MODE --> ZOD_EDIT
   ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
-  SUBMIT --> MERGE["mergeSectionEdit(editSections):<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)<br/>→ replace widget and map values whole"]
+  SUBMIT --> MERGE["mergeSectionEdit(editSections):<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)<br/>→ replace widget, map and list values whole"]
   MERGE --> UPDATE["useUpdateDbInstanceWithConflictRetry"]
 ```
 
@@ -321,9 +397,13 @@ CEL's `original` is built from the same read as the form (`extractInstanceValues
 `quantity` disk rule like `size >= original.size` compares numbers (`10 >= 10`), not
 `10 >= "10240Mi"`. Legacy `badgeToApi` fields are still stripped on top.
 
+The form shows the instance and no defaults, so `withEmptyFormValues` gives a map or a list the
+instance has no value for its one empty row. A rule reads such a field as unset, in the form and
+in `original` alike.
+
 The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
 `mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
-left empty. Widget and map values are written whole for the same reason: a map entry removed
+left empty. Widget, map and list values are written whole for the same reason: a map entry removed
 in the form would otherwise survive the merge. The merge gets the same mode-applied sections the
 form was read and rendered with: a field the edit mode hides isn't in the form, so it is neither
 replaced nor deleted.
@@ -338,7 +418,9 @@ destination, credentials and Instance entry forms), goes through the same stages
   (`preprocessSection`) and keeps both shapes the stages take: `{ sectionKey, sections, schema }`.
 - **`getSectionFormDefaults`** — create defaults (`getDefaultValues`).
 - **`getSectionFormValues(form, saved)`** — edit values: saved values over the defaults, then the
-  fields the schema owns in the form's shape (`extractInstanceValues`, e.g. a map → rows).
+  fields the schema owns in the form's shape (`extractInstanceValues`, e.g. a map → rows). A map
+  or a list the saved object lacks keeps its default like any other field, or else the empty row
+  the defaults hold for it.
   Saved keys the schema doesn't own are kept, so a save doesn't drop them. The destination modal
   reads with it; the Instance's monitoring entries editor still loads saved entries as they are
   (see [Known Limitations](../../ui-generator/known-limitations.md#maps-and-lists)).
@@ -427,8 +509,8 @@ Each `modes` object overrides only the properties of the object it belongs to.
 | `validation.modes`  | any validation field + `inheritShared`                                     | implemented     |
 | `group.modes`       | `hidden` / `disabled` at the group level                                   | planned (#3080) |
 
-A `map` field's `fieldParams.modes` also take `disableAdd` and `disableRemove`
-(`MapFieldParams`), which no other field type has.
+The `fieldParams.modes` of a `map` or a `list` field also take `disableAdd` and `disableRemove`
+(`RowsFieldParams`), which no other field type has.
 
 ```yaml
 components:
@@ -472,8 +554,10 @@ components:
 | Section forms              | `utils/section-form/section-form.ts`                        |
 | Field overrides            | `utils/field-overrides/field-overrides.ts`                  |
 | OpenAPI constraints        | `utils/openapi-constraints/openapi-constraints.ts`          |
-| Map fields (rows ↔ map)    | `utils/map-field/`                                          |
-| Map field render           | `map-field/map-field.tsx`                                   |
+| Rows fields (shared)       | `utils/rows-field/`                                         |
+| Map field (rows, map)      | `utils/map-field/`                                          |
+| List field (rows, list)    | `utils/list-field/`                                         |
+| Map and list render        | `rows-field/rows-field.tsx`                                 |
 | Topology scope             | `utils/topology-scope/topology-scope.ts`                    |
 | Object path                | `utils/object-path/object-path.ts`                          |
 | API provider registry      | `api-providers/registry.ts`                                 |
@@ -488,4 +572,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-27
+- Last updated: 2026-11-28

@@ -19,7 +19,7 @@ import type {
 } from 'components/ui-generator/ui-generator.types';
 import {
   FieldType,
-  isMapComponent,
+  isRowsComponent,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import type {
@@ -34,8 +34,8 @@ import {
   isPasswordField,
   maskPasswordValue,
 } from 'components/ui-generator/utils/display-value';
-import { getMapFieldDisplayRows } from 'components/ui-generator/utils/map-field';
-import type { MapDisplayRow } from 'components/ui-generator/utils/map-field';
+import { getRowsFieldDisplayEntries } from 'components/ui-generator/utils/rows-field';
+import type { RowsDisplayEntry } from 'components/ui-generator/utils/rows-field';
 import {
   getComponentSourcePath,
   getComponentTargetPaths,
@@ -56,8 +56,9 @@ export type SectionField = {
   label: string;
   path: string;
   value: string;
-  // A map's entries; the card shows them as a count chip opening a table.
-  mapEntries?: MapDisplayRow[];
+  // The entries of a map or a list; the card shows them as a count chip
+  // opening a table.
+  entries?: RowsDisplayEntry[];
   // When set, the field renders its own read-only widget summary full-width
   // instead of the scalar `value` row.
   summary?: {
@@ -168,16 +169,16 @@ export const collectSectionFields = (
     const path = paths[0];
     if (!path) continue;
 
-    if (isMapComponent(component)) {
-      const mapEntries = getMapFieldDisplayRows(
+    if (isRowsComponent(component)) {
+      const entries = getRowsFieldDisplayEntries(
         getByPath(instance, path),
         component
       );
       fields.push({
         label: component.fieldParams?.label ?? key,
         path,
-        value: mapEntries.length > 0 ? '' : formatDisplayValue(undefined),
-        ...(mapEntries.length > 0 && { mapEntries }),
+        value: entries.length > 0 ? '' : formatDisplayValue(undefined),
+        ...(entries.length > 0 && { entries }),
       });
       continue;
     }

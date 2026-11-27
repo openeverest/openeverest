@@ -79,13 +79,13 @@ const SchemaDrivenCard = ({
               loading={loading}
             >
               {segment.fields.map((field) =>
-                field.mapEntries ? (
+                field.entries ? (
                   <OverviewSectionRow
                     key={`${card.key}:${field.path}`}
                     label={field.label}
                     content={
                       <KeyValueSummary
-                        entries={field.mapEntries}
+                        entries={field.entries}
                         label={field.label}
                         dataTestId={`${card.key}-${field.path}`}
                       />

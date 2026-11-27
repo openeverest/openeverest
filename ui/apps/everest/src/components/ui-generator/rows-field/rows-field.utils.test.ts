@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { keyValueRow } from 'components/ui-generator/test-fixtures/key-value-row.fixture';
-import { toRowAtIndex } from './map-field.utils';
+import { toRowAtIndex } from './rows-field.utils';
 
 describe('toRowAtIndex', () => {
   it('focuses the input a new row draws first, which componentsOrder decides', () => {

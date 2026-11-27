@@ -19,8 +19,13 @@ import {
   Component,
   FieldType,
   FormMode,
+  ListFieldParams,
+  MapFieldParams,
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
+import { getDefaultValues } from 'components/ui-generator/utils/default-values';
+import { isPlainObject } from 'components/ui-generator/utils/object-path';
+import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import { DbWizardFormFields } from 'consts';
 import { DbWizardType } from '../database-form-schema';
 import { useDatabaseFormSync } from './use-database-form-sync';
@@ -60,21 +65,74 @@ const NO_PRESET: Parameters<typeof useDatabaseFormSync>[0]['preset'] = {
   status: 'none',
 };
 
-const setup = () =>
+// A list and a map both topologies bind at one path, with a default in
+// `cluster` alone.
+const listField = (fieldParams: ListFieldParams = {}): Component => ({
+  uiType: FieldType.List,
+  path: 'spec.args',
+  fieldParams,
+  itemTemplate: { uiType: FieldType.Text, fieldParams: {} },
+});
+const mapField = (fieldParams: MapFieldParams = {}): Component => ({
+  uiType: FieldType.Map,
+  path: 'spec.labels',
+  fieldParams,
+  itemTemplate: {
+    uiType: 'group',
+    components: {
+      key: { uiType: FieldType.Text, path: 'key', fieldParams: {} },
+      value: { uiType: FieldType.Text, path: 'value', fieldParams: {} },
+    },
+  },
+});
+const sharedRowsSchema = preprocessSchema({
+  standalone: {
+    sections: {
+      advanced: { components: { args: listField(), labels: mapField() } },
+    },
+  },
+  cluster: {
+    sections: {
+      advanced: {
+        components: {
+          args: listField({ defaultValue: ['a', 'b'] }),
+          labels: mapField({ defaultValue: { team: 'db' } }),
+        },
+      },
+    },
+  },
+});
+
+const specOf = (values: Record<string, unknown>): Record<string, unknown> =>
+  isPlainObject(values.spec) ? values.spec : {};
+
+interface SetupArgs {
+  schema: TopologyUISchemas;
+  topology: string;
+  spec: Record<string, unknown>;
+}
+
+const setup = (
+  { schema, topology, spec }: SetupArgs = {
+    schema: uiSchema,
+    topology: 'cluster',
+    spec: { components: { mixCoord: { replicas: 1 } } },
+  }
+) =>
   renderHook(
     ({ selectedTopology }: { selectedTopology: string }) => {
       const methods = useForm<DbWizardType>({
         defaultValues: {
           dbName: 'my-db',
-          topology: { type: 'cluster' },
-          spec: { components: { mixCoord: { replicas: 1 } } },
+          topology: { type: topology },
+          spec,
         },
       });
       useDatabaseFormSync({
         mode: FormMode.New,
-        uiSchema,
+        uiSchema: schema,
         defaultValues: {},
-        defaultTopology: 'cluster',
+        defaultTopology: topology,
         selectedTopology,
         defaultNamespace: undefined,
         namespace: '',
@@ -85,7 +143,7 @@ const setup = () =>
       });
       return methods;
     },
-    { initialProps: { selectedTopology: 'cluster' } }
+    { initialProps: { selectedTopology: topology } }
   );
 
 interface NamespaceProps {
@@ -158,6 +216,36 @@ describe('useDatabaseFormSync topology switch', () => {
     expect(result.current.getValues('spec.components.mixCoord.replicas')).toBe(
       1
     );
+  });
+
+  describe('for a map and a list both topologies have', () => {
+    const defaultsOf = (topology: string) =>
+      specOf(getDefaultValues(sharedRowsSchema, topology));
+    const openedIn = (topology: string) =>
+      setup({
+        schema: sharedRowsSchema,
+        topology,
+        spec: defaultsOf(topology),
+      });
+
+    it('gives a field the user left empty the default of the new topology', () => {
+      const { result, rerender } = openedIn('standalone');
+
+      rerender({ selectedTopology: 'cluster' });
+
+      expect(result.current.getValues('spec')).toEqual({
+        args: [{ value: 'a' }, { value: 'b' }],
+        labels: [{ key: 'team', value: 'db' }],
+      });
+    });
+
+    it('keeps the default the user did not change when the new topology has none', () => {
+      const { result, rerender } = openedIn('cluster');
+
+      rerender({ selectedTopology: 'standalone' });
+
+      expect(result.current.getValues('spec')).toEqual(defaultsOf('cluster'));
+    });
   });
 });
 

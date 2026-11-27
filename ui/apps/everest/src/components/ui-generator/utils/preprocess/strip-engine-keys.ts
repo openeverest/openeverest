@@ -15,6 +15,7 @@
 import type {
   Component,
   ComponentGroup,
+  ListItemTemplate,
   Section,
 } from '../../ui-generator.types';
 import { isPlainObject } from '../object-path';
@@ -45,9 +46,11 @@ const withoutEngineKeys = <T extends object>(
   return copy;
 };
 
-// A component, with the components it holds: a group's, and the row a map
-// declares in `itemTemplate`, which the schema writes like any group.
-const stripComponent = <T extends Component | ComponentGroup>(
+// A component, with the components it holds: a group's, and what a map or a
+// list declares in `itemTemplate`, written like any group or field.
+const stripComponent = <
+  T extends Component | ComponentGroup | ListItemTemplate,
+>(
   item: T,
   keyPath: string,
   stripped: StrippedEngineKey[]

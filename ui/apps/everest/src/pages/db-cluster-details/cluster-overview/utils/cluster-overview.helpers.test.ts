@@ -263,11 +263,46 @@ describe('collectSectionFields', () => {
 
       expect(tags).toMatchObject({
         value: '',
-        mapEntries: [
+        entries: [
           { key: 'aws-tags', value: 'Env=dev,Team=db' },
           { key: 'team', value: 'db' },
         ],
       });
+    });
+
+    it('hands a list over as its entries, and shows a dash for one the instance does not hold', () => {
+      const { components } = preprocessSchema({
+        replicaSet: {
+          sections: {
+            advanced: {
+              components: {
+                sourceRanges: {
+                  uiType: FieldType.List,
+                  path: 'spec.sourceRanges',
+                  fieldParams: { label: 'Source ranges' },
+                  itemTemplate: { uiType: FieldType.Text },
+                },
+              },
+            },
+          },
+        },
+      }).replicaSet.sections.advanced;
+
+      expect(
+        collectSectionFields(components, {
+          spec: { sourceRanges: ['10.0.0.0/8', '192.168.0.0/16'] },
+        })
+      ).toMatchObject([
+        {
+          label: 'Source ranges',
+          value: '',
+          entries: [{ value: '10.0.0.0/8' }, { value: '192.168.0.0/16' }],
+        },
+      ]);
+
+      const [unset] = collectSectionFields(components, { spec: {} });
+      expect(unset.entries).toBeUndefined();
+      expect(unset.value).toBe('\u2014');
     });
 
     it('masks password values, in a text field or a map row', () => {
@@ -276,7 +311,7 @@ describe('collectSectionFields', () => {
       });
 
       // The row is flagged, so the view offers no copy of the mask.
-      expect(env.mapEntries).toEqual([
+      expect(env.entries).toEqual([
         { key: 'API_KEY', value: '***************', masked: true },
       ]);
       expect(token.value).toBe('***************');

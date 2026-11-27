@@ -15,6 +15,7 @@
 package conformance
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -44,6 +45,18 @@ func testSpec() *corev1alpha1.ProviderSpec {
 		Type: "object",
 		AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
 			Schema: &apiextensionsv1.JSONSchemaProps{Type: "string"},
+		},
+	}
+	engineSchema.OpenAPIV3Schema.Properties["args"] = apiextensionsv1.JSONSchemaProps{
+		Type: "array",
+		Items: &apiextensionsv1.JSONSchemaPropsOrArray{
+			Schema: &apiextensionsv1.JSONSchemaProps{Type: "string"},
+		},
+	}
+	engineSchema.OpenAPIV3Schema.Properties["ports"] = apiextensionsv1.JSONSchemaProps{
+		Type: "array",
+		Items: &apiextensionsv1.JSONSchemaPropsOrArray{
+			Schema: &apiextensionsv1.JSONSchemaProps{Type: "integer"},
 		},
 	}
 	engineSchema.OpenAPIV3Schema.Properties["tuning"] = apiextensionsv1.JSONSchemaProps{
@@ -125,6 +138,10 @@ func TestResolveLeaf(t *testing.T) {
 		"declared parameters schema":      {"spec.components.engine.parameters.configuration", leafString},
 		"string map on the instance":      {"spec.components.engine.service.annotations", leafStringMap},
 		"string map in a declared schema": {"spec.components.engine.parameters.labels", leafStringMap},
+		"string list on the instance": {
+			"spec.components.engine.service.loadBalancerService.sourceRanges", leafStringList,
+		},
+		"string list in a declared schema": {"spec.components.engine.parameters.args", leafStringList},
 	}
 
 	for name, tt := range tests {
@@ -160,6 +177,10 @@ func TestResolveLeafErrors(t *testing.T) {
 		"map of something other than strings": {
 			"spec.components",
 			"cannot generate a value for map",
+		},
+		"list of something other than strings in the declared schema": {
+			"spec.components.engine.parameters.ports",
+			`cannot generate a value for schema type "array"`,
 		},
 		"object with fixed properties in the declared schema": {
 			"spec.components.engine.parameters.tuning",
@@ -340,6 +361,59 @@ func TestProbePathSetsAStringMapWhole(t *testing.T) {
 			got := probePath(
 				Config{Provider: &annotationsProvider{readsAnnotations: tt.reads}},
 				testSpec(), "simple", "spec.components.engine.service.annotations",
+			)
+			assert.Equal(t, tt.want, got.outcome, got.detail)
+		})
+	}
+}
+
+// sourceRangesProvider hands the engine's allowed source ranges to what it
+// applies, the way a provider passes them on to its operator.
+type sourceRangesProvider struct {
+	readsSourceRanges bool
+}
+
+func (p *sourceRangesProvider) Name() string                       { return "source-ranges-probe" }
+func (p *sourceRangesProvider) Types() func(*runtime.Scheme) error { return nil }
+func (p *sourceRangesProvider) Cleanup(*controller.Context) error  { return nil }
+
+func (p *sourceRangesProvider) Validate(controller.ValidationInput) controller.ValidationResult {
+	return controller.ValidationResult{}
+}
+
+func (p *sourceRangesProvider) Status(*controller.Context) (controller.Status, error) {
+	return controller.Status{}, nil
+}
+
+func (p *sourceRangesProvider) Sync(c *controller.Context) error {
+	data := make(map[string]string)
+	service := c.Instance().Spec.Components["engine"].Service
+	if p.readsSourceRanges && service != nil && service.LoadBalancerService != nil {
+		data["sourceRanges"] = strings.Join(service.LoadBalancerService.SourceRanges, ",")
+	}
+	return c.Apply(&corev1.ConfigMap{ObjectMeta: c.ObjectMeta("probe"), Data: data})
+}
+
+// A `list` UI field binds one path to a whole list of strings, so the probe
+// sets a list there rather than giving up on a value it cannot address.
+func TestProbePathSetsAStringListWhole(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		reads bool
+		want  outcome
+	}{
+		"a provider that passes the entries on": {true, reconciled},
+		"a provider that drops them":            {false, ignored},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := probePath(
+				Config{Provider: &sourceRangesProvider{readsSourceRanges: tt.reads}},
+				testSpec(), "simple", "spec.components.engine.service.loadBalancerService.sourceRanges",
 			)
 			assert.Equal(t, tt.want, got.outcome, got.detail)
 		})

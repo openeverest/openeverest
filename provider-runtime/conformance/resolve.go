@@ -40,7 +40,9 @@ const (
 	leafQuantity leafKind = "quantity"
 	// leafStringMap is a map of strings, which a `map` UI field writes whole.
 	leafStringMap leafKind = "stringMap"
-	leafUnknown   leafKind = ""
+	// leafStringList is a list of strings, which a `list` UI field writes whole.
+	leafStringList leafKind = "stringList"
+	leafUnknown    leafKind = ""
 )
 
 // quantityTypeName is a struct in Go but a string on the wire.
@@ -92,17 +94,24 @@ func resolveLeaf(spec *corev1alpha1.ProviderSpec, topology, path string) (leafKi
 	}
 
 	// goLeaf stays scalar-only: supportedFields expands a declaration with it
-	// and stops at a map, which has no fixed member to probe. A UI field bound
-	// to the map sets it as one value, so here the map itself is the leaf.
+	// and stops at a map or a list, which has no fixed member to probe. A UI
+	// field bound to one sets it as one value, so here it is itself the leaf.
 	leaf := deref(current)
 	if isStringMap(leaf) {
 		return leafStringMap, nil
+	}
+	if isStringList(leaf) {
+		return leafStringList, nil
 	}
 	return goLeaf(leaf)
 }
 
 func isStringMap(t reflect.Type) bool {
 	return t.Kind() == reflect.Map && t.Key().Kind() == reflect.String && t.Elem().Kind() == reflect.String
+}
+
+func isStringList(t reflect.Type) bool {
+	return t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.String
 }
 
 func goLeaf(t reflect.Type) (leafKind, error) {
@@ -140,6 +149,10 @@ func schemaLeaf(schema *apiextensionsv1.JSONSchemaProps, segments []string) (lea
 		if isStringMapSchema(current) {
 			return leafStringMap, nil
 		}
+	case "array":
+		if isStringListSchema(current) {
+			return leafStringList, nil
+		}
 	}
 	return leafUnknown, fmt.Errorf("cannot generate a value for schema type %q", current.Type)
 }
@@ -149,6 +162,12 @@ func schemaLeaf(schema *apiextensionsv1.JSONSchemaProps, segments []string) (lea
 func isStringMapSchema(schema *apiextensionsv1.JSONSchemaProps) bool {
 	entries := schema.AdditionalProperties
 	return len(schema.Properties) == 0 && entries != nil && entries.Schema != nil && entries.Schema.Type == "string"
+}
+
+// isStringListSchema reports an array whose every item is a string.
+func isStringListSchema(schema *apiextensionsv1.JSONSchemaProps) bool {
+	items := schema.Items
+	return items != nil && items.Schema != nil && leafKind(items.Schema.Type) == leafString
 }
 
 // parametersSchema returns the schema governing the payload at this position.
@@ -175,7 +194,8 @@ func parametersSchema(spec *corev1alpha1.ProviderSpec, topology string, walked [
 // alternative and looks for the component versions it pulls in.
 const versionPath = "spec.version"
 
-// stringToken is the text a string probe carries, alone or as a map's entry.
+// stringToken is the text a string probe carries, alone or as the entry of a
+// map or a list.
 const stringToken = "everest-conformance-7919"
 
 // sentinel returns a value recognisable wherever it surfaces, and the token to
@@ -204,6 +224,8 @@ func sentinel(spec *corev1alpha1.ProviderSpec, path string, kind leafKind) (any,
 		// One entry with the token as key and value: a provider may surface
 		// only one of the two, e.g. the keys of an environment.
 		return map[string]any{stringToken: stringToken}, stringToken, nil
+	case leafStringList:
+		return []any{stringToken}, stringToken, nil
 	case leafQuantity:
 		// Must parse as a quantity, so the magnitude carries the signal.
 		return "7919", "7919", nil

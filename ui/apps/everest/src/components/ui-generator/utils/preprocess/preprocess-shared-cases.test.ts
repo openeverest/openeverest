@@ -17,7 +17,6 @@ import { describe, expect, it } from 'vitest';
 import {
   Component,
   ComponentGroup,
-  FieldType,
   GroupType,
   Section,
   TopologyUISchemas,
@@ -25,7 +24,7 @@ import {
 import { walkLeafComponents } from '../schema-walker';
 import { getToggleableMeta } from '../toggleable/toggleable';
 import { findUnguardedCelReferences } from '../toggleable/find-unguarded-cel-references';
-import { lintMapFields } from '../map-field';
+import { findRowsFieldKind, lintRowsFields } from '../rows-field';
 import { preprocessSchema } from './preprocess-schema';
 import { stripEngineKeys } from './strip-engine-keys';
 
@@ -62,19 +61,17 @@ const cases: SharedCase[] = Object.entries(sharedCaseFiles).flatMap(
 const CEL_RULE = 'toggleable-cel-unguarded';
 // Rules the UI renders past, ignoring part of the schema; it reports them by
 // name as dev-time warnings.
-const LINT_RULES = new Set([
-  'map-ignored-option',
-  'map-invalid-default',
-  'map-invalid-limits',
-  'reserved-key',
-]);
+const LINT_RULE =
+  /^((map|list)-(ignored-option|invalid-default|invalid-limits|unsatisfiable-limits)|reserved-key)$/;
+// The other rules of a map or a list drop it.
+const DROP_RULE = /^(map|list)-/;
 
 // The UI only shows the outcome of a rule, not which rule it was.
 const toUiOutcome = ({ rule, topology, group, field }: SharedIssue): string => {
-  if (LINT_RULES.has(rule)) return `lint ${rule} ${topology}:${field}`;
+  if (LINT_RULE.test(rule)) return `lint ${rule} ${topology}:${field}`;
   if (rule === CEL_RULE) return `cel ${topology}:${group}:${field}`;
   if (rule.startsWith('toggleable-')) return `bordered ${topology}:${group}`;
-  if (rule.startsWith('map-')) return `dropped ${topology}:${field}`;
+  if (DROP_RULE.test(rule)) return `dropped ${topology}:${field}`;
   throw new Error(`No UI outcome to compare rule ${rule} with; add it here.`);
 };
 
@@ -143,11 +140,11 @@ describe('uiSchema rules shared with the Go validator', () => {
       ).forEach((keyPath) =>
         outcomes.push(`lint reserved-key ${topology}:${keyPath}`)
       );
-      lintMapFields(processedSections).forEach(({ rule, keyPath }) =>
+      lintRowsFields(processedSections).forEach(({ rule, keyPath }) =>
         outcomes.push(`lint ${rule} ${topology}:${keyPath}`)
       );
       const rendered = new Set(collectFieldKeys(processedSections));
-      collectFieldKeys(sections, ({ uiType }) => uiType === FieldType.Map)
+      collectFieldKeys(sections, (component) => !!findRowsFieldKind(component))
         .filter((key) => !rendered.has(key))
         .forEach((key) => outcomes.push(`dropped ${topology}:${key}`));
     });

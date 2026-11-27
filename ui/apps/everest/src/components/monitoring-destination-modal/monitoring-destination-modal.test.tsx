@@ -127,7 +127,7 @@ const pmm: MonitoringClass = {
     ],
   },
 };
-Reflect.set(pmm.spec, 'uiSchema', {
+const pmmUiSchema = {
   destination: {
     components: {
       url: {
@@ -150,16 +150,20 @@ Reflect.set(pmm.spec, 'uiSchema', {
       },
     },
   },
-});
+};
+Reflect.set(pmm.spec, 'uiSchema', pmmUiSchema);
 
-const renderModal = (target?: MonitoringDestinationTarget) => {
+const renderModal = (
+  target?: MonitoringDestinationTarget,
+  classes: MonitoringClass[] = [pmm]
+) => {
   const onClose = vi.fn();
   render(
     <QueryClientProvider client={new QueryClient()}>
       <TestWrapper>
         <MonitoringDestinationModal
           target={target}
-          classes={[pmm]}
+          classes={classes}
           namespaces={['team-a']}
           onClose={onClose}
         />
@@ -491,6 +495,79 @@ describe('MonitoringDestinationModal', () => {
     );
     expect(screen.getByLabelText(/PMM server URL/)).toHaveValue(
       'https://pmm2.example.com'
+    );
+  });
+
+  it('opens unchanged with the empty rows of a map and a list that hold no entries', async () => {
+    // The PMM class with two more fields the saved destination has no value
+    // for.
+    const withRows = structuredClone(pmm);
+    Reflect.set(withRows.spec, 'uiSchema', {
+      ...pmmUiSchema,
+      destination: {
+        components: {
+          ...pmmUiSchema.destination.components,
+          labels: {
+            uiType: 'map',
+            path: 'parameters.labels',
+            itemTemplate: {
+              uiType: 'group',
+              groupType: 'line',
+              components: {
+                key: { uiType: 'text', path: 'key' },
+                value: { uiType: 'text', path: 'value' },
+              },
+            },
+          },
+          args: {
+            uiType: 'list',
+            path: 'parameters.args',
+            itemTemplate: { uiType: 'text' },
+          },
+        },
+      },
+    });
+    vi.mocked(getMonitoringDestinationFn).mockResolvedValue(storedPmm());
+    vi.mocked(updateMonitoringDestinationFn)
+      .mockReset()
+      .mockResolvedValue(storedPmm());
+    const onClose = renderModal({ namespace: 'team-a', name: 'pmm-prod' }, [
+      withRows,
+    ]);
+
+    const key = await screen.findByRole('textbox', { name: 'Key 1' });
+    expect(key).toHaveValue('');
+    // The warning follows the parameters' dirty state.
+    expect(
+      screen.queryByTestId('monitoring-destination-restart')
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(key, { target: { value: 'team' } });
+    expect(
+      await screen.findByTestId('monitoring-destination-restart')
+    ).toBeInTheDocument();
+
+    // Emptied again, the rows stand for no entry: the parameters are sent as
+    // they were saved.
+    fireEvent.change(key, { target: { value: '' } });
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('monitoring-destination-restart')
+      ).not.toBeInTheDocument()
+    );
+    const save = screen.getByTestId('form-dialog-save');
+    await waitFor(() => expect(save).toBeEnabled());
+    fireEvent.click(save);
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(
+      vi.mocked(updateMonitoringDestinationFn).mock.calls[0]
+    ).toContainEqual(
+      expect.objectContaining({
+        spec: expect.objectContaining({
+          parameters: { url: 'https://pmm.example.com' },
+        }),
+      })
     );
   });
 

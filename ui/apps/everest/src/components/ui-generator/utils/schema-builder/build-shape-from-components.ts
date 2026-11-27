@@ -16,20 +16,21 @@ import { z } from 'zod';
 import {
   Component,
   ComponentGroup,
-  FieldType,
   FormMode,
-  isMapComponent,
+  RowsValidation,
+  isRowsComponent,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { ZOD_SCHEMA_MAP } from 'components/ui-generator/constants';
 import { generateFieldId } from '../component-renderer/generate-field-id';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
 import {
-  MAP_ROOT_ERROR_PATH,
-  buildMapFieldSchema,
-  getMapRow,
-  toAddedMapRow,
-} from '../map-field';
+  ROWS_ROOT_ERROR_PATH,
+  buildRowsFieldSchema,
+  findRowsFieldKind,
+  getRow,
+  toAddedRow,
+} from '../rows-field';
 import {
   applyValidationFromSchema,
   extractCelValidationData,
@@ -112,48 +113,50 @@ export const buildShapeFromComponents = (
 
     let fieldSchema: z.ZodTypeAny;
 
-    if (component.uiType === FieldType.Map) {
-      // Rows are validated even without rules: a map can't hold a key twice.
-      // Each row against its own fields' rules, built here like any field's. A
-      // row field disabled for the rows the form opened with skips its rules
-      // there, as any disabled field does, and keeps them for a row added
-      // since, where it is enabled. A shape this version doesn't implement
-      // isn't validated, so its value passes through like an unknown uiType's.
-      const mapValidation = resolveValidationForMode(
+    const rowsKind = findRowsFieldKind(component);
+
+    if (rowsKind && isRowsComponent(component)) {
+      // A map's or a list's rows are validated even without rules: a map
+      // can't hold a key twice. Each row against its own fields' rules, built
+      // here like any field's. A row field disabled for the rows the form
+      // opened with skips its rules there, as any disabled field does, and
+      // keeps them for a row added since, where it is enabled.
+      const rowsValidation = resolveValidationForMode<RowsValidation>(
         component.validation,
         formMode
       );
-      if (isMapComponent(component)) {
-        const row = getMapRow(component);
-        const buildRowShape = ({ components: rowFields }: ComponentGroup) =>
-          buildShapeFromComponents(rowFields, '', formMode).schemaShape;
-        fieldSchema = buildMapFieldSchema(
-          {
-            openedWith: buildRowShape(row),
-            added: buildRowShape(toAddedMapRow(row)),
-          },
-          mapValidation,
-          // A schema comes from YAML, so a map may have no `fieldParams`.
-          !!component.fieldParams?.disableRemove
-        );
-      } else {
-        fieldSchema = z.any().optional();
-      }
+      const row = getRow(component);
+      const buildRowShape = ({ components: rowFields }: ComponentGroup) =>
+        buildShapeFromComponents(rowFields, '', formMode).schemaShape;
+      fieldSchema = buildRowsFieldSchema(
+        rowsKind,
+        {
+          openedWith: buildRowShape(row),
+          added: buildRowShape(toAddedRow(row)),
+        },
+        rowsValidation,
+        // A form that skips preprocess may get a field with no `fieldParams`.
+        !!component.fieldParams?.disableRemove
+      );
 
-      // A rule on the map reads it by its path, like a rule on any field. Its
-      // error goes where the map's count errors go, beside the rows' own.
-      if (isMapComponent(component) && mapValidation?.celExpressions?.length) {
+      // A rule on the field reads it by its path, like a rule on any field.
+      // Its error goes where the count errors go, beside the rows' own.
+      if (rowsValidation?.celExpressions?.length) {
         const { celExpValidation, celDependencyGroup } =
-          extractCelValidationData(mapValidation.celExpressions, fieldId);
+          extractCelValidationData(rowsValidation.celExpressions, fieldId);
         if (celExpValidation) {
           celExpValidations.push({
             ...celExpValidation,
-            path: [fieldId, ...MAP_ROOT_ERROR_PATH],
+            path: [fieldId, ...ROWS_ROOT_ERROR_PATH],
             activeWhen: activeSwitch,
           });
         }
         if (celDependencyGroup) celDependencyGroups.push(celDependencyGroup);
       }
+    } else if (rowsKind) {
+      // A shape this version doesn't implement isn't validated, so its value
+      // passes through like an unknown uiType's.
+      fieldSchema = z.any().optional();
     } else if (resolvedValidation) {
       // Create a component with resolved (flat) validation for the downstream pipeline
       const resolvedComponent = {

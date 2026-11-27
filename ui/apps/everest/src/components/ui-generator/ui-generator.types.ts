@@ -62,6 +62,7 @@ export enum FieldType {
   Hidden = 'hidden',
   Secret = 'secret',
   Map = 'map',
+  List = 'list',
 }
 
 export enum WidgetType {
@@ -172,8 +173,8 @@ export interface TextFieldParams extends CommonFieldParams {
   margin?: 'none' | 'dense' | 'normal';
 }
 
-// What a map lets the user do with its rows, besides editing them.
-interface MapRowLocks {
+// What a field edited as rows lets the user do with them, besides editing.
+interface RowLocks {
   // The Add button is disabled.
   disableAdd?: boolean;
   // The Remove button of a row the form opened with is disabled. A row added
@@ -181,12 +182,23 @@ interface MapRowLocks {
   disableRemove?: boolean;
 }
 
-export interface MapFieldParams extends CommonFieldParams, MapRowLocks {
+// A map and a list are both edited as rows, so they take the same params but
+// for the default, which each writes in its API shape.
+export interface RowsFieldParams extends CommonFieldParams, RowLocks {
   addButtonLabel?: string;
+  // Only a rows field's modes take the row locks, so the other field types'
+  // don't.
+  modes?: Partial<Record<FormMode, FieldParamsModeOverride & RowLocks>>;
+}
+
+export interface MapFieldParams extends RowsFieldParams {
   // In the API shape: a map of strings.
   defaultValue?: Record<string, string>;
-  // Only a map's modes take the row locks, so the other field types' don't.
-  modes?: Partial<Record<FormMode, FieldParamsModeOverride & MapRowLocks>>;
+}
+
+export interface ListFieldParams extends RowsFieldParams {
+  // In the API shape: a list of strings.
+  defaultValue?: string[];
 }
 
 // Toggles are always optional booleans, so `required` is unsupported. Typing it
@@ -206,6 +218,7 @@ export type FieldParamsMap = {
   [FieldType.Hidden]: CommonFieldParams;
   [FieldType.Secret]: SecretFieldParams;
   [FieldType.Map]: MapFieldParams;
+  [FieldType.List]: ListFieldParams;
 };
 
 type PathOrId =
@@ -250,14 +263,25 @@ export type NumberValidation = CommonValidation & {
   safe?: boolean;
 };
 
-// `required` means at least one entry; `min` / `max` count entries, the way a
-// text field's count characters. A CEL rule reads the map by its path. A
-// pattern has no single text to match, so `regex` is forbidden.
-export type MapValidation = Omit<CommonValidation, 'regex'> & {
+// The rules of a field edited as rows. `required` means at least one entry;
+// `min` / `max` count entries, the way a text field's count characters. A CEL
+// rule reads the field by its path. A pattern has no single text to match, so
+// `regex` is forbidden.
+export type RowsValidation = Omit<CommonValidation, 'regex'> & {
   regex?: never;
   min?: number;
   max?: number;
+  // No value may be set twice.
+  unique?: boolean;
 };
+
+// A map holds a key once whatever its rules say, so it has no `unique` to set.
+export type MapValidation = RowsValidation & {
+  unique?: never;
+};
+
+// A list may hold a value twice, unless `unique` forbids it.
+export type ListValidation = RowsValidation;
 
 export type ValidationMap = {
   [FieldType.Number]: NumberValidation;
@@ -268,13 +292,15 @@ export type ValidationMap = {
   [FieldType.Hidden]: CommonValidation;
   [FieldType.Secret]: CommonValidation;
   [FieldType.Map]: MapValidation;
+  [FieldType.List]: ListValidation;
 };
 
 type ComponentCommonFields = {
   techPreview?: boolean;
   modes?: ComponentModeOverrides;
   _normalized?: NormalizedPathMeta;
-  // Set by the engine on a field it renders itself, e.g. a map row's key.
+  // Set by the engine on a field it renders itself, e.g. a map row's key or a
+  // list's entry.
   _renderOverrides?: RenderOverrides;
   dataSource?: DataSource;
 };
@@ -299,15 +325,18 @@ type FieldComponentOf<K extends keyof FieldParamsMap> =
     fieldParams: FieldParamsMap[K];
   } & PathOrId;
 
-type ScalarFieldType = Exclude<keyof FieldParamsMap, FieldType.Map>;
+export type RowsFieldType = FieldType.Map | FieldType.List;
+
+type ScalarFieldType = Exclude<keyof FieldParamsMap, RowsFieldType>;
 
 type FieldComponent = {
   [K in ScalarFieldType]: FieldComponentOf<K>;
 }[ScalarFieldType];
 
-// The two fields of a map's row, named by the `path` each writes in the row.
-export const MAP_ROW_ROLES = ['key', 'value'] as const;
-export type MapRowRole = (typeof MAP_ROW_ROLES)[number];
+// What a row's field holds, named by the `path` it writes in the row. A map's
+// row has both; a list's row has the value alone.
+export const ROW_ROLES = ['key', 'value'] as const;
+export type RowRole = (typeof ROW_ROLES)[number];
 
 export type MapComponent = FieldComponentOf<FieldType.Map> & {
   // One row: a group of a text field at `key` and a text field at `value`.
@@ -315,6 +344,25 @@ export type MapComponent = FieldComponentOf<FieldType.Map> & {
   // The row as the form draws it, prepared by preprocess.
   _row?: ComponentGroup;
 };
+
+// One entry of a list: a text field written directly. It has no `path` or
+// `id`, since the field is the entry.
+export type ListItemTemplate = ComponentCommonFields & {
+  uiType: FieldType.Text;
+  fieldParams?: TextFieldParams;
+  validation?: ModeAwareValidation<TextValidation>;
+  path?: never;
+  id?: never;
+};
+
+export type ListComponent = FieldComponentOf<FieldType.List> & {
+  itemTemplate: ListItemTemplate;
+  // The row as the form draws it, prepared by preprocess.
+  _row?: ComponentGroup;
+};
+
+// A field the form edits as rows the user adds and removes.
+export type RowsComponent = MapComponent | ListComponent;
 
 export interface WidgetTarget {
   // Display key, e.g. the Instance component the value belongs to.
@@ -333,12 +381,16 @@ export type WidgetComponent = ComponentCommonFields & {
   // A pure marker widget (e.g. podSchedulingPolicy) binds no value.
 } & (PathOrId | { path?: never; id?: never });
 
-export type Component = FieldComponent | MapComponent | WidgetComponent;
+export type Component =
+  | FieldComponent
+  | MapComponent
+  | ListComponent
+  | WidgetComponent;
 
 export const isWidgetComponent = (item: Component): item is WidgetComponent =>
   item.uiType === WIDGET_UI_TYPE;
 
-const isMapRowField = (item: unknown, role: MapRowRole): boolean =>
+const isMapRowField = (item: unknown, role: RowRole): boolean =>
   typeof item === 'object' &&
   item !== null &&
   !('components' in item) &&
@@ -364,8 +416,8 @@ const isKeyValueRow = (template: ComponentGroup | undefined): boolean => {
   if (groupType !== undefined && groupType !== GroupType.Line) return false;
   const fields = Object.values(components);
   return (
-    fields.length === MAP_ROW_ROLES.length &&
-    MAP_ROW_ROLES.every((role) =>
+    fields.length === ROW_ROLES.length &&
+    ROW_ROLES.every((role) =>
       fields.some((field) => isMapRowField(field, role))
     )
   );
@@ -375,6 +427,26 @@ const isKeyValueRow = (template: ComponentGroup | undefined): boolean => {
 // `uiType: map`, so the stages leave it alone like an unknown uiType.
 export const isMapComponent = (item: Component): item is MapComponent =>
   item.uiType === FieldType.Map && isKeyValueRow(item.itemTemplate);
+
+// An item this version implements: one text field, written directly, with no
+// `path` or `id`. A schema comes from YAML, so the template may be anything.
+const isTextItem = (template: unknown): boolean =>
+  typeof template === 'object' &&
+  template !== null &&
+  'uiType' in template &&
+  template.uiType === FieldType.Text &&
+  !('components' in template) &&
+  !('path' in template) &&
+  !('id' in template);
+
+// Only the list shape this version implements: a list of strings. Preprocess
+// drops any other `uiType: list`, as it does a map.
+export const isListComponent = (item: Component): item is ListComponent =>
+  item.uiType === FieldType.List && isTextItem(item.itemTemplate);
+
+// A field edited as rows, in a shape this version implements.
+export const isRowsComponent = (item: Component): item is RowsComponent =>
+  isMapComponent(item) || isListComponent(item);
 
 // Narrows an opaque API payload (e.g. a CRD's uiSchema) to a section.
 export const isSection = (value: unknown): value is Section =>

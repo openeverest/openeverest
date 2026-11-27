@@ -25,9 +25,11 @@ import { getCelValueReaders, readValuesForCel } from '../field-codecs';
 import { postprocessSchemaData } from '../postprocess/postprocess-schema';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
 import { buildZodSchema } from '../schema-builder';
-import { createAddedRow, getMapFieldDisplayRows } from './map-field';
+import { createAddedRow, getRowsFieldDisplayEntries } from '../rows-field';
+import type { Row } from '../rows-field';
+import { Messages as RowsMessages } from '../rows-field/rows-field.messages';
+import { MAP_FIELD_KIND } from './map-field-kind';
 import { Messages } from './map-field.messages';
-import type { MapRow } from './map-field.types';
 
 const PATH = ['spec', 'labels'];
 const LOWERCASE = { pattern: '^[a-z]+$', message: 'Lowercase only' };
@@ -62,7 +64,7 @@ const schemaWith = (
 
 const issuesOf = (
   component: MapComponent,
-  rows: MapRow[],
+  rows: Row[],
   formMode?: FormMode
 ) => {
   const { schema } = buildZodSchema(
@@ -76,10 +78,10 @@ const issuesOf = (
 };
 
 // A row the form opened with: a saved entry, or one of the map's default.
-const opened = (key: string, value: string): MapRow => ({ key, value });
+const opened = (key: string, value: string): Row => ({ key, value });
 // A row the user added with the Add button and then filled.
-const added = (key: string, value: string): MapRow => ({
-  ...createAddedRow(),
+const added = (key: string, value: string): Row => ({
+  ...createAddedRow(MAP_FIELD_KIND),
   key,
   value,
 });
@@ -181,13 +183,13 @@ describe('a row field disabled in a map', () => {
 });
 
 describe('the mark of a row added to a map', () => {
-  const rows = [opened('team', 'db'), added('tier', 'gold'), createAddedRow()];
+  const rows = [opened('team', 'db'), added('tier', 'gold'), added('', '')];
 
   it('keeps a row the form opened with from being emptied away once removing is off', () => {
     const locked = labels({
       fieldParams: { label: 'Labels', disableRemove: true },
     });
-    const emptied = [opened('', ''), createAddedRow()];
+    const emptied = [opened('', ''), added('', '')];
 
     // An emptied row is dropped like any empty row, which removes its entry.
     expect(issuesOf(labels(), emptied)).toEqual([]);
@@ -215,7 +217,7 @@ describe('the mark of a row added to a map', () => {
   });
 
   it('is not shown by a read-only view', () => {
-    expect(getMapFieldDisplayRows(rows, labels())).toEqual([
+    expect(getRowsFieldDisplayEntries(rows, labels())).toEqual([
       { key: 'team', value: 'db' },
       { key: 'tier', value: 'gold' },
     ]);
@@ -224,10 +226,10 @@ describe('the mark of a row added to a map', () => {
   it('leaves the entry count to the filled rows, added or not', () => {
     expect(issuesOf(labels({ validation: { max: 2 } }), rows)).toEqual([]);
     expect(issuesOf(labels({ validation: { max: 1 } }), rows)).toEqual([
-      { path: ['root'], message: Messages.tooManyEntries(1, 1) },
+      { path: ['root'], message: RowsMessages.tooManyEntries(1, 1) },
     ]);
     expect(
-      issuesOf(labels({ validation: { required: true } }), [createAddedRow()])
-    ).toEqual([{ path: ['root'], message: Messages.required }]);
+      issuesOf(labels({ validation: { required: true } }), [added('', '')])
+    ).toEqual([{ path: ['root'], message: RowsMessages.required }]);
   });
 });

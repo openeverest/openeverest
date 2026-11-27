@@ -19,7 +19,7 @@ import {
   type FormMode,
   type ModeAwareValidation,
   type Section,
-  isMapComponent,
+  isRowsComponent,
 } from '../../ui-generator.types';
 
 const stripCelFromValidation = (
@@ -97,8 +97,8 @@ const applyModeToComponent = (
   }
 
   const component = applyModeToField(item as Component, mode);
-  // A map's row fields take their own fieldParams modes.
-  return isMapComponent(component) && component._row
+  // The row fields of a map or a list take their own fieldParams modes.
+  return isRowsComponent(component) && component._row
     ? { ...component, _row: applyModeToGroup(component._row, mode) }
     : component;
 };

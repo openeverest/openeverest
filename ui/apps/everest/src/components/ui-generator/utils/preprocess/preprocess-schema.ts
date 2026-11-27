@@ -20,7 +20,7 @@ import {
   GroupType,
   SelectFieldParams,
   TopologyUISchemas,
-  isMapComponent,
+  isRowsComponent,
 } from '../../ui-generator.types';
 import { Provider } from 'shared-types/api.types';
 import { resolveSelectOptions } from '../../ui-component/utils/select-component-handler';
@@ -38,24 +38,25 @@ import { findUnguardedCelReferences } from '../toggleable/find-unguarded-cel-ref
 import { withWidgetTargets } from '../widget-targets';
 import { widgetTargetResolvers } from '../../widget-target-resolvers';
 import {
-  type IgnoredMapField,
-  lintMapFields,
-  resolveMapFields,
-  toMapRow,
-} from '../map-field';
+  type IgnoredRowsField,
+  lintRowsFields,
+  resolveRowsFields,
+  withRow,
+} from '../rows-field';
 import { stripEngineKeys } from './strip-engine-keys';
 
-const describeIgnoredMap = ({
+const describeIgnoredRowsField = ({
+  kind,
   reason,
   overlappingPath,
-}: IgnoredMapField): string => {
+}: IgnoredRowsField): string => {
   switch (reason) {
     case 'overlap':
-      return `overlaps the path "${overlappingPath}" of another field, while a map must own its value alone`;
+      return `overlaps the path "${overlappingPath}" of another field, while a ${kind.uiType} must own its value alone`;
     case 'multi-path':
       return 'has several paths, while an edit reads only the first one';
     default:
-      return 'has an itemTemplate this version does not support (only a group, in a line or stacked, of a text field with path "key" and a text field with path "value")';
+      return `has an itemTemplate this version does not support (only ${kind.supportedItemTemplate})`;
   }
 };
 
@@ -160,12 +161,9 @@ const preprocessComponent = (
   }
   const normalizedComponent = withNormalizedPathMeta(component);
 
-  // Prepare the row a map's item template declares once here.
-  if (isMapComponent(normalizedComponent)) {
-    return {
-      ...normalizedComponent,
-      _row: toMapRow(normalizedComponent.itemTemplate),
-    };
+  // Prepare the row a map's or a list's item template declares once here.
+  if (isRowsComponent(normalizedComponent)) {
+    return withRow(normalizedComponent);
   }
 
   if (
@@ -272,7 +270,8 @@ export const preprocessSchema = (
           topology: topologyKey,
         })
       );
-      const { sections: withMaps, ignored } = resolveMapFields(withTargets);
+      const { sections: withRowsFields, ignored } =
+        resolveRowsFields(withTargets);
       if (import.meta.env.DEV) {
         stripped.forEach(({ keyPath, key }) =>
           // eslint-disable-next-line no-console
@@ -283,17 +282,17 @@ export const preprocessSchema = (
         ignored.forEach((field) =>
           // eslint-disable-next-line no-console
           console.warn(
-            `[UISchema] Map field "${field.keyPath}" ${describeIgnoredMap(field)}; it is not rendered.`
+            `[UISchema] The ${field.kind.uiType} field "${field.keyPath}" ${describeIgnoredRowsField(field)}; it is not rendered.`
           )
         );
-        lintMapFields(withMaps).forEach(({ keyPath, message }) =>
+        lintRowsFields(withRowsFields).forEach(({ keyPath, message }) =>
           // eslint-disable-next-line no-console
           console.warn(`[UISchema] Field "${keyPath}" ${message}.`)
         );
       }
-      const scope = createToggleableScope(withMaps);
+      const scope = createToggleableScope(withRowsFields);
       const sections = Object.fromEntries(
-        Object.entries(withMaps).map(([sectionKey, section]) => [
+        Object.entries(withRowsFields).map(([sectionKey, section]) => [
           sectionKey,
           {
             ...section,

@@ -20,12 +20,12 @@ import {
   Component,
   ComponentGroup,
   FieldType,
-  isMapComponent,
+  isRowsComponent,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { getValueByPath } from 'components/ui-generator/ui-component/utils/get-value-by-path';
 import { maskPasswordValue } from 'components/ui-generator/utils/display-value';
-import { getMapFieldDisplayRows } from 'components/ui-generator/utils/map-field';
+import { getRowsFieldDisplayEntries } from 'components/ui-generator/utils/rows-field';
 import { formatQuantity } from 'components/ui-generator/utils/quantity';
 import {
   getToggleableMeta,
@@ -112,30 +112,31 @@ export const renderComponent = (
 
   const uniqueKey = `${parentPrefix || ''}:${primaryPath || componentKey}`;
 
-  if (isMapComponent(leafComponent)) {
-    const mapEntries =
+  if (isRowsComponent(leafComponent)) {
+    const entries =
       value === null || value === undefined
         ? []
-        : getMapFieldDisplayRows(value, leafComponent);
-    if (mapEntries.length === 0) {
+        : getRowsFieldDisplayEntries(value, leafComponent);
+    if (entries.length === 0) {
       return <PreviewContentText key={uniqueKey} text={`${label}: -`} />;
     }
+    const dataTestId = `preview-${leafComponent.uiType}-field`;
     return (
       <Stack
         key={uniqueKey}
         direction="row"
         spacing={0.5}
         alignItems="center"
-        data-testid="preview-map-field"
+        data-testid={dataTestId}
         sx={{ width: '100%' }}
       >
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
           {label}:
         </Typography>
         <KeyValueSummary
-          entries={mapEntries}
+          entries={entries}
           label={label}
-          dataTestId="preview-map-field"
+          dataTestId={dataTestId}
         />
       </Stack>
     );

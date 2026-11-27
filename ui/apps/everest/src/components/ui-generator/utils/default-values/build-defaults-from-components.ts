@@ -18,8 +18,8 @@ import {
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { generateFieldId } from '../component-renderer/generate-field-id';
-import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
 import { getToggleableMeta } from '../toggleable/toggleable';
+import { getEmptyFormValue } from './get-empty-form-value';
 import { getSchemaDefault } from './get-schema-default';
 
 export const buildDefaultsFromComponents = (
@@ -62,7 +62,7 @@ export const buildDefaultsFromComponents = (
       } else if (isWidgetComponent(component)) {
         // Widget components manage their own default value.
       } else if (!buildOnlySchemaDefaults) {
-        result[fieldId] = UI_TYPE_DEFAULT_VALUE[component.uiType];
+        result[fieldId] = getEmptyFormValue(component);
       }
     }
   });

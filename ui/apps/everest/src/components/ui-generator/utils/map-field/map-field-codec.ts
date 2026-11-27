@@ -13,19 +13,11 @@
 // limitations under the License.
 
 import { isMapComponent } from '../../ui-generator.types';
-import type {
-  FieldCodec,
-  FieldCodecResolver,
-} from '../field-codecs/field-codecs.types';
+import type { FieldCodecResolver } from '../field-codecs/field-codecs.types';
 import { isPlainObject } from '../object-path/object-path';
-import { isStringMap, objectToRows, rowsToObject } from './map-field';
-
-// A map with no filled row has no map to write. A value that isn't rows, like
-// a saved map a form loaded unconverted, is in the API shape already.
-const toMap = (formValue: unknown): unknown =>
-  formValue !== undefined && !Array.isArray(formValue)
-    ? formValue
-    : rowsToObject(formValue);
+import { createRowsFieldCodec } from '../rows-field/rows-field-codec';
+import { toMap } from './map-field';
+import { MAP_FIELD_KIND } from './map-field-kind';
 
 // `original` may be the instance as saved, and that can hold a literal `{}`.
 // A rule finds it unset, like rows with no entry.
@@ -35,18 +27,10 @@ const toMapWithEntries = (formValue: unknown): unknown => {
 };
 
 // The form keeps a map as rows ({ key, value }); the API takes the map.
-const MAP_FIELD_CODEC: FieldCodec = {
-  toForm: objectToRows,
+const MAP_FIELD_CODEC = createRowsFieldCodec(MAP_FIELD_KIND, {
   toApi: toMap,
-  // A default is written in the API shape. One that isn't a map of strings is
-  // ignored rather than written back as text.
-  defaultToForm: (defaultValue) =>
-    isStringMap(defaultValue) ? objectToRows(defaultValue) : undefined,
-  // A rule reads what the field writes, so it can be written against the
-  // API: the map, and nothing at all while it has no entries.
   toCel: toMapWithEntries,
-  ownsWholeValue: true,
-};
+});
 
 export const getMapFieldCodec: FieldCodecResolver = (component) =>
   isMapComponent(component) ? MAP_FIELD_CODEC : undefined;

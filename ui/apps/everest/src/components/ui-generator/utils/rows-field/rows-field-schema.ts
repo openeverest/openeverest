@@ -13,14 +13,14 @@
 // limitations under the License.
 
 import { z } from 'zod';
-import type { MapValidation } from '../../ui-generator.types';
-import { isAddedRow, isEmptyRow, isMapRow } from './map-field';
-import { Messages } from './map-field.messages';
-import type { MapRowShapes } from './map-field.types';
+import type { RowsValidation } from '../../ui-generator.types';
+import { isAddedRow, isEmptyRow, isRow } from './rows';
+import { Messages } from './rows-field.messages';
+import type { Row, RowShapes, RowsFieldKind } from './rows-field.types';
 
 const getCountIssue = (
   filledRows: number,
-  validation: MapValidation | undefined
+  validation: RowsValidation | undefined
 ): string | undefined => {
   const { required, min, max } = validation ?? {};
   if (required && filledRows === 0) return Messages.required;
@@ -34,88 +34,88 @@ const getCountIssue = (
 };
 
 // RHF keeps an array's own error under `root`, beside its rows' errors. An
-// issue on the map's path itself would replace them all.
-export const MAP_ROOT_ERROR_PATH = ['root'];
+// issue on the field's path itself would replace them all.
+export const ROWS_ROOT_ERROR_PATH = ['root'];
 
 // Validates the rows the form keeps, each against the rules of the row's own
 // fields, built like any section's. A row the form opened with and a row added
 // since have a shape each: a disabled field skips its rules, and a field
 // disabled in the first is enabled in the second. The issues land on the row's
-// input, or on the map itself for counts. The output is each filled row as its
-// fields parse it (trim, toLowerCase, …), like a text field's value.
-export const buildMapFieldSchema = (
-  rowShapes: MapRowShapes,
-  validation: MapValidation | undefined,
+// input, or on the field itself for counts. The output is each filled row as
+// its fields parse it (trim, toLowerCase, …), like a text field's value.
+export const buildRowsFieldSchema = (
+  kind: RowsFieldKind,
+  rowShapes: RowShapes,
+  validation: RowsValidation | undefined,
   // With `disableRemove`, clearing a row the form opened with must not remove
   // its entry the way an empty row is otherwise dropped.
   keepsOpenedWithRows = false
 ): z.ZodTypeAny => {
+  const { identity, messages } = kind;
+  const unique = kind.isUnique(validation);
   const openedWithRowSchema = z.object(rowShapes.openedWith);
   const addedRowSchema = z.object(rowShapes.added);
   const parseRow = (row: unknown) =>
-    isMapRow(row) && !isEmptyRow(row)
+    isRow(row, kind) && !isEmptyRow(row, kind)
       ? (isAddedRow(row) ? addedRowSchema : openedWithRowSchema).safeParse(row)
       : undefined;
 
   return z
     .array(z.unknown())
     .optional()
-    .superRefine((rows = [], ctx) => {
-      const seenKeys = new Set<string>();
+    .superRefine((held = [], ctx) => {
+      const rows = held.filter((row): row is Row => isRow(row, kind));
+      // What isn't rows is not the form's to check, or to save.
+      if (rows.length !== held.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ROWS_ROOT_ERROR_PATH,
+          message: Messages.notRows,
+        });
+        return;
+      }
+
+      const seen = new Set<string>();
       let filledRows = 0;
+      const reportOnIdentity = (index: number, message: string) =>
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [index, identity],
+          message,
+        });
 
       rows.forEach((row, index) => {
-        if (
-          keepsOpenedWithRows &&
-          isMapRow(row) &&
-          isEmptyRow(row) &&
-          !isAddedRow(row)
-        ) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [index, 'key'],
-            message: Messages.keyRequired,
-          });
+        if (keepsOpenedWithRows && isEmptyRow(row, kind) && !isAddedRow(row)) {
+          reportOnIdentity(index, messages.identityRequired);
           return;
         }
         const parsed = parseRow(row);
-        if (!parsed || !isMapRow(row)) return;
+        if (!parsed) return;
         filledRows += 1;
 
-        // The map is keyed by the key as its field writes it, e.g. trimmed.
-        const key =
-          parsed.success && isMapRow(parsed.data) ? parsed.data.key : row.key;
-        // A filled row needs a key: the map can't hold the entry without one.
-        const missingKey = key === '';
-        if (missingKey) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [index, 'key'],
-            message: Messages.keyRequired,
-          });
-        }
+        // An entry goes by its identity as the field writes it, e.g. trimmed.
+        const written =
+          parsed.success && isRow(parsed.data, kind) ? parsed.data : row;
+        const entry = written[identity] ?? '';
+        // A filled row needs one: the field can't hold the entry without it.
+        const missing = entry === '';
+        if (missing) reportOnIdentity(index, messages.identityRequired);
         parsed.error?.issues
-          .filter(({ path: [field] }) => !missingKey || field !== 'key')
+          .filter(({ path: [field] }) => !missing || field !== identity)
           .forEach((issue) =>
             ctx.addIssue({ ...issue, path: [index, ...issue.path] })
           );
 
-        if (missingKey) return;
-        if (seenKeys.has(key)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [index, 'key'],
-            message: Messages.duplicateKey(key),
-          });
-        }
-        seenKeys.add(key);
+        if (missing || !unique) return;
+        if (seen.has(entry)) reportOnIdentity(index, messages.duplicate(entry));
+        seen.add(entry);
       });
 
       const countIssue = getCountIssue(filledRows, validation);
       if (countIssue) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: MAP_ROOT_ERROR_PATH,
+          path: ROWS_ROOT_ERROR_PATH,
           message: countIssue,
         });
       }

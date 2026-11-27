@@ -14,7 +14,7 @@
 
 export const Messages = {
   entryCount: (count: number) => (count === 1 ? '1 entry' : `${count} entries`),
-  copyEntry: (key: string) => `Copy ${key}`,
+  copyEntry: (entry: string) => `Copy ${entry}`,
   key: 'Key',
   value: 'Value',
   close: 'Close',

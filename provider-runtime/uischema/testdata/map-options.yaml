@@ -1,8 +1,9 @@
-# Shared contract for what a rendered map field ignores or can't use.
+# Shared contract for what a rendered map field ignores or can't use, and for
+# limits no form of it can meet.
 # `*keyValueRow` repeats the row the second case declares.
 # Go: provider-runtime/uischema (Validate) reports `issues`.
 # UI: preprocessSchema renders the field anyway and ignores the part it can't
-#     use; lintMapFields reports the same rules, as a dev-time warning.
+#     use; lintRowsFields reports the same rules, as a dev-time warning.
 cases:
   - name: a map with the options it supports has no issue
     uiSchema:
@@ -44,7 +45,7 @@ cases:
                       uiType: text
                       path: value
                       fieldParams: { type: password }
-                      validation: { max: 63, modes: { edit: { max: 253 } } }
+                      validation: { required: true, max: 63, modes: { edit: { max: 253 } } }
     issues: []
 
   - name: regex on the map is ignored, in a mode branch too
@@ -312,6 +313,295 @@ cases:
                 itemTemplate: *keyValueRow
     issues: []
 
+  - name: unique on the map does nothing, since a map holds a key once
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                validation: { unique: true }
+                itemTemplate: *keyValueRow
+              tags:
+                uiType: map
+                path: spec.tags
+                fieldParams: { label: Tags }
+                validation:
+                  modes: { edit: { unique: false } }
+                itemTemplate: *keyValueRow
+    issues:
+      - { rule: map-ignored-option, topology: replicaSet, field: advanced.labels }
+      - { rule: map-ignored-option, topology: replicaSet, field: advanced.tags }
+  - name: a map that needs an entry, opens with none and lets none be added can never pass
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              needed:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels, disableAdd: true }
+                validation: { required: true }
+                itemTemplate: *keyValueRow
+              short:
+                uiType: map
+                path: spec.labelsB
+                fieldParams: { label: Labels, disableAdd: true, defaultValue: { team: db } }
+                validation: { min: 2 }
+                itemTemplate: *keyValueRow
+    issues:
+      - { rule: map-unsatisfiable-limits, topology: replicaSet, field: advanced.needed }
+      - { rule: map-unsatisfiable-limits, topology: replicaSet, field: advanced.short }
+
+  - name: a map that opens with the entries it needs may forbid adding
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              enough:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels, disableAdd: true, defaultValue: { team: db, tier: gold } }
+                validation: { required: true, min: 2 }
+                itemTemplate: *keyValueRow
+              free:
+                uiType: map
+                path: spec.labelsB
+                fieldParams: { label: Labels, disableAdd: true }
+                validation: { max: 2 }
+                itemTemplate: *keyValueRow
+    issues: []
+
+  - name: an entry of the default that the form reads as an empty row is no entry
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              blank:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels, disableAdd: true, defaultValue: { '': '' } }
+                validation: { required: true }
+                itemTemplate: *keyValueRow
+    issues:
+      - { rule: map-unsatisfiable-limits, topology: replicaSet, field: advanced.blank }
+
+  - name: a default the UI ignores gives no entries to open with
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              wrong:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels, disableAdd: true, defaultValue: { replicas: 3 } }
+                validation: { required: true }
+                itemTemplate: *keyValueRow
+    issues:
+      - { rule: map-invalid-default, topology: replicaSet, field: advanced.wrong }
+      - { rule: map-unsatisfiable-limits, topology: replicaSet, field: advanced.wrong }
+
+  - name: a map that opens with more entries than it allows and lets none be removed can never pass
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              crowded:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels, disableRemove: true, defaultValue: { team: db, tier: gold } }
+                validation: { max: 1 }
+                itemTemplate: *keyValueRow
+              full:
+                uiType: map
+                path: spec.labelsB
+                fieldParams: { label: Labels, disableRemove: true, defaultValue: { team: db, tier: gold } }
+                validation: { max: 2 }
+                itemTemplate: *keyValueRow
+              open:
+                uiType: map
+                path: spec.labelsC
+                fieldParams: { label: Labels, disableRemove: true, defaultValue: { team: db, tier: gold } }
+                itemTemplate: *keyValueRow
+    issues:
+      - { rule: map-unsatisfiable-limits, topology: replicaSet, field: advanced.crowded }
+
+  - name: a disabled map skips its rules, so its limits block nothing
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              fixed:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels, disabled: true, disableAdd: true }
+                validation: { required: true }
+                itemTemplate: *keyValueRow
+              crowded:
+                uiType: map
+                path: spec.labelsB
+                fieldParams: { label: Labels, disabled: true, disableRemove: true, defaultValue: { team: db, tier: gold } }
+                validation: { max: 1 }
+                itemTemplate: *keyValueRow
+    issues: []
+
+  - name: an edit and a restore open with a saved instance, which may hold the entries needed
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              saved:
+                uiType: map
+                path: spec.labels
+                fieldParams:
+                  label: Labels
+                  modes: { edit: { disableAdd: true }, restore: { disableAdd: true } }
+                validation: { required: true }
+                itemTemplate: *keyValueRow
+              kept:
+                uiType: map
+                path: spec.labelsB
+                fieldParams:
+                  label: Labels
+                  defaultValue: { team: db, tier: gold }
+                  modes: { edit: { disableRemove: true }, restore: { disableRemove: true } }
+                validation: { max: 1 }
+                itemTemplate: *keyValueRow
+    issues: []
+
+  - name: an import starts from the default, like a new instance
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              imported:
+                uiType: map
+                path: spec.labels
+                fieldParams:
+                  label: Labels
+                  modes: { import: { disableAdd: true } }
+                validation: { required: true }
+                itemTemplate: *keyValueRow
+              created:
+                uiType: map
+                path: spec.labelsB
+                fieldParams:
+                  label: Labels
+                  defaultValue: { team: db, tier: gold }
+                  modes: { new: { disableRemove: true } }
+                validation: { modes: { new: { max: 1 } } }
+                itemTemplate: *keyValueRow
+    issues:
+      - { rule: map-unsatisfiable-limits, topology: replicaSet, field: advanced.created }
+      - { rule: map-unsatisfiable-limits, topology: replicaSet, field: advanced.imported }
+
+  - name: a form mode is judged by the params, the default and the rules it applies
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              filled:
+                uiType: map
+                path: spec.labels
+                fieldParams:
+                  label: Labels
+                  disableAdd: true
+                  modes: { new: { defaultValue: { team: db } }, import: { defaultValue: { team: db } } }
+                validation: { required: true }
+                itemTemplate: *keyValueRow
+              optional:
+                uiType: map
+                path: spec.labelsB
+                fieldParams: { label: Labels, disableAdd: true }
+                validation:
+                  required: true
+                  min: 2
+                  modes:
+                    new: { inheritShared: false }
+                    import: { required: false, min: 0 }
+                itemTemplate: *keyValueRow
+              off:
+                uiType: map
+                path: spec.labelsC
+                fieldParams:
+                  label: Labels
+                  disableAdd: true
+                  modes: { new: { disabled: true }, import: { disableAdd: false } }
+                validation: { required: true }
+                itemTemplate: *keyValueRow
+              half:
+                uiType: map
+                path: spec.labelsD
+                fieldParams:
+                  label: Labels
+                  disableAdd: true
+                  modes: { new: { disabled: true } }
+                validation: { required: true }
+                itemTemplate: *keyValueRow
+    issues:
+      - { rule: map-unsatisfiable-limits, topology: replicaSet, field: advanced.half }
+
+  - name: a map hidden in a form mode has no rules to meet there
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              hidden:
+                uiType: map
+                path: spec.labels
+                modes: { new: { uiType: hidden }, import: { uiType: hidden } }
+                fieldParams: { label: Labels, disableAdd: true }
+                validation: { required: true }
+                itemTemplate: *keyValueRow
+    issues: []
+
+  - name: a limit that is not a count asks for no entries
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              odd:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels, disableAdd: true, disableRemove: true, defaultValue: { team: db, tier: gold } }
+                validation: { min: 3.5, max: -1 }
+                itemTemplate: *keyValueRow
+    issues:
+      - { rule: map-invalid-limits, topology: replicaSet, field: advanced.odd }
+
+  - name: a map in a toggleable group can never pass once the group is on, so the group could not be used
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              extras:
+                uiType: group
+                groupType: toggleable
+                components:
+                  needed:
+                    uiType: map
+                    path: spec.labels
+                    fieldParams: { label: Labels, disableAdd: true }
+                    validation: { required: true }
+                    itemTemplate: *keyValueRow
+    issues:
+      - { rule: map-unsatisfiable-limits, topology: replicaSet, field: advanced.extras.needed }
+
   - name: every finding on one map is reported, in a fixed order
     uiSchema:
       replicaSet:
@@ -324,12 +614,14 @@ cases:
                 fieldParams:
                   label: Labels
                   defaultValue: team
+                  disableAdd: true
                 validation: { regex: { pattern: '^a' }, min: 2, max: 1 }
                 itemTemplate: *keyValueRow
     issues:
       - { rule: map-ignored-option, topology: replicaSet, field: advanced.labels }
       - { rule: map-invalid-default, topology: replicaSet, field: advanced.labels }
       - { rule: map-invalid-limits, topology: replicaSet, field: advanced.labels }
+      - { rule: map-unsatisfiable-limits, topology: replicaSet, field: advanced.labels }
 
   - name: a map the UI drops isn't linted
     uiSchema:

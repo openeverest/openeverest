@@ -19,6 +19,7 @@ import { UIGenerator } from 'components/ui-generator/ui-generator';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
+import { withEmptyFormValues } from 'components/ui-generator/utils/field-codecs';
 import { applyModeOverrides } from 'components/ui-generator/utils/preprocess/apply-mode-overrides';
 import { mergeSectionEdit } from 'components/ui-generator/utils/postprocess/merge-section-edit';
 import {
@@ -58,7 +59,7 @@ const SectionEditModal = ({
 
   const section = editSections[sectionKey];
 
-  const defaultValues = useMemo(
+  const instanceValues = useMemo(
     () =>
       extractInstanceValues(
         editSections,
@@ -66,6 +67,13 @@ const SectionEditModal = ({
         FormMode.Edit
       ),
     [editSections, instance]
+  );
+
+  // An edit shows the instance and no defaults, so nothing else gives a map
+  // or a list the instance has no value for its empty row.
+  const defaultValues = useMemo(
+    () => withEmptyFormValues(instanceValues, editSections),
+    [instanceValues, editSections]
   );
 
   // CEL compares the form with `original`, so both are read the same way

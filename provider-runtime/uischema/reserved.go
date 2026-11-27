@@ -26,8 +26,8 @@ const reservedKeyPrefix = "_"
 
 // validateReservedKeys mirrors stripEngineKeys in the UI, which drops every
 // key starting with "_" from a component (a field, group or any other item
-// under `components`, and the row a map declares in `itemTemplate`) before
-// reading the schema. It reports each component that sets one.
+// under `components`, and what a map or a list declares in `itemTemplate`)
+// before reading the schema. It reports each component that sets one.
 //
 //	labels:                  # reserved-key: "_row" is the engine's
 //	  uiType: map
@@ -70,7 +70,8 @@ func findReservedKeys(topology string, components map[string]any, parent []strin
 		if children, ok := item["components"].(map[string]any); ok {
 			issues = append(issues, findReservedKeys(topology, children, keyPath)...)
 		}
-		// A map declares its row in `itemTemplate`, written like any group.
+		// A map declares its row in `itemTemplate`, a list its entry: both are
+		// written like any component.
 		if _, ok := item["itemTemplate"].(map[string]any); ok {
 			issues = append(issues, findReservedKeys(topology, map[string]any{"itemTemplate": item["itemTemplate"]}, keyPath)...)
 		}

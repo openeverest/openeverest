@@ -28,15 +28,17 @@ import Dialog from '../dialog';
 import { Messages } from './key-value-summary.messages';
 import type { KeyValueSummaryProps } from './key-value-summary.types';
 
-// A count chip that opens the full key/value list in a dialog: read-only
-// views stay compact however many entries a map holds or however long its
-// keys are. The dialog is all table — the chip's row already names the field.
+// A count chip that opens the full list of entries in a dialog: read-only
+// views stay compact however many entries a map or a list holds, or however
+// long they are. The dialog is all table — the chip's row already names the
+// field. Entries without a key, a list's, get no key column.
 export const KeyValueSummary = ({
   entries,
   label,
   dataTestId = 'key-value-summary',
 }: KeyValueSummaryProps) => {
   const [open, setOpen] = useState(false);
+  const hasKeys = entries.some(({ key }) => key !== undefined);
 
   return (
     <>
@@ -82,9 +84,12 @@ export const KeyValueSummary = ({
               minWidth: 'min(160px, calc(50vw - 67px))',
               pl: 3,
             },
-            '& td:nth-of-type(2), & th:nth-of-type(2)': {
-              minWidth: 'min(120px, calc(50vw - 67px))',
-            },
+            // The value column beside a key column. Without keys the second
+            // cell is the button's.
+            '& td:nth-of-type(2):not(:last-of-type), & th:nth-of-type(2):not(:last-of-type)':
+              {
+                minWidth: 'min(120px, calc(50vw - 67px))',
+              },
             '& td:last-of-type, & th:last-of-type': {
               width: 40,
               py: 0,
@@ -95,7 +100,7 @@ export const KeyValueSummary = ({
         >
           <TableHead>
             <TableRow>
-              <TableCell>{Messages.key}</TableCell>
+              {hasKeys && <TableCell>{Messages.key}</TableCell>}
               <TableCell>{Messages.value}</TableCell>
               <TableCell align="right">
                 <IconButton
@@ -111,18 +116,19 @@ export const KeyValueSummary = ({
           </TableHead>
           <TableBody>
             {entries.map(({ key, value, masked }, index) => (
-              // Masking can collapse keys into one string; the index keeps
-              // the row key unique. The list is static, so it is safe.
-              <TableRow key={`${index}:${key}`}>
-                <TableCell>{key}</TableCell>
+              // Masking can collapse keys into one string, and a list may hold
+              // a value twice; the index keeps the row key unique. The list is
+              // static, so it is safe.
+              <TableRow key={`${index}:${key ?? value}`}>
+                {hasKeys && <TableCell>{key}</TableCell>}
                 <TableCell>{value}</TableCell>
                 <TableCell align="right">
                   {!masked && (
                     <CopyToClipboardButton
-                      textToCopy={`${key}=${value}`}
+                      textToCopy={key === undefined ? value : `${key}=${value}`}
                       buttonProps={{
                         size: 'small',
-                        'aria-label': Messages.copyEntry(key),
+                        'aria-label': Messages.copyEntry(key ?? value),
                         sx: { p: 0.5 },
                       }}
                       iconSx={{ fontSize: 16 }}

@@ -20,6 +20,7 @@ import {
   ComponentGroup,
   FieldType,
   GroupType,
+  ListComponent,
   WIDGET_UI_TYPE,
   WidgetType,
 } from 'components/ui-generator/ui-generator.types';
@@ -262,6 +263,85 @@ describe('renderComponent - map field', () => {
     );
 
     expect(screen.getByText('Environment: -')).toBeInTheDocument();
+  });
+});
+
+describe('renderComponent - list field', () => {
+  const sourceRanges: ListComponent = {
+    uiType: FieldType.List,
+    path: 'spec.sourceRanges',
+    fieldParams: { label: 'Source ranges' },
+    itemTemplate: { uiType: FieldType.Text },
+  };
+  const rows = [
+    { value: '10.0.0.0/8' },
+    { value: '' },
+    { value: '192.168.0.0/16' },
+  ];
+
+  it('sums the rows up in a chip that opens the values alone, each to copy', () => {
+    const writeText = vi.fn();
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(
+      <TestWrapper>
+        <>
+          {renderComponent('sourceRanges', sourceRanges, {
+            spec: { sourceRanges: rows },
+          })}
+        </>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Source ranges:')).toBeInTheDocument();
+    const toggle = screen.getByTestId('preview-list-field-toggle');
+    expect(toggle).toHaveTextContent('2 entries');
+
+    fireEvent.click(toggle);
+    expect(screen.getByText('192.168.0.0/16')).toBeInTheDocument();
+    // A list has no keys to show a column of.
+    expect(screen.getAllByRole('columnheader')).toHaveLength(2);
+    expect(screen.queryByText('Key')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Copy 10.0.0.0/8'));
+    expect(writeText).toHaveBeenCalledWith('10.0.0.0/8');
+  });
+
+  it('masks the values of a password item, and offers no copy of the mask', () => {
+    const tokens: ListComponent = {
+      ...sourceRanges,
+      itemTemplate: {
+        uiType: FieldType.Text,
+        fieldParams: { type: 'password' },
+      },
+    };
+    render(
+      <TestWrapper>
+        <>
+          {renderComponent('tokens', tokens, {
+            spec: { sourceRanges: [{ value: 's3cr3t' }] },
+          })}
+        </>
+      </TestWrapper>
+    );
+
+    fireEvent.click(screen.getByTestId('preview-list-field-toggle'));
+    expect(screen.getByText('***************')).toBeInTheDocument();
+    expect(screen.queryByText(/s3cr3t/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Copy/)).toBeNull();
+  });
+
+  it('shows a dash for a list with no entries', () => {
+    render(
+      <TestWrapper>
+        <>
+          {renderComponent('sourceRanges', sourceRanges, {
+            spec: { sourceRanges: [{ value: '' }] },
+          })}
+        </>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Source ranges: -')).toBeInTheDocument();
   });
 });
 

@@ -13,7 +13,12 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'vitest';
-import { readValuesForCel } from './field-codecs';
+import { FieldType, Section } from '../../ui-generator.types';
+import {
+  readValuesForCel,
+  withEmptyFormValues,
+  withoutEmptyFormValues,
+} from './field-codecs';
 
 describe('readValuesForCel', () => {
   it('adds no value where none is held, whatever the field would read it as', () => {
@@ -34,5 +39,31 @@ describe('readValuesForCel', () => {
     expect(values).toEqual({
       spec: { labels: [{ key: 'team', value: 'db' }] },
     });
+  });
+});
+
+describe('the values with and without what a field with no value holds', () => {
+  const sections: Record<string, Section> = {
+    advanced: {
+      components: {
+        args: {
+          uiType: FieldType.List,
+          path: 'spec.args',
+          fieldParams: {},
+          itemTemplate: { uiType: FieldType.Text, fieldParams: {} },
+        },
+      },
+    },
+  };
+
+  it('are new values: the ones given stay as they were', () => {
+    const unset = { spec: { name: 'db' } };
+    const held = withEmptyFormValues(unset, sections);
+
+    expect(unset).toEqual({ spec: { name: 'db' } });
+
+    const heldBefore = structuredClone(held);
+    expect(withoutEmptyFormValues(held, sections)).toEqual(unset);
+    expect(held).toEqual(heldBefore);
   });
 });

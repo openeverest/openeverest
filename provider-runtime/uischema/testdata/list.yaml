@@ -1,0 +1,431 @@
+# Shared contract for list field rules.
+# `*textItem` repeats the item the first case declares.
+# Go: provider-runtime/uischema (Validate) reports `issues`.
+# UI: preprocessSchema drops every list field with an issue, so it is neither
+#     rendered nor sent and an edit keeps its saved value. The toggleable rules
+#     then run as if the field weren't there.
+cases:
+  - name: a list of strings owning its path is rendered
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              sourceRanges:
+                uiType: list
+                path: spec.proxy.sourceRanges
+                fieldParams: { label: Source ranges }
+                itemTemplate: &textItem
+                  uiType: text
+              replicas: { uiType: number, path: spec.replicas, fieldParams: { label: Replicas } }
+    issues: []
+
+  - name: the item is a text field, with a text field's params and rules
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              sourceRanges:
+                uiType: list
+                path: spec.proxy.sourceRanges
+                fieldParams: { label: Source ranges }
+                itemTemplate:
+                  uiType: text
+                  fieldParams: { placeholder: 10.0.0.0/8 }
+                  validation:
+                    regex: { pattern: '^[0-9./]+$', message: Use CIDR notation }
+    issues: []
+
+  - name: a list of objects, whose item is a group, is not supported yet
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              users:
+                uiType: list
+                path: spec.users
+                fieldParams: { label: Users }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    name: { uiType: text, path: name }
+                    role: { uiType: text, path: role }
+    issues:
+      - { rule: list-unsupported, topology: replicaSet, field: advanced.users }
+
+  - name: a group of one text field is still a list of objects
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate:
+                  uiType: group
+                  components:
+                    value: { uiType: text, path: value }
+    issues:
+      - { rule: list-unsupported, topology: replicaSet, field: advanced.args }
+
+  - name: an item that is not text is not supported yet
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              ports:
+                uiType: list
+                path: spec.ports
+                fieldParams: { label: Ports }
+                itemTemplate: { uiType: number }
+    issues:
+      - { rule: list-unsupported, topology: replicaSet, field: advanced.ports }
+
+  - name: a text field holds no components, so one that does is not an item
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate:
+                  uiType: text
+                  components:
+                    value: { uiType: text, path: value }
+    issues:
+      - { rule: list-unsupported, topology: replicaSet, field: advanced.args }
+
+  - name: the item is the entry, so it has no path
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate: { uiType: text, path: value }
+    issues:
+      - { rule: list-unsupported, topology: replicaSet, field: advanced.args }
+
+  - name: nor an id
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate: { uiType: text, id: argument }
+    issues:
+      - { rule: list-unsupported, topology: replicaSet, field: advanced.args }
+
+  - name: a list whose item template is a widget is not supported
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate: { uiType: widget, widgetType: chips }
+    issues:
+      - { rule: list-unsupported, topology: replicaSet, field: advanced.args }
+
+  - name: one item is declared, so a list of them is not an item
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate:
+                  - { uiType: text }
+    issues:
+      - { rule: list-unsupported, topology: replicaSet, field: advanced.args }
+
+  - name: a list without an item template is not supported
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args: { uiType: list, path: spec.args, fieldParams: { label: Arguments } }
+    issues:
+      - { rule: list-unsupported, topology: replicaSet, field: advanced.args }
+
+  - name: a list with several paths is not supported, since an edit reads only the first
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: [spec.engine.args, spec.proxy.args]
+                fieldParams: { label: Arguments }
+                itemTemplate: *textItem
+    issues:
+      - { rule: list-multi-path, topology: replicaSet, field: advanced.args }
+
+  - name: a field writing inside the list overlaps it
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate: *textItem
+              first: { uiType: text, path: spec.args.first, fieldParams: { label: First } }
+    issues:
+      - { rule: list-overlap, topology: replicaSet, field: advanced.args }
+
+  - name: a field writing a path the list sits in overlaps it
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              sourceRanges:
+                uiType: list
+                path: spec.proxy.sourceRanges
+                fieldParams: { label: Source ranges }
+                itemTemplate: *textItem
+              proxy: { uiType: text, path: spec.proxy, fieldParams: { label: Proxy } }
+    issues:
+      - { rule: list-overlap, topology: replicaSet, field: advanced.sourceRanges }
+
+  - name: a field in another section writing the same path overlaps the list
+    uiSchema:
+      replicaSet:
+        sections:
+          basic:
+            components:
+              args: { uiType: text, path: spec.args, fieldParams: { label: Arguments } }
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate: *textItem
+    issues:
+      - { rule: list-overlap, topology: replicaSet, field: advanced.args }
+
+  - name: a path sharing only a prefix does not overlap
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate: *textItem
+              argsMode: { uiType: text, path: spec.argsMode, fieldParams: { label: Mode } }
+    issues: []
+
+  - name: two lists writing the same path both overlap
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate: *textItem
+              moreArgs:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: More arguments }
+                itemTemplate: *textItem
+    issues:
+      - { rule: list-overlap, topology: replicaSet, field: advanced.args }
+      - { rule: list-overlap, topology: replicaSet, field: advanced.moreArgs }
+
+  - name: a map and a list writing the same path both overlap, each by its own rule
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              env:
+                uiType: map
+                path: spec.env
+                fieldParams: { label: Environment }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key }
+                    value: { uiType: text, path: value }
+              envList:
+                uiType: list
+                path: spec.env
+                fieldParams: { label: Environment list }
+                itemTemplate: *textItem
+    issues:
+      - { rule: map-overlap, topology: replicaSet, field: advanced.env }
+      - { rule: list-overlap, topology: replicaSet, field: advanced.envList }
+
+  - name: an unsupported list writes nothing, so another list on its path stays
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              users:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Users }
+                itemTemplate: { uiType: group, components: {} }
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate: *textItem
+    issues:
+      - { rule: list-unsupported, topology: replicaSet, field: advanced.users }
+
+  - name: a multi-path list writes nothing, so a list on one of its paths stays
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: [spec.engine.args, spec.proxy.args]
+                fieldParams: { label: Arguments }
+                itemTemplate: *textItem
+              proxyArgs:
+                uiType: list
+                path: spec.proxy.args
+                fieldParams: { label: Proxy arguments }
+                itemTemplate: *textItem
+    issues:
+      - { rule: list-multi-path, topology: replicaSet, field: advanced.args }
+
+  - name: a toggleable holding only an unsupported list has nothing to switch off
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              backup:
+                uiType: group
+                groupType: toggleable
+                components:
+                  users:
+                    uiType: list
+                    path: spec.backup.users
+                    fieldParams: { label: Users }
+                    itemTemplate: { uiType: group, components: {} }
+    issues:
+      - { rule: list-unsupported, topology: replicaSet, field: advanced.backup.users }
+      - { rule: toggleable-no-fields, topology: replicaSet, group: advanced.backup }
+
+  - name: a rule on the list reads a toggleable group's field only after has()
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+              sourceRanges:
+                uiType: list
+                path: spec.sourceRanges
+                fieldParams: { label: Source ranges }
+                validation:
+                  celExpressions:
+                    - { celExpr: "spec.monitoring.url == '' || has(spec.sourceRanges)", message: Add a range }
+                itemTemplate: *textItem
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                validation:
+                  modes:
+                    edit:
+                      celExpressions:
+                        - { celExpr: "!has(spec.monitoring.url) || has(spec.args)", message: Add an argument }
+                itemTemplate: *textItem
+    issues:
+      - { rule: toggleable-cel-unguarded, topology: replicaSet, group: advanced.monitoring, field: advanced.sourceRanges }
+
+  - name: a rule reads a list in a toggleable group only after has()
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              access:
+                uiType: group
+                groupType: toggleable
+                components:
+                  sourceRanges:
+                    uiType: list
+                    path: spec.access.sourceRanges
+                    fieldParams: { label: Source ranges }
+                    validation:
+                      celExpressions:
+                        - { celExpr: "size(spec.access.sourceRanges) <= 5", message: At most 5 }
+                    itemTemplate: *textItem
+              name:
+                uiType: text
+                path: spec.name
+                fieldParams: { label: Name }
+                validation:
+                  celExpressions:
+                    - { celExpr: "'0.0.0.0/0' in spec.access.sourceRanges", message: Open it }
+    issues:
+      - { rule: toggleable-cel-unguarded, topology: replicaSet, group: advanced.access, field: advanced.name }
+
+  - name: the rule of a list the UI drops never runs, so it isn't checked
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+              users:
+                uiType: list
+                path: spec.users
+                fieldParams: { label: Users }
+                validation:
+                  celExpressions:
+                    - { celExpr: "spec.monitoring.url != ''", message: Set the URL }
+                itemTemplate: { uiType: number }
+    issues:
+      - { rule: list-unsupported, topology: replicaSet, field: advanced.users }
