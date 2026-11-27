@@ -199,7 +199,9 @@ spec:
                   StorageRef references a BackupStorage in the same namespace that
                   defines where the backup data is written. For ProviderManaged classes
                   the referenced storage must already be registered on the Instance via
-                  .spec.backup.storages so the engine can write to it.
+                  .spec.backup.storages so the engine can write to it. Required when the
+                  class's storageMode is Required, the default, and forbidden when it is
+                  None; admission enforces both. Always required for External backups.
                 properties:
                   name:
                     description: Name of the referenced object.
@@ -214,12 +216,13 @@ spec:
             required:
             - classRef
             - origin
-            - storageRef
             type: object
             x-kubernetes-validations:
             - message: deletionPolicy Delete is not allowed when origin.type is External;
                 use Retain
               rule: self.origin.type != 'External' || self.deletionPolicy != 'Delete'
+            - message: storageRef is required when origin.type is External
+              rule: self.origin.type != 'External' || has(self.storageRef)
           status:
             description: BackupStatus defines the observed state of Backup.
             properties:

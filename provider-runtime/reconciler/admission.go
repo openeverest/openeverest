@@ -164,6 +164,7 @@ func (a *instanceAdmission) check(
 			name, a.provider.Name(), backupclass.VerdictDetail(v),
 		))
 	}
+	errs = append(errs, backupclass.StorageModeErrors(in, class)...)
 	errs = append(errs, backupclass.LimitErrors(in, class)...)
 	return append(errs, backupclass.PITRErrors(in, class)...), warnings, nil
 }

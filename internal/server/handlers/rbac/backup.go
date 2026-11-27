@@ -75,8 +75,8 @@ func (h *rbacHandler) GetBackup(ctx context.Context, cluster, namespace, name st
 //   - Instance origin: backups create on the Instance.
 //   - External origin: namespace-wide backups create.
 //
-// Either way the caller must also read the BackupStorage it writes to and the
-// BackupClass it runs, since the class's job permissions become the
+// Either way the caller must also read the BackupStorage it writes to, if
+// any, and the BackupClass it runs, since the class's job permissions become the
 // ServiceAccount the backup job runs as.
 func (h *rbacHandler) CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
 	namespace := backup.GetNamespace()
@@ -89,9 +89,12 @@ func (h *rbacHandler) CreateBackup(ctx context.Context, cluster string, backup *
 	if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionCreate, object); err != nil {
 		return nil, err
 	}
-	storageObject := rbac.ClusterNamespacedObjectName(cluster, namespace, backup.Spec.StorageRef.Name)
-	if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead, storageObject); err != nil {
-		return nil, err
+	// A Backup of a class without storage names none to authorize.
+	if name := backup.Spec.StorageRef.Name; name != "" {
+		storageObject := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
+		if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead, storageObject); err != nil {
+			return nil, err
+		}
 	}
 	classObject := rbac.ClusterObjectName(cluster, backup.Spec.ClassRef.Name)
 	if err := h.enforce(ctx, rbac.ResourceBackupClasses, rbac.ActionRead, classObject); err != nil {

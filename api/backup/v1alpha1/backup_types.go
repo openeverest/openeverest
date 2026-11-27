@@ -24,6 +24,7 @@ import (
 // BackupSpec defines the desired state of Backup.
 //
 // +kubebuilder:validation:XValidation:rule="self.origin.type != 'External' || self.deletionPolicy != 'Delete'",message="deletionPolicy Delete is not allowed when origin.type is External; use Retain"
+// +kubebuilder:validation:XValidation:rule="self.origin.type != 'External' || has(self.storageRef)",message="storageRef is required when origin.type is External"
 type BackupSpec struct {
 	// Origin identifies where this Backup's data comes from: produced by a
 	// live Instance, or imported from data already present in a BackupStorage.
@@ -37,9 +38,11 @@ type BackupSpec struct {
 	// StorageRef references a BackupStorage in the same namespace that
 	// defines where the backup data is written. For ProviderManaged classes
 	// the referenced storage must already be registered on the Instance via
-	// .spec.backup.storages so the engine can write to it.
-	// +kubebuilder:validation:Required
-	StorageRef common.ObjectRef `json:"storageRef"`
+	// .spec.backup.storages so the engine can write to it. Required when the
+	// class's storageMode is Required, the default, and forbidden when it is
+	// None; admission enforces both. Always required for External backups.
+	// +optional
+	StorageRef common.ObjectRef `json:"storageRef,omitzero"`
 	// ScheduleName, when set, identifies the InstanceBackupSchedule that
 	// produced this Backup. Backups created via the API or `kubectl apply`
 	// leave this field empty (on-demand). The provider's mirroring loop

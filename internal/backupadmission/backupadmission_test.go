@@ -65,6 +65,16 @@ func class(name string, compatibility backupv1alpha1.Compatibility, reason strin
 	}
 }
 
+// snapshotClass returns a Compatible class executed by provider that writes
+// to no BackupStorage.
+func snapshotClass() *backupv1alpha1.BackupClass {
+	c := class("snapshots", backupv1alpha1.CompatibilityCompatible, "")
+	c.Spec.StorageMode = backupv1alpha1.BackupStorageModeNone
+	c.Spec.SupportsImport = false
+	c.Spec.ProviderManaged.SupportsPITR = false
+	return c
+}
+
 // storage returns an s3 storage whose verdict for c, computed from the
 // current objects, has compatibility and reason.
 func storage(name string, c *backupv1alpha1.BackupClass, compatibility backupv1alpha1.Compatibility, reason string) *backupv1alpha1.BackupStorage {
@@ -248,6 +258,30 @@ func TestBackup(t *testing.T) {
 					"backup storage 'aws' does not exist; the Backup waits until it exists",
 					"backup class not found: 'pbm'; the Backup waits until it exists",
 				},
+			},
+		},
+		{
+			name:    "class without storage and a backup that names none",
+			backup:  backup("b", "snapshots", "", onDB),
+			objects: []client.Object{db, snapshotClass()},
+		},
+		{
+			name:    "class without storage and a backup that names one",
+			backup:  backup("b", "snapshots", "aws", onDB),
+			objects: []client.Object{db, snapshotClass(), aws},
+			want: outcome{
+				denied:   referents.ErrBackupStorageModeMismatch,
+				reason:   `BackupClass "snapshots" has storageMode None`,
+				warnings: []string{`BackupStorage "aws" is Pending for BackupClass "snapshots"`},
+			},
+		},
+		{
+			name:    "class with storage and a backup that names none",
+			backup:  backup("b", "pbm", "", onDB),
+			objects: []client.Object{db, pbm},
+			want: outcome{
+				denied: referents.ErrBackupStorageModeMismatch,
+				reason: `BackupClass "pbm" writes to a BackupStorage, so spec.storageRef is required`,
 			},
 		},
 		{

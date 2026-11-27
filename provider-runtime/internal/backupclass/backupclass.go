@@ -84,8 +84,39 @@ func LimitErrors(in *corev1alpha1.Instance, bc *backupv1alpha1.BackupClass) fiel
 				))
 			}
 		}
+		// A class without storage has a single, implicit location, so its
+		// schedules count as those of one storage.
+		if schedules := in.Spec.Backup.Schedules; len(schedules) > int(*limits.MaxSchedulesPerStorage) {
+			errs = append(errs, field.TooMany(
+				field.NewPath("spec", "backup", "schedules"), len(schedules), int(*limits.MaxSchedulesPerStorage),
+			))
+		}
 	}
 	return errs
+}
+
+// StorageModeErrors returns where the backup configuration of in does not fit
+// the storageMode of bc: storages for a class whose storageMode is None, or
+// storage-less schedules for one whose storageMode is Required. It returns
+// nothing when in has backups off or bc is not ProviderManaged.
+func StorageModeErrors(in *corev1alpha1.Instance, bc *backupv1alpha1.BackupClass) field.ErrorList {
+	if !applies(in, bc) {
+		return nil
+	}
+	if bc.Spec.RequiresStorage() {
+		if len(in.Spec.Backup.Schedules) > 0 {
+			return field.ErrorList{field.Forbidden(field.NewPath("spec", "backup", "schedules"), fmt.Sprintf(
+				"backup class %s writes to a BackupStorage: configure schedules under spec.backup.storages[].schedules", bc.Name,
+			))}
+		}
+		return nil
+	}
+	if len(in.Spec.Backup.Storages) > 0 {
+		return field.ErrorList{field.Forbidden(field.NewPath("spec", "backup", "storages"), fmt.Sprintf(
+			"backup class %s has storageMode None and writes to no BackupStorage: configure schedules under spec.backup.schedules", bc.Name,
+		))}
+	}
+	return nil
 }
 
 // PITRErrors returns the per-storage PITR parameters that the

@@ -139,9 +139,11 @@ export interface components {
                  * @description StorageRef references a BackupStorage in the same namespace that
                  *     defines where the backup data is written. For ProviderManaged classes
                  *     the referenced storage must already be registered on the Instance via
-                 *     .spec.backup.storages so the engine can write to it.
+                 *     .spec.backup.storages so the engine can write to it. Required when the
+                 *     class's storageMode is Required, the default, and forbidden when it is
+                 *     None; admission enforces both. Always required for External backups.
                  */
-                storageRef: {
+                storageRef?: {
                     /** @description Name of the referenced object. */
                     name: string;
                 };
@@ -296,9 +298,10 @@ export interface components {
                  * @description BackupStorageClasses lists the BackupStorageClasses the class's executor
                  *     can write to, each with the authentication modes it supports. A
                  *     BackupStorage is usable with the class only when both its class and
-                 *     its authentication mode are listed.
+                 *     its authentication mode are listed. Required, with at least one entry,
+                 *     unless storageMode is None, which forbids it.
                  */
-                backupStorageClasses: {
+                backupStorageClasses?: {
                     /**
                      * @description AuthModes are the authentication modes of that class the executor
                      *     supports.
@@ -456,6 +459,16 @@ export interface components {
                      */
                     openAPIV3Schema?: unknown;
                 };
+                /**
+                 * @description StorageMode says whether the class's backups are written to a
+                 *     BackupStorage. Required, the default, means they are. None means the
+                 *     executor keeps them without one, for example as CSI VolumeSnapshots:
+                 *     backupStorageClasses must then be empty, and supportsImport and
+                 *     providerManaged.supportsPITR false.
+                 * @default Required
+                 * @enum {string}
+                 */
+                storageMode?: "Required" | "None";
                 /**
                  * @description SupportsImport indicates whether the owner of this class can discover and
                  *     import restorable backups already sitting in a BackupStorage.
@@ -1050,6 +1063,65 @@ export interface components {
                      */
                     enabled: boolean;
                     /**
+                     * @description Schedules registers recurring backup tasks for a BackupClass whose
+                     *     storageMode is None, which writes to no BackupStorage and so has no
+                     *     storage entry to carry them. A class whose storageMode is Required
+                     *     takes its schedules under .storages[].schedules and rejects these.
+                     *     Schedule names must be unique across these and all storages.
+                     */
+                    schedules?: {
+                        /**
+                         * @description Cron is a standard 5-field cron expression. The provider may reject
+                         *     expressions the engine does not support.
+                         */
+                        cron: string;
+                        /**
+                         * @description Enabled toggles the schedule. A disabled schedule is removed from
+                         *     the engine without losing its definition on the Instance.
+                         */
+                        enabled: boolean;
+                        /**
+                         * @description Name uniquely identifies the schedule. The provider uses it as the
+                         *     schedule key on the engine and as the value of Backup.spec.scheduleName
+                         *     on mirrored Backup CRs. Names must be unique across all storages on
+                         *     the Instance.
+                         */
+                        name: string;
+                        /**
+                         * @description Parameters is schedule-specific structured configuration validated
+                         *     against the BackupClass's .spec.parametersSchema. When unset the
+                         *     provider falls back to engine defaults. The schema is the same as for
+                         *     Backup.spec.parameters but applied per-schedule rather than
+                         *     per-backup-run.
+                         */
+                        parameters?: Record<string, never>;
+                        /**
+                         * @description Retention configures count-based or time-based backup retention for
+                         *     this schedule. Unset keeps all backups.
+                         */
+                        retention?: {
+                            /**
+                             * Format: int32
+                             * @description Count is the number of recent backups to keep when Type is count.
+                             *     Required when Type is count (minimum 1). Forbidden when Type is time.
+                             *     Omit Retention on the schedule to keep all backups.
+                             */
+                            count?: number;
+                            /**
+                             * @description Duration is the recovery window when Type is time, in the form
+                             *     <positive-integer><unit> where unit is d (days), w (weeks), or m
+                             *     (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+                             */
+                            duration?: string;
+                            /**
+                             * @description Type selects count-based or time-based retention.
+                             * @default count
+                             * @enum {string}
+                             */
+                            type: "count" | "time";
+                        };
+                    }[];
+                    /**
                      * @description Storages registers BackupStorages on the engine. Each entry references
                      *     a BackupStorage resource in the same namespace; the BackupStorage name
                      *     is also the storage key the engine uses and the value that Backup CRs
@@ -2065,7 +2137,9 @@ export interface components {
                  *     must be in the same namespace, in Succeeded state, and its BackupClass
                  *     must be executed by the Instance's provider. Instance must
                  *     also have backup enabled and include a storage entry that matches the
-                 *     storage used by the source Backup so the provider can access the data.
+                 *     storage used by the source Backup so the provider can access the data,
+                 *     unless the source Backup names no storage, as with a BackupClass whose
+                 *     storageMode is None.
                  */
                 dataSource?: {
                     /** @description Backup identifies the backup to restore. Required when type=Backup. */
@@ -2535,6 +2609,65 @@ export interface components {
                      */
                     enabled: boolean;
                     /**
+                     * @description Schedules registers recurring backup tasks for a BackupClass whose
+                     *     storageMode is None, which writes to no BackupStorage and so has no
+                     *     storage entry to carry them. A class whose storageMode is Required
+                     *     takes its schedules under .storages[].schedules and rejects these.
+                     *     Schedule names must be unique across these and all storages.
+                     */
+                    schedules?: {
+                        /**
+                         * @description Cron is a standard 5-field cron expression. The provider may reject
+                         *     expressions the engine does not support.
+                         */
+                        cron: string;
+                        /**
+                         * @description Enabled toggles the schedule. A disabled schedule is removed from
+                         *     the engine without losing its definition on the Instance.
+                         */
+                        enabled: boolean;
+                        /**
+                         * @description Name uniquely identifies the schedule. The provider uses it as the
+                         *     schedule key on the engine and as the value of Backup.spec.scheduleName
+                         *     on mirrored Backup CRs. Names must be unique across all storages on
+                         *     the Instance.
+                         */
+                        name: string;
+                        /**
+                         * @description Parameters is schedule-specific structured configuration validated
+                         *     against the BackupClass's .spec.parametersSchema. When unset the
+                         *     provider falls back to engine defaults. The schema is the same as for
+                         *     Backup.spec.parameters but applied per-schedule rather than
+                         *     per-backup-run.
+                         */
+                        parameters?: Record<string, never>;
+                        /**
+                         * @description Retention configures count-based or time-based backup retention for
+                         *     this schedule. Unset keeps all backups.
+                         */
+                        retention?: {
+                            /**
+                             * Format: int32
+                             * @description Count is the number of recent backups to keep when Type is count.
+                             *     Required when Type is count (minimum 1). Forbidden when Type is time.
+                             *     Omit Retention on the schedule to keep all backups.
+                             */
+                            count?: number;
+                            /**
+                             * @description Duration is the recovery window when Type is time, in the form
+                             *     <positive-integer><unit> where unit is d (days), w (weeks), or m
+                             *     (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+                             */
+                            duration?: string;
+                            /**
+                             * @description Type selects count-based or time-based retention.
+                             * @default count
+                             * @enum {string}
+                             */
+                            type: "count" | "time";
+                        };
+                    }[];
+                    /**
                      * @description Storages registers BackupStorages on the engine. Each entry references
                      *     a BackupStorage resource in the same namespace; the BackupStorage name
                      *     is also the storage key the engine uses and the value that Backup CRs
@@ -3550,7 +3683,9 @@ export interface components {
                  *     must be in the same namespace, in Succeeded state, and its BackupClass
                  *     must be executed by the Instance's provider. Instance must
                  *     also have backup enabled and include a storage entry that matches the
-                 *     storage used by the source Backup so the provider can access the data.
+                 *     storage used by the source Backup so the provider can access the data,
+                 *     unless the source Backup names no storage, as with a BackupClass whose
+                 *     storageMode is None.
                  */
                 dataSource?: {
                     /** @description Backup identifies the backup to restore. Required when type=Backup. */
@@ -4294,6 +4429,65 @@ export interface components {
                      */
                     enabled: boolean;
                     /**
+                     * @description Schedules registers recurring backup tasks for a BackupClass whose
+                     *     storageMode is None, which writes to no BackupStorage and so has no
+                     *     storage entry to carry them. A class whose storageMode is Required
+                     *     takes its schedules under .storages[].schedules and rejects these.
+                     *     Schedule names must be unique across these and all storages.
+                     */
+                    schedules?: {
+                        /**
+                         * @description Cron is a standard 5-field cron expression. The provider may reject
+                         *     expressions the engine does not support.
+                         */
+                        cron: string;
+                        /**
+                         * @description Enabled toggles the schedule. A disabled schedule is removed from
+                         *     the engine without losing its definition on the Instance.
+                         */
+                        enabled: boolean;
+                        /**
+                         * @description Name uniquely identifies the schedule. The provider uses it as the
+                         *     schedule key on the engine and as the value of Backup.spec.scheduleName
+                         *     on mirrored Backup CRs. Names must be unique across all storages on
+                         *     the Instance.
+                         */
+                        name: string;
+                        /**
+                         * @description Parameters is schedule-specific structured configuration validated
+                         *     against the BackupClass's .spec.parametersSchema. When unset the
+                         *     provider falls back to engine defaults. The schema is the same as for
+                         *     Backup.spec.parameters but applied per-schedule rather than
+                         *     per-backup-run.
+                         */
+                        parameters?: Record<string, never>;
+                        /**
+                         * @description Retention configures count-based or time-based backup retention for
+                         *     this schedule. Unset keeps all backups.
+                         */
+                        retention?: {
+                            /**
+                             * Format: int32
+                             * @description Count is the number of recent backups to keep when Type is count.
+                             *     Required when Type is count (minimum 1). Forbidden when Type is time.
+                             *     Omit Retention on the schedule to keep all backups.
+                             */
+                            count?: number;
+                            /**
+                             * @description Duration is the recovery window when Type is time, in the form
+                             *     <positive-integer><unit> where unit is d (days), w (weeks), or m
+                             *     (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+                             */
+                            duration?: string;
+                            /**
+                             * @description Type selects count-based or time-based retention.
+                             * @default count
+                             * @enum {string}
+                             */
+                            type: "count" | "time";
+                        };
+                    }[];
+                    /**
                      * @description Storages registers BackupStorages on the engine. Each entry references
                      *     a BackupStorage resource in the same namespace; the BackupStorage name
                      *     is also the storage key the engine uses and the value that Backup CRs
@@ -5309,7 +5503,9 @@ export interface components {
                  *     must be in the same namespace, in Succeeded state, and its BackupClass
                  *     must be executed by the Instance's provider. Instance must
                  *     also have backup enabled and include a storage entry that matches the
-                 *     storage used by the source Backup so the provider can access the data.
+                 *     storage used by the source Backup so the provider can access the data,
+                 *     unless the source Backup names no storage, as with a BackupClass whose
+                 *     storageMode is None.
                  */
                 dataSource?: {
                     /** @description Backup identifies the backup to restore. Required when type=Backup. */

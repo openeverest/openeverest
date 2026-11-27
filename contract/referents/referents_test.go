@@ -48,6 +48,7 @@ func TestSentinelsAreInvalidReferences(t *testing.T) {
 		referents.ErrBackupImportUnsupported,
 		referents.ErrBackupClassIncompatible,
 		referents.ErrBackupStorageIncompatible,
+		referents.ErrBackupStorageModeMismatch,
 	} {
 		t.Run(sentinel.Error(), func(t *testing.T) {
 			t.Parallel()

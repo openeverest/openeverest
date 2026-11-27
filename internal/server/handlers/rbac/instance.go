@@ -373,6 +373,11 @@ func (h *rbacHandler) ensureInstanceBackupAuthorized(
 			schedulesChanged = true
 		}
 	}
+	// Schedules of a class without storage sit outside any storage entry.
+	if len(backup.Schedules) > 0 &&
+		((backup.Enabled && !current.Enabled) || !reflect.DeepEqual(backup.Schedules, current.Schedules)) {
+		schedulesChanged = true
+	}
 	if !requireBackupCreate || !schedulesChanged {
 		return nil
 	}

@@ -1689,6 +1689,14 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		{desc: "removing schedules needs no backups create", mutate: func(i *corev1alpha1.Instance) {
 			i.Spec.Backup.Storages[0].Schedules = nil
 		}},
+		{desc: "adding a storage-less schedule requires backups create", mutate: func(i *corev1alpha1.Instance) {
+			i.Spec.Backup.Storages = nil
+			i.Spec.Backup.Schedules = []corev1alpha1.InstanceBackupSchedule{{Name: "daily", Enabled: true, Cron: "0 0 * * *"}}
+		}, wantDeny: true},
+		{desc: "adding a storage-less schedule with backups create", mutate: func(i *corev1alpha1.Instance) {
+			i.Spec.Backup.Storages = nil
+			i.Spec.Backup.Schedules = []corev1alpha1.InstanceBackupSchedule{{Name: "daily", Enabled: true, Cron: "0 0 * * *"}}
+		}, policy: []string{createBackups}},
 	}
 	for _, tc := range updateCases {
 		t.Run("UpdateInstance/"+tc.desc, func(t *testing.T) {

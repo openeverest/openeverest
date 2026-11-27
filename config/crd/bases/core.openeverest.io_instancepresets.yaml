@@ -87,6 +87,101 @@ spec:
                       Enabled toggles the backup feature for this Instance. When false the
                       runtime skips ConfigureBackup() and the rest of this struct is ignored.
                     type: boolean
+                  schedules:
+                    description: |-
+                      Schedules registers recurring backup tasks for a BackupClass whose
+                      storageMode is None, which writes to no BackupStorage and so has no
+                      storage entry to carry them. A class whose storageMode is Required
+                      takes its schedules under .storages[].schedules and rejects these.
+                      Schedule names must be unique across these and all storages.
+                    items:
+                      description: |-
+                        InstanceBackupSchedule configures a recurring backup task on the engine
+                        for the parent storage. The provider translates each schedule into the
+                        engine's native scheduler (e.g. PSMDB BackupTaskSpec, PXC
+                        PXCScheduledBackupSchedule, pgBackRest schedule). Operator-produced
+                        backups are mirrored back into Backup CRs by the provider, sharing the
+                        operator backup's name.
+                      properties:
+                        cron:
+                          description: |-
+                            Cron is a standard 5-field cron expression. The provider may reject
+                            expressions the engine does not support.
+                          minLength: 1
+                          type: string
+                        enabled:
+                          description: |-
+                            Enabled toggles the schedule. A disabled schedule is removed from
+                            the engine without losing its definition on the Instance.
+                          type: boolean
+                        name:
+                          description: |-
+                            Name uniquely identifies the schedule. The provider uses it as the
+                            schedule key on the engine and as the value of Backup.spec.scheduleName
+                            on mirrored Backup CRs. Names must be unique across all storages on
+                            the Instance.
+                          maxLength: 63
+                          minLength: 1
+                          type: string
+                        parameters:
+                          description: |-
+                            Parameters is schedule-specific structured configuration validated
+                            against the BackupClass's .spec.parametersSchema. When unset the
+                            provider falls back to engine defaults. The schema is the same as for
+                            Backup.spec.parameters but applied per-schedule rather than
+                            per-backup-run.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        retention:
+                          description: |-
+                            Retention configures count-based or time-based backup retention for
+                            this schedule. Unset keeps all backups.
+                          properties:
+                            count:
+                              description: |-
+                                Count is the number of recent backups to keep when Type is count.
+                                Required when Type is count (minimum 1). Forbidden when Type is time.
+                                Omit Retention on the schedule to keep all backups.
+                              format: int32
+                              minimum: 1
+                              type: integer
+                            duration:
+                              description: |-
+                                Duration is the recovery window when Type is time, in the form
+                                <positive-integer><unit> where unit is d (days), w (weeks), or m
+                                (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+                              pattern: ^[1-9][0-9]*[dwm]$
+                              type: string
+                            type:
+                              default: count
+                              description: Type selects count-based or time-based
+                                retention.
+                              enum:
+                              - count
+                              - time
+                              type: string
+                          required:
+                          - type
+                          type: object
+                          x-kubernetes-validations:
+                          - message: count is required when retention type is count
+                            rule: 'self.type == ''count'' ? has(self.count) : true'
+                          - message: duration is only allowed when retention type
+                              is time
+                            rule: 'self.type == ''count'' ? !has(self.duration) :
+                              true'
+                          - message: count is only allowed when retention type is
+                              count
+                            rule: 'self.type == ''time'' ? !has(self.count) : true'
+                          - message: duration is required when retention type is time
+                            rule: 'self.type == ''time'' ? has(self.duration) : true'
+                      required:
+                      - cron
+                      - enabled
+                      - name
+                      type: object
+                    maxItems: 10
+                    type: array
                   storages:
                     description: |-
                       Storages registers BackupStorages on the engine. Each entry references
@@ -255,6 +350,12 @@ spec:
                     && s2.schedules.exists(sch2, sch2.name == sch1.name)).size() <=
                     1 && s1.schedules.filter(sch2, sch2.name == sch1.name).size()
                     == 1))'
+                - message: schedule names must be unique across spec.backup.schedules
+                    and all storages
+                  rule: '!has(self.schedules) || self.schedules.all(sch1, self.schedules.filter(sch2,
+                    sch2.name == sch1.name).size() == 1 && (!has(self.storages) ||
+                    !self.storages.exists(s, has(s.schedules) && s.schedules.exists(sch2,
+                    sch2.name == sch1.name))))'
               components:
                 additionalProperties:
                   properties:
@@ -1578,7 +1679,9 @@ spec:
                   must be in the same namespace, in Succeeded state, and its BackupClass
                   must be executed by the Instance's provider. Instance must
                   also have backup enabled and include a storage entry that matches the
-                  storage used by the source Backup so the provider can access the data.
+                  storage used by the source Backup so the provider can access the data,
+                  unless the source Backup names no storage, as with a BackupClass whose
+                  storageMode is None.
                 properties:
                   backup:
                     description: Backup identifies the backup to restore. Required

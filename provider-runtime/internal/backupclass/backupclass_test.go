@@ -138,6 +138,12 @@ func TestLimitErrors(t *testing.T) {
 			want:   []string{"spec.backup.storages[1].schedules"},
 		},
 		{
+			name:   "schedules without storage",
+			in:     withSchedules(instance(), 2),
+			limits: &backupv1alpha1.BackupClassLimits{MaxSchedulesPerStorage: one},
+			want:   []string{"spec.backup.schedules"},
+		},
+		{
 			name:   "backups off",
 			in:     &corev1alpha1.Instance{Spec: corev1alpha1.InstanceSpec{Backup: &corev1alpha1.InstanceBackupSpec{}}},
 			limits: &backupv1alpha1.BackupClassLimits{MaxStorages: new(int32(0))},
@@ -147,6 +153,44 @@ func TestLimitErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			assert.Equal(t, tc.want, fields(LimitErrors(tc.in, class(tc.limits))))
+		})
+	}
+}
+
+func withSchedules(in *corev1alpha1.Instance, n int) *corev1alpha1.Instance {
+	in.Spec.Backup.Schedules = make([]corev1alpha1.InstanceBackupSchedule, n)
+	return in
+}
+
+func TestStorageModeErrors(t *testing.T) {
+	t.Parallel()
+	snapshots := class(nil)
+	snapshots.Spec.StorageMode = backupv1alpha1.BackupStorageModeNone
+	required := class(nil)
+	required.Spec.StorageMode = backupv1alpha1.BackupStorageModeRequired
+	storage := corev1alpha1.InstanceBackupStorage{}
+
+	tests := []struct {
+		name  string
+		in    *corev1alpha1.Instance
+		class *backupv1alpha1.BackupClass
+		want  []string
+	}{
+		{name: "storages with a class that needs storage", in: instance(storage), class: required},
+		{name: "unset storageMode needs storage", in: withSchedules(instance(), 1), class: class(nil), want: []string{"spec.backup.schedules"}},
+		{name: "schedules with a class that needs storage", in: withSchedules(instance(storage), 1), class: required, want: []string{"spec.backup.schedules"}},
+		{name: "schedules with a class without storage", in: withSchedules(instance(), 1), class: snapshots},
+		{name: "storages with a class without storage", in: instance(storage), class: snapshots, want: []string{"spec.backup.storages"}},
+		{
+			name:  "backups off",
+			in:    &corev1alpha1.Instance{Spec: corev1alpha1.InstanceSpec{Backup: &corev1alpha1.InstanceBackupSpec{Storages: []corev1alpha1.InstanceBackupStorage{storage}}}},
+			class: snapshots,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, fields(StorageModeErrors(tc.in, tc.class)))
 		})
 	}
 }

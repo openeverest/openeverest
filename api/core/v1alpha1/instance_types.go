@@ -101,7 +101,9 @@ type InstanceSpec struct {
 	// must be in the same namespace, in Succeeded state, and its BackupClass
 	// must be executed by the Instance's provider. Instance must
 	// also have backup enabled and include a storage entry that matches the
-	// storage used by the source Backup so the provider can access the data.
+	// storage used by the source Backup so the provider can access the data,
+	// unless the source Backup names no storage, as with a BackupClass whose
+	// storageMode is None.
 	// +optional
 	DataSource *backupv1alpha1.DataSource `json:"dataSource,omitempty"`
 
@@ -227,13 +229,16 @@ type PendingMaintenanceAction struct {
 //
 // Schedules and PITR are configured per storage (under
 // .spec.backup.storages[].schedules and .spec.backup.storages[].pitr) so
-// that each storage carries its own backup policy. Schedule names must be
+// that each storage carries its own backup policy. A BackupClass whose
+// storageMode is None writes to no storage: its schedules go under
+// .spec.backup.schedules instead, and it has no PITR. Schedule names must be
 // unique across all storages on the Instance because engines use them as
 // global identifiers and they appear on mirrored Backup CRs as
 // .spec.scheduleName.
 //
 // +kubebuilder:validation:XValidation:rule="!has(self.storages) || self.storages.all(s1, self.storages.filter(s2, s2.storageRef.name == s1.storageRef.name).size() == 1)",message="storageRef names must be unique across all storages"
 // +kubebuilder:validation:XValidation:rule="!has(self.storages) || self.storages.all(s1, !has(s1.schedules) || s1.schedules.all(sch1, self.storages.filter(s2, has(s2.schedules) && s2.schedules.exists(sch2, sch2.name == sch1.name)).size() <= 1 && s1.schedules.filter(sch2, sch2.name == sch1.name).size() == 1))",message="schedule names must be unique across all storages"
+// +kubebuilder:validation:XValidation:rule="!has(self.schedules) || self.schedules.all(sch1, self.schedules.filter(sch2, sch2.name == sch1.name).size() == 1 && (!has(self.storages) || !self.storages.exists(s, has(s.schedules) && s.schedules.exists(sch2, sch2.name == sch1.name))))",message="schedule names must be unique across spec.backup.schedules and all storages"
 type InstanceBackupSpec struct {
 	// Enabled toggles the backup feature for this Instance. When false the
 	// runtime skips ConfigureBackup() and the rest of this struct is ignored.
@@ -252,6 +257,14 @@ type InstanceBackupSpec struct {
 	// +optional
 	// +kubebuilder:validation:MaxItems=10
 	Storages []InstanceBackupStorage `json:"storages,omitempty"`
+	// Schedules registers recurring backup tasks for a BackupClass whose
+	// storageMode is None, which writes to no BackupStorage and so has no
+	// storage entry to carry them. A class whose storageMode is Required
+	// takes its schedules under .storages[].schedules and rejects these.
+	// Schedule names must be unique across these and all storages.
+	// +optional
+	// +kubebuilder:validation:MaxItems=10
+	Schedules []InstanceBackupSchedule `json:"schedules,omitempty"`
 }
 
 // InstanceBackupStorage registers a BackupStorage on the Instance and

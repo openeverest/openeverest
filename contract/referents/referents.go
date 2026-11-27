@@ -110,7 +110,34 @@ const (
 	// verdict core publishes on a BackupStorage for the BackupClass that
 	// would read or write it is Incompatible.
 	ErrBackupStorageIncompatible referenceError = "backup storage incompatible"
+
+	// ErrBackupStorageModeMismatch is the sentinel returned by
+	// ValidateBackupStorageMode when a Backup names a BackupStorage and its
+	// class's storageMode is None, or names none and the class needs one.
+	ErrBackupStorageModeMismatch referenceError = "backup storage does not fit the backup class's storage mode"
 )
+
+// ValidateBackupStorageMode checks that b names a BackupStorage if and only if
+// its BackupClass bc writes to one: a class whose storageMode is None keeps
+// its backups without storage, as CSI VolumeSnapshots for example, so a
+// Backup of it names none; any other class needs one. A nil bc passes.
+func ValidateBackupStorageMode(b *backupv1alpha1.Backup, bc *backupv1alpha1.BackupClass) error {
+	if bc == nil {
+		return nil
+	}
+	named := b.Spec.StorageRef.Name != ""
+	switch {
+	case bc.Spec.RequiresStorage() && !named:
+		return fmt.Errorf("%w: BackupClass %q writes to a BackupStorage, so spec.storageRef is required",
+			ErrBackupStorageModeMismatch, bc.Name,
+		)
+	case !bc.Spec.RequiresStorage() && named:
+		return fmt.Errorf("%w: BackupClass %q has storageMode None and writes to no BackupStorage, so spec.storageRef must be empty",
+			ErrBackupStorageModeMismatch, bc.Name,
+		)
+	}
+	return nil
+}
 
 // RestoreStreamInstanceName returns the name of the Instance that owns the
 // backup stream a point-in-time Restore reads from: the Instance named by
