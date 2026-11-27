@@ -193,6 +193,29 @@ describe('renderComponent - string values are shown correctly in preview', () =>
 
     expect(screen.getByText('Version: 8.0.41')).toBeInTheDocument();
   });
+
+  it('reads qualified-name fields from their RHF-safe form id', () => {
+    const component: Component = {
+      uiType: FieldType.Number,
+      path: "spec.resources.limits['nvidia.com/gpu']",
+      fieldParams: { label: 'GPU limit' },
+    };
+    const formValues = {
+      spec: {
+        resources: {
+          limits: { 'nvidia%2Ecom%2Fgpu': 4 },
+        },
+      },
+    };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('gpuLimit', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('GPU limit: 4')).toBeInTheDocument();
+  });
 });
 
 describe('renderComponent - toggleable group', () => {
@@ -300,5 +323,37 @@ describe('renderComponent - widget markers', () => {
     expect(
       screen.queryByTestId('preview-widget-toggle')
     ).not.toBeInTheDocument();
+  });
+
+  it('reads qualified-name widget targets from their RHF-safe form ids', () => {
+    const qualifiedMarker: Component = {
+      ...marker,
+      _widgetTargets: [
+        {
+          key: 'engine',
+          path: "spec.components.engine.schedulingPolicy['nvidia.com/gpu']",
+        },
+      ],
+    };
+
+    render(
+      <TestWrapper>
+        <>
+          {renderComponent('podSchedulingPolicy', qualifiedMarker, {
+            spec: {
+              components: {
+                engine: {
+                  schedulingPolicy: {
+                    'nvidia%2Ecom%2Fgpu': engineAffinity,
+                  },
+                },
+              },
+            },
+          })}
+        </>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('engine: 1 required')).toBeInTheDocument();
   });
 });

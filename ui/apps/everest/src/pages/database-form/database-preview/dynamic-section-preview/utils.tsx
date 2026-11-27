@@ -32,6 +32,7 @@ import {
   getWidgetTargets,
   readWidgetTargetValues,
 } from 'components/ui-generator/utils/widget-targets';
+import { toFormId } from 'components/ui-generator/utils/object-path';
 import { widgetSummaryRegistry } from 'pages/database-form/widget-registry';
 import { Messages } from './dynamic-section-preview.messages';
 import { WidgetPreview } from './widget-preview';
@@ -94,7 +95,10 @@ export const renderComponent = (
           key={`${parentPrefix}:${componentKey}`}
           label={summary.label}
           item={leafComponent}
-          value={readWidgetTargetValues(targets, formValues)}
+          value={readWidgetTargetValues(
+            targets.map(({ key, path }) => ({ key, path: toFormId(path) })),
+            formValues
+          )}
           summary={summary}
         />
       );
@@ -103,7 +107,7 @@ export const renderComponent = (
 
   const primaryPath = getPrimaryPath(leafComponent.path);
   const value = primaryPath
-    ? getValueByPath(formValues, primaryPath)
+    ? getValueByPath(formValues, toFormId(primaryPath))
     : undefined;
   const label = leafComponent.fieldParams?.label || componentKey;
 
