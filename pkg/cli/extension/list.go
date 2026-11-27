@@ -17,7 +17,11 @@ package extension
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+	"sort"
 	"strings"
 
 	"github.com/rodaine/table"
@@ -31,6 +35,14 @@ import (
 type ListConfig struct {
 	KubeconfigPath string
 	Pretty         bool
+}
+
+// Info contains information about an installed extension.
+type Info struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	BackendURL  string `json:"backendUrl"`
+	Enabled     bool   `json:"enabled"`
 }
 
 // PluginLister lists installed extensions.
@@ -58,18 +70,14 @@ func NewPluginLister(cfg ListConfig, l *zap.SugaredLogger) (*PluginLister, error
 	return pl, nil
 }
 
-// Run lists all extensions and prints them as a table.
+// Run lists all extensions and prints them according to the configured format.
 func (pl *PluginLister) Run(ctx context.Context) error {
 	plugins, err := pl.kubeClient.ListPlugins(ctx)
 	if err != nil {
 		return fmt.Errorf("cannot list plugins: %w", err)
 	}
 
-	tbl := table.New("NAME", "DISPLAY NAME", "BACKEND URL", "ENABLED")
-	tbl.WithHeaderFormatter(func(format string, vals ...interface{}) string {
-		return strings.ToUpper(fmt.Sprintf(format, vals...))
-	})
-
+	extensions := make([]Info, 0, len(plugins.Items))
 	for _, p := range plugins.Items {
 		backendURL := ""
 		if p.Spec.Backend != nil {
@@ -80,9 +88,43 @@ func (pl *PluginLister) Run(ctx context.Context) error {
 				backendURL = p.Spec.Backend.ExternalURL
 			}
 		}
-		tbl.AddRow(p.Name, p.Spec.DisplayName, backendURL, p.Spec.Enabled)
+		extensions = append(extensions, Info{
+			Name:        p.Name,
+			DisplayName: p.Spec.DisplayName,
+			BackendURL:  backendURL,
+			Enabled:     p.Spec.Enabled,
+		})
+	}
+
+	sort.Slice(extensions, func(i, j int) bool {
+		return extensions[i].Name < extensions[j].Name
+	})
+
+	pl.Render(os.Stdout, extensions)
+	return nil
+}
+
+// Render formats extensions to w as either JSON or an ASCII table based on cfg.Pretty.
+func (pl *PluginLister) Render(w io.Writer, extensions []Info) {
+	if !pl.cfg.Pretty {
+		if extensions == nil {
+			extensions = []Info{}
+		}
+		_ = json.NewEncoder(w).Encode(extensions) //nolint:errchkjson
+		return
+	}
+	printExtensionTable(w, extensions)
+}
+
+func printExtensionTable(w io.Writer, extensions []Info) {
+	tbl := table.New("NAME", "DISPLAY NAME", "BACKEND URL", "ENABLED").WithWriter(w)
+	tbl.WithHeaderFormatter(func(format string, vals ...any) string {
+		return strings.ToUpper(fmt.Sprintf(format, vals...))
+	})
+
+	for _, ext := range extensions {
+		tbl.AddRow(ext.Name, ext.DisplayName, ext.BackendURL, ext.Enabled)
 	}
 
 	tbl.Print()
-	return nil
 }
