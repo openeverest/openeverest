@@ -69,3 +69,5 @@ Providers (`provider-*`), plugins (`plugin-*`), monitoring integrations (`monito
 - Dev images are published on every push to `main`.
 - Each component should document the core and upstream versions it supports in its README.
 - Breaking changes require a major version bump (or a minor bump while the component is `0.x`) and an entry in the release notes.
+- A provider's `main` stays releasable against the latest released OpenEverest v2: it requires that release's core tag and a `provider-sdk` release that targets it. A change that needs an unreleased core waits in a draft pull request held until that core release. Requiring core `main` on a provider's `main` is acceptable only in the days just before a core release that the provider's own release follows, never while that release is weeks away (see [Keep `main` releasable](https://github.com/openeverest/provider-sdk/blob/main/PROVIDER_DEVELOPMENT.md#keep-main-releasable)).
+- After a core release, each provider merges the drafts held for it, re-pinned to the new core and `provider-sdk` tags, before its own release.
