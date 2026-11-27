@@ -86,8 +86,16 @@ func settingsRBACValidateRun(cmd *cobra.Command, _ []string) {
 	err := rbac.ValidatePolicy(cmd.Context(), k, rbacValidatePolicyFilePath)
 	if err != nil {
 		_, _ = fmt.Fprint(os.Stdout, output.Failure("Invalid"))
-		msg := err.Error()
-		msg = strings.Join(strings.Split(msg, "\n"), " - ")
+		parts := strings.Split(err.Error(), "\n")
+		// errors.Join uses newlines; deduplicate consecutive identical parts
+		// to avoid "policy syntax error - policy syntax error - ..." output.
+		deduped := parts[:0]
+		for i, p := range parts {
+			if i == 0 || p != parts[i-1] {
+				deduped = append(deduped, p)
+			}
+		}
+		msg := strings.Join(deduped, " - ")
 		_, _ = fmt.Fprintln(os.Stdout, msg)
 		os.Exit(1)
 	}
