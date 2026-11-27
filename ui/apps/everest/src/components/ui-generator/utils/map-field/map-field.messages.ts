@@ -12,17 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { pluralize } from '@percona/utils';
-
 export const Messages = {
-  key: 'Key',
-  value: 'Value',
   keyRequired: 'Enter a key',
   duplicateKey: (key: string) => `${key} is set more than once`,
-  required: 'Add at least one entry',
-  // Each says what to do, then the rule, since the user may be past it.
-  tooFewEntries: (min: number, missing: number) =>
-    `Add ${pluralize(missing, 'more entry', 'more entries')} (at least ${min} required)`,
-  tooManyEntries: (max: number, extra: number) =>
-    `Remove ${pluralize(extra, 'entry', 'entries')} (at most ${max} allowed)`,
 };

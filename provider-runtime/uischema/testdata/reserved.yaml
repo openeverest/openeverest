@@ -46,6 +46,23 @@ cases:
       - { rule: reserved-key, topology: replicaSet, field: advanced.labels.itemTemplate }
       - { rule: reserved-key, topology: replicaSet, field: advanced.labels.itemTemplate.key }
 
+  - name: nor may the item a list declares
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate:
+                  uiType: text
+                  _normalized: { sourcePath: spec.other }
+                  _renderOverrides: { disabled: true }
+    issues:
+      - { rule: reserved-key, topology: replicaSet, field: advanced.args.itemTemplate }
+
   - name: a group may not mark itself toggleable, nor a nested field set its widget targets
     uiSchema:
       replicaSet:

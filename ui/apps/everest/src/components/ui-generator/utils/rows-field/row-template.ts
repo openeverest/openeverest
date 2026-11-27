@@ -15,17 +15,16 @@
 import {
   type Component,
   type ComponentGroup,
-  type MapComponent,
-  type MapRowRole,
+  type RowRole,
   FieldType,
-  MAP_ROW_ROLES,
+  ROW_ROLES,
 } from '../../ui-generator.types';
 import {
   IGNORED_ROW_FIELD_OPTIONS,
   IGNORED_ROW_FIELD_PARAMS,
   IGNORED_ROW_FIELD_RULES,
-} from './map-field.constants';
-import { Messages } from './map-field.messages';
+} from './rows-field.constants';
+import { Messages } from './rows-field.messages';
 
 const without = <T extends object>(options: T, ignored: string[]): T => {
   const copy = { ...options };
@@ -37,14 +36,14 @@ const without = <T extends object>(options: T, ignored: string[]): T => {
 // name of the component is the author's.
 export const getRowFieldRole = (
   field: Component | ComponentGroup
-): MapRowRole | undefined =>
+): RowRole | undefined =>
   'components' in field
     ? undefined
-    : MAP_ROW_ROLES.find((role) => field.path === role);
+    : ROW_ROLES.find((role) => field.path === role);
 
 export const getRowField = (
   row: ComponentGroup,
-  role: MapRowRole
+  role: RowRole
 ): Component | ComponentGroup | undefined =>
   Object.values(row.components).find(
     (field) => getRowFieldRole(field) === role
@@ -84,17 +83,13 @@ const withRowFields = (
   ),
 });
 
-// The row a map's item template declares, as the form draws it.
-export const toMapRow = (itemTemplate: ComponentGroup): ComponentGroup =>
-  withRowFields(itemTemplate, toRowField);
-
-// Preprocess sets `_row`; a form that skips it gets the row prepared here.
-export const getMapRow = (component: MapComponent): ComponentGroup =>
-  component._row ?? toMapRow(component.itemTemplate);
+// The row a schema declares, as the form draws it.
+export const prepareRow = (declaredRow: ComponentGroup): ComponentGroup =>
+  withRowFields(declaredRow, toRowField);
 
 // A row field's `disabled` or `readOnly` fixes what the form opened with, e.g.
-// a saved key. A row the user adds has nothing to fix yet: its key and value
-// are theirs to type, so its fields are editable and their rules apply.
+// a saved key. A row the user adds has nothing to fix yet: what it holds is
+// theirs to type, so its fields are editable and their rules apply.
 const toAddedRowField = (
   field: Component | ComponentGroup
 ): Component | ComponentGroup => {
@@ -108,6 +103,6 @@ const toAddedRowField = (
 };
 
 // The row as a row added since the form opened draws and validates it. Takes
-// the prepared row (`getMapRow`), with the form mode's overrides applied.
-export const toAddedMapRow = (row: ComponentGroup): ComponentGroup =>
+// the prepared row (`getRow`), with the form mode's overrides applied.
+export const toAddedRow = (row: ComponentGroup): ComponentGroup =>
   withRowFields(row, toAddedRowField);

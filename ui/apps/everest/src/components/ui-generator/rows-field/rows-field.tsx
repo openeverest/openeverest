@@ -24,29 +24,34 @@ import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined
 import { ActionableLabeledContent } from '@percona/ui-lib';
 import {
   createAddedRow,
-  getMapRow,
+  getRow,
+  getRowsFieldKind,
   isAddedRow,
-} from 'components/ui-generator/utils/map-field';
+} from 'components/ui-generator/utils/rows-field';
 import { useUiGeneratorContext } from '../ui-generator-context';
-import { Messages } from './map-field.messages';
-import { GroupType } from '../ui-generator.types';
-import { MapFieldProps } from './map-field.types';
-import { hasOwnCelRule, toRowAtIndex } from './map-field.utils';
-import { useRevalidateMap } from './use-revalidate-map';
+import { Messages } from './rows-field.messages';
+import { GroupType, RowsFieldParams } from '../ui-generator.types';
+import { RowsFieldProps } from './rows-field.types';
+import { hasOwnCelRule, toRowAtIndex } from './rows-field.utils';
+import { useRevalidateRows } from './use-revalidate-rows';
 
-// Edits a map as rows. Each row is the item template's fields, drawn by the UI
-// Generator like any other field, so every param and rule of theirs applies.
-// What a schema locks (a disabled row field, `disableRemove`) holds for the
-// rows the form opened with: a row the user adds is theirs to fill or remove.
-export const MapField = ({
+// Edits a map or a list as rows. Each row is the item template's fields, drawn
+// by the UI Generator like any other field, so every param and rule of theirs
+// applies. What a schema locks (a disabled row field, `disableRemove`) holds
+// for the rows the form opened with: a row the user adds is theirs to fill or
+// remove.
+export const RowsField = ({
   item,
   name,
   children: renderRow,
-}: MapFieldProps) => {
-  const { fieldParams } = item;
+}: RowsFieldProps) => {
+  // A schema may leave `fieldParams` out, and a form that skips preprocess
+  // gets the field as written.
+  const fieldParams: RowsFieldParams = item.fieldParams ?? {};
   const { loadingDefaultsForEdition } = useUiGeneratorContext();
   const disabled = !!loadingDefaultsForEdition || !!fieldParams.disabled;
-  const row = getMapRow(item);
+  const kind = getRowsFieldKind(item);
+  const row = getRow(item);
   // Stacked inputs of one row sit as close as two rows do, so a line tells the
   // rows apart.
   const stacked = row.groupType !== GroupType.Line;
@@ -54,7 +59,7 @@ export const MapField = ({
   const { errors } = useFormState({ control, name });
   const { fields, append, remove } = useFieldArray({ control, name });
   const [focusNewRow, setFocusNewRow] = useState(false);
-  useRevalidateMap(name, hasOwnCelRule(item));
+  useRevalidateRows(name, kind, hasOwnCelRule(item));
 
   // autoFocus acts once, as the new row mounts. Dropping the flag right after
   // keeps a row that remounts later (indexes shift on a remove) from taking
@@ -63,9 +68,9 @@ export const MapField = ({
     if (focusNewRow) setFocusNewRow(false);
   }, [focusNewRow]);
 
-  const mapError = get(errors, name);
+  const fieldError = get(errors, name);
   const errorMessage: string | undefined =
-    mapError?.root?.message ?? mapError?.message;
+    fieldError?.root?.message ?? fieldError?.message;
 
   return (
     <ActionableLabeledContent
@@ -75,7 +80,7 @@ export const MapField = ({
         buttonText: fieldParams.addButtonLabel ?? Messages.add,
         disabled: disabled || !!fieldParams.disableAdd,
         onClick: () => {
-          append(createAddedRow(), { shouldFocus: false });
+          append(createAddedRow(kind), { shouldFocus: false });
           setFocusNewRow(true);
         },
       }}

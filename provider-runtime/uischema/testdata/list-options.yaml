@@ -1,0 +1,347 @@
+# Shared contract for what a rendered list field ignores or can't use.
+# `*textItem` repeats the item the second case declares.
+# Go: provider-runtime/uischema (Validate) reports `issues`.
+# UI: preprocessSchema renders the field anyway and ignores the part it can't
+#     use; lintRowsFields reports the same rules, as a dev-time warning.
+cases:
+  - name: a list with the options it supports has no issue
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              sourceRanges:
+                uiType: list
+                path: spec.proxy.sourceRanges
+                fieldParams:
+                  label: Source ranges
+                  addButtonLabel: Add range
+                  helperText: Who may connect
+                  defaultValue: [10.0.0.0/8]
+                  disableRemove: true
+                  modes: { edit: { defaultValue: [], disableAdd: true } }
+                validation:
+                  required: true
+                  min: 1
+                  max: 5
+                  unique: true
+                  celExpressions:
+                    - { celExpr: "!has(spec.proxy.sourceRanges) || !('0.0.0.0/0' in spec.proxy.sourceRanges)", message: Too open }
+                  modes:
+                    edit:
+                      max: 10
+                      unique: false
+                      celExpressions:
+                        - { celExpr: "!has(original.spec.proxy.sourceRanges) || has(spec.proxy.sourceRanges)", message: Keep an entry }
+                itemTemplate:
+                  uiType: text
+                  fieldParams:
+                    label: Range
+                    placeholder: 10.0.0.0/8
+                    helperText: In CIDR notation
+                    type: password
+                    modes: { edit: { disabled: true } }
+                  validation:
+                    required: true
+                    min: 9
+                    max: 43
+                    trim: true
+                    regex: { pattern: '^[0-9a-f.:/]+$', message: Use CIDR notation }
+                    modes: { edit: { max: 18 } }
+    issues: []
+
+  - name: regex on the list is ignored, in a mode branch too
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                validation:
+                  regex: { pattern: '^-', message: A flag }
+                itemTemplate: &textItem
+                  uiType: text
+              flags:
+                uiType: list
+                path: spec.flags
+                fieldParams: { label: Flags }
+                validation:
+                  modes:
+                    edit:
+                      regex: { pattern: '^-', message: A flag }
+                itemTemplate: *textItem
+    issues:
+      - { rule: list-ignored-option, topology: replicaSet, field: advanced.args }
+      - { rule: list-ignored-option, topology: replicaSet, field: advanced.flags }
+
+  - name: CEL, a default and a badge on the item are not supported yet
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate:
+                  uiType: text
+                  validation:
+                    celExpressions: [{ celExpr: "self != ''", message: Set }]
+              flags:
+                uiType: list
+                path: spec.flags
+                fieldParams: { label: Flags }
+                itemTemplate:
+                  uiType: text
+                  fieldParams: { defaultValue: --verbose }
+              sizes:
+                uiType: list
+                path: spec.sizes
+                fieldParams: { label: Sizes }
+                itemTemplate:
+                  uiType: text
+                  fieldParams: { badge: Gi }
+              limits:
+                uiType: list
+                path: spec.limits
+                fieldParams: { label: Limits }
+                itemTemplate:
+                  uiType: text
+                  fieldParams: { badgeToApi: true }
+    issues:
+      - { rule: list-ignored-option, topology: replicaSet, field: advanced.args }
+      - { rule: list-ignored-option, topology: replicaSet, field: advanced.flags }
+      - { rule: list-ignored-option, topology: replicaSet, field: advanced.limits }
+      - { rule: list-ignored-option, topology: replicaSet, field: advanced.sizes }
+
+  - name: the item's default or CEL in a mode is not supported yet either
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate:
+                  uiType: text
+                  fieldParams:
+                    modes: { new: { defaultValue: --verbose } }
+              flags:
+                uiType: list
+                path: spec.flags
+                fieldParams: { label: Flags }
+                itemTemplate:
+                  uiType: text
+                  validation:
+                    modes:
+                      edit:
+                        celExpressions: [{ celExpr: "self != ''", message: Set }]
+    issues:
+      - { rule: list-ignored-option, topology: replicaSet, field: advanced.args }
+      - { rule: list-ignored-option, topology: replicaSet, field: advanced.flags }
+
+  - name: the item is the same field in every form mode, so it can't be hidden in one
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                itemTemplate:
+                  uiType: text
+                  modes: { edit: { uiType: hidden } }
+    issues:
+      - { rule: list-ignored-option, topology: replicaSet, field: advanced.args }
+
+  - name: the item takes no options from an API yet
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              secrets:
+                uiType: list
+                path: spec.secrets
+                fieldParams: { label: Secrets }
+                itemTemplate:
+                  uiType: text
+                  dataSource: { provider: secrets }
+    issues:
+      - { rule: list-ignored-option, topology: replicaSet, field: advanced.secrets }
+
+  - name: a default that is not a list of strings is ignored
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              ports:
+                uiType: list
+                path: spec.ports
+                fieldParams:
+                  label: Ports
+                  defaultValue: [8080, http]
+                itemTemplate: *textItem
+              labels:
+                uiType: list
+                path: spec.labels
+                fieldParams:
+                  label: Labels
+                  defaultValue: { team: db }
+                itemTemplate: *textItem
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams:
+                  label: Arguments
+                  defaultValue: --verbose
+                itemTemplate: *textItem
+    issues:
+      - { rule: list-invalid-default, topology: replicaSet, field: advanced.args }
+      - { rule: list-invalid-default, topology: replicaSet, field: advanced.labels }
+      - { rule: list-invalid-default, topology: replicaSet, field: advanced.ports }
+
+  - name: a mode's default that is not a list of strings is ignored too
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams:
+                  label: Arguments
+                  modes: { new: { defaultValue: [[--verbose]] } }
+                itemTemplate: *textItem
+    issues:
+      - { rule: list-invalid-default, topology: replicaSet, field: advanced.args }
+
+  - name: min above max lets no list pass
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                validation: { min: 3, max: 2 }
+                itemTemplate: *textItem
+    issues:
+      - { rule: list-invalid-limits, topology: replicaSet, field: advanced.args }
+
+  - name: a limit must be a whole number of 0 or more
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                validation: { max: 1.5 }
+                itemTemplate: *textItem
+              flags:
+                uiType: list
+                path: spec.flags
+                fieldParams: { label: Flags }
+                validation: { min: -1 }
+                itemTemplate: *textItem
+    issues:
+      - { rule: list-invalid-limits, topology: replicaSet, field: advanced.args }
+      - { rule: list-invalid-limits, topology: replicaSet, field: advanced.flags }
+
+  - name: a mode branch takes the shared limits, so they can clash with its own
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                validation:
+                  max: 1
+                  modes: { edit: { min: 2 } }
+                itemTemplate: *textItem
+    issues:
+      - { rule: list-invalid-limits, topology: replicaSet, field: advanced.args }
+
+  - name: a mode branch that doesn't inherit the shared limits doesn't clash with them
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                validation:
+                  max: 1
+                  modes: { edit: { inheritShared: false, min: 2 } }
+                itemTemplate: *textItem
+    issues: []
+
+  - name: the item's own min and max count characters, so they may be anything a text field takes
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams: { label: Arguments }
+                validation: { min: 1, max: 2 }
+                itemTemplate:
+                  uiType: text
+                  validation: { min: 63, max: 3 }
+    issues: []
+
+  - name: every finding on one list is reported, in a fixed order
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              args:
+                uiType: list
+                path: spec.args
+                fieldParams:
+                  label: Arguments
+                  defaultValue: --verbose
+                validation: { regex: { pattern: '^-' }, min: 2, max: 1 }
+                itemTemplate: *textItem
+    issues:
+      - { rule: list-ignored-option, topology: replicaSet, field: advanced.args }
+      - { rule: list-invalid-default, topology: replicaSet, field: advanced.args }
+      - { rule: list-invalid-limits, topology: replicaSet, field: advanced.args }
+
+  - name: a list the UI drops isn't linted
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              users:
+                uiType: list
+                path: spec.users
+                fieldParams: { label: Users, defaultValue: { admin: 1 } }
+                validation: { regex: { pattern: '^a' } }
+                itemTemplate: { uiType: group, components: {} }
+    issues:
+      - { rule: list-unsupported, topology: replicaSet, field: advanced.users }

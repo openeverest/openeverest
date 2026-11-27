@@ -18,14 +18,7 @@ import type {
   FieldCodecResolver,
 } from '../field-codecs/field-codecs.types';
 import { isPlainObject } from '../object-path/object-path';
-import { isStringMap, objectToRows, rowsToObject } from './map-field';
-
-// A map with no filled row has no map to write. A value that isn't rows, like
-// a saved map a form loaded unconverted, is in the API shape already.
-const toMap = (formValue: unknown): unknown =>
-  formValue !== undefined && !Array.isArray(formValue)
-    ? formValue
-    : rowsToObject(formValue);
+import { isStringMap, objectToRows, toMap } from './map-field';
 
 // `original` may be the instance as saved, and that can hold a literal `{}`.
 // A rule finds it unset, like rows with no entry.

@@ -30,6 +30,7 @@ export const UI_TYPE_DEFAULT_VALUE: Partial<Record<FieldType, unknown>> = {
   // Rows start empty either way; a shape this version doesn't implement must
   // not send an empty list in place of the value it can't edit.
   [FieldType.Map]: undefined,
+  [FieldType.List]: undefined,
 };
 
 export const componentGroupMap: Record<
@@ -50,8 +51,9 @@ export const muiComponentMap: Record<FieldType, React.ElementType> = {
   [FieldType.Hidden]: () => null,
   // Rendered by SecretField, never through UIComponent.
   [FieldType.Secret]: () => null,
-  // Rendered by MapField, never through UIComponent.
+  // Rendered by RowsField, never through UIComponent.
   [FieldType.Map]: () => null,
+  [FieldType.List]: () => null,
 };
 
 export const zodRuleMapByType: Record<FieldType, Record<string, string>> = {
@@ -98,6 +100,7 @@ export const zodRuleMapByType: Record<FieldType, Record<string, string>> = {
   },
   [FieldType.Secret]: {},
   [FieldType.Map]: {},
+  [FieldType.List]: {},
 };
 
 export const getZodRulesForFieldType = (
@@ -143,6 +146,7 @@ export const ZOD_SCHEMA_MAP: Record<FieldType, z.ZodTypeAny> = {
   [FieldType.Toggle]: z.boolean(),
   [FieldType.Hidden]: z.any(),
   [FieldType.Secret]: z.string(),
-  // Unused: build-shape builds every map field's schema itself.
+  // Unused: build-shape builds the schema of every map and list itself.
   [FieldType.Map]: z.any(),
+  [FieldType.List]: z.any(),
 };

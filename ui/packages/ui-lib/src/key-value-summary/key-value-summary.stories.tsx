@@ -71,3 +71,15 @@ export const WithMaskedValue: Story = {
     ],
   },
 };
+
+// A list's entries have no key, so the table is the values alone.
+export const ListOfValues: Story = {
+  args: {
+    label: 'Allowed source ranges',
+    entries: [
+      { value: '10.0.0.0/8' },
+      { value: '192.168.0.0/16' },
+      { value: '2001:db8::/32' },
+    ],
+  },
+};

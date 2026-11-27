@@ -32,9 +32,9 @@ import { postprocessSchemaData } from '../postprocess/postprocess-schema';
 import { mergeSectionEdit } from '../postprocess/merge-section-edit';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
 import { buildShapeFromComponents } from '../schema-builder/build-shape-from-components';
-import { getMapFieldDisplayRows } from './map-field';
+import { getRow, getRowsFieldDisplayEntries } from '../rows-field';
+import { Messages as RowsMessages } from '../rows-field/rows-field.messages';
 import { Messages } from './map-field.messages';
-import { getMapRow } from './map-row';
 
 const PATH = 'spec.proxy.annotations';
 
@@ -157,7 +157,7 @@ describe('map field rows validation', () => {
     });
 
     it('masks the field that holds the value in a read-only view', () => {
-      expect(getMapFieldDisplayRows({ token: 's3' }, component)).toEqual([
+      expect(getRowsFieldDisplayEntries({ token: 's3' }, component)).toEqual([
         {
           key: 'token',
           value: expect.not.stringContaining('s3'),
@@ -167,7 +167,7 @@ describe('map field rows validation', () => {
     });
 
     it('names the inputs Key and Value, and drops what a row cannot act on yet', () => {
-      const { secretName, secretValue } = getMapRow(component).components;
+      const { secretName, secretValue } = getRow(component).components;
 
       expect(secretName).toMatchObject({ fieldParams: { placeholder: 'Key' } });
       expect(secretValue).toEqual({
@@ -184,14 +184,14 @@ describe('map field rows validation', () => {
       issuesOf(annotations({ validation: { required: true } }), [
         { key: '', value: '' },
       ])
-    ).toEqual([{ path: ['root'], message: Messages.required }]);
+    ).toEqual([{ path: ['root'], message: RowsMessages.required }]);
 
     expect(
       issuesOf(annotations({ validation: { min: 2 } }), [
         { key: 'a', value: '1' },
         { key: '', value: '' },
       ])
-    ).toEqual([{ path: ['root'], message: Messages.tooFewEntries(2, 1) }]);
+    ).toEqual([{ path: ['root'], message: RowsMessages.tooFewEntries(2, 1) }]);
 
     expect(
       issuesOf(annotations({ validation: { max: 1 } }), [
@@ -199,7 +199,7 @@ describe('map field rows validation', () => {
         { key: '', value: '' },
         { key: 'b', value: '2' },
       ])
-    ).toEqual([{ path: ['root'], message: Messages.tooManyEntries(1, 1) }]);
+    ).toEqual([{ path: ['root'], message: RowsMessages.tooManyEntries(1, 1) }]);
   });
 
   it("puts the count issue beside the rows' issues, not over them", () => {
@@ -210,7 +210,7 @@ describe('map field rows validation', () => {
       ])
     ).toEqual([
       { path: [1, 'key'], message: Messages.duplicateKey('a') },
-      { path: ['root'], message: Messages.tooManyEntries(1, 1) },
+      { path: ['root'], message: RowsMessages.tooManyEntries(1, 1) },
     ]);
   });
 });

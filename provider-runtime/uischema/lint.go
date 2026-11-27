@@ -21,13 +21,14 @@ import (
 	"strings"
 )
 
-// ignoredRowFieldParams returns the params of a map row's field that a row
-// can't act on yet: it starts empty and writes only its key and value.
+// ignoredRowFieldParams returns the params of a row's field, in a map or a
+// list, that a row can't act on yet: it starts empty and writes only what its
+// fields hold.
 func ignoredRowFieldParams() []string {
 	return []string{"defaultValue", "badge", "badgeToApi"}
 }
 
-// ignoredRowFieldOptions returns the options of a map row's field that a row
+// ignoredRowFieldOptions returns the options of a row's field that a row
 // can't act on yet: it takes no options from an API, and is the same field in
 // every form mode.
 func ignoredRowFieldOptions() []string {
@@ -41,23 +42,23 @@ type branch struct {
 	rules map[string]any
 }
 
-// lintFields mirrors lintMapFields in the UI: it reports what the UI renders
-// anyway while ignoring part of it. For every map field the UI renders (not
-// in droppedMaps): options it ignores, a default it can't use and limits no
-// map meets.
+// lintFields mirrors lintRowsFields in the UI: it reports what the UI renders
+// anyway while ignoring part of it. For every map and list the UI renders
+// (not in dropped): options it ignores, a default it can't use and limits no
+// value meets.
 //
 //	labels:                          # map-ignored-option: regex is ignored
 //	  uiType: map
 //	  path: spec.labels
 //	  validation: {regex: {pattern: "^a"}}
 //	  itemTemplate: {...}
-func lintFields(topology string, sections map[string]any, droppedMaps map[string]bool) []Issue {
+func lintFields(topology string, sections map[string]any, dropped map[string]bool) []Issue {
 	var issues []Issue
 	for _, key := range sortedKeys(sections) {
 		section, _ := sections[key].(map[string]any)
 		components, _ := section["components"].(map[string]any)
 		for _, f := range collectFields(components, []string{key}) {
-			for _, finding := range lintField(f, droppedMaps) {
+			for _, finding := range lintField(f, dropped) {
 				issues = append(issues, Issue{
 					Rule:     finding.rule,
 					Topology: topology,
@@ -76,36 +77,37 @@ type finding struct {
 }
 
 // lintField returns a field's findings in the order the UI reports them.
-func lintField(f field, droppedMaps map[string]bool) []finding {
-	if f.item["uiType"] != uiTypeMap || droppedMaps[f.key] {
+func lintField(f field, dropped map[string]bool) []finding {
+	kind, ok := rowsKindOf(f.item["uiType"])
+	if !ok || dropped[f.key] {
 		return nil
 	}
 	var findings []finding
-	if ignored := ignoredMapOptions(f.item); len(ignored) > 0 {
+	if ignored := ignoredRowsOptions(f.item, kind); len(ignored) > 0 {
 		findings = append(findings, finding{
-			rule:    RuleMapIgnoredOption,
-			message: fmt.Sprintf("sets %s, which a map field doesn't support yet and ignores", strings.Join(ignored, ", ")),
+			rule:    kind.rules.ignoredOption,
+			message: fmt.Sprintf("sets %s, which a %s field doesn't support yet and ignores", strings.Join(ignored, ", "), kind.uiType),
 		})
 	}
-	if defaults := invalidMapDefaults(f.item); len(defaults) > 0 {
+	if defaults := invalidDefaults(f.item, kind); len(defaults) > 0 {
 		findings = append(findings, finding{
-			rule:    RuleMapInvalidDefault,
-			message: fmt.Sprintf("sets %s to something other than a map of strings, so the field starts empty", strings.Join(defaults, ", ")),
+			rule:    kind.rules.invalidDefault,
+			message: fmt.Sprintf("sets %s to something other than a %s, so the field starts empty", strings.Join(defaults, ", "), kind.valueShape),
 		})
 	}
-	if limits := describeInvalidLimits(f.item["validation"]); limits != "" {
-		findings = append(findings, finding{rule: RuleMapInvalidLimits, message: limits})
+	if limits := describeInvalidLimits(f.item["validation"], kind); limits != "" {
+		findings = append(findings, finding{rule: kind.rules.invalidLimits, message: limits})
 	}
 	return findings
 }
 
-// ignoredMapOptions lists the options of a map field the UI ignores: `regex`
-// on the map, and what a row's field sets that a row can't act on yet. Mode
-// branches count too.
+// ignoredRowsOptions lists the options of a map or a list the UI ignores:
+// `regex` on the field, and what a row's field sets that a row can't act on
+// yet. Mode branches count too.
 //
 //	validation:
 //	  regex: {pattern: "^a"}                   # -> validation.regex
-//	itemTemplate:
+//	itemTemplate:                              # of a map; a list declares the field itself
 //	  uiType: group
 //	  components:
 //	    value:
@@ -114,18 +116,15 @@ func lintField(f field, droppedMaps map[string]bool) []finding {
 //	      fieldParams: {defaultValue: x}       # -> itemTemplate.components.value.fieldParams.defaultValue
 //	      validation:
 //	        celExpressions: [{celExpr: "..."}] # -> itemTemplate.components.value.validation.celExpressions
-func ignoredMapOptions(item map[string]any) []string {
+func ignoredRowsOptions(item map[string]any, kind rowsKind) []string {
 	var ignored []string
 	for _, b := range declaredBranches(item["validation"], "validation") {
 		if _, ok := b.rules["regex"]; ok {
 			ignored = append(ignored, b.at+".regex")
 		}
 	}
-	itemTemplate, _ := item["itemTemplate"].(map[string]any)
-	components, _ := itemTemplate["components"].(map[string]any)
-	for _, name := range sortedKeys(components) {
-		rowField, _ := components[name].(map[string]any)
-		ignored = append(ignored, ignoredRowFieldSettings("itemTemplate.components."+name, rowField)...)
+	for _, f := range kind.rowFields(item["itemTemplate"]) {
+		ignored = append(ignored, ignoredRowFieldSettings(f.at, f.item)...)
 	}
 	return ignored
 }
@@ -160,18 +159,19 @@ func ignoredRowFieldSettings(at string, rowField map[string]any) []string {
 	return ignored
 }
 
-// invalidMapDefaults lists the defaults of a map field, in fieldParams or one
-// of its modes, that are not a map of strings. The UI ignores them.
-func invalidMapDefaults(item map[string]any) []string {
+// invalidDefaults lists the defaults of a map or a list, in fieldParams or
+// one of its modes, that are not in the shape the field writes. The UI
+// ignores them.
+func invalidDefaults(item map[string]any, kind rowsKind) []string {
 	fieldParams, _ := item["fieldParams"].(map[string]any)
 	var invalid []string
-	if value, ok := fieldParams["defaultValue"]; ok && !isStringMap(value) {
+	if value, ok := fieldParams["defaultValue"]; ok && !kind.isValidDefault(value) {
 		invalid = append(invalid, "fieldParams.defaultValue")
 	}
 	modes, _ := fieldParams["modes"].(map[string]any)
 	for _, mode := range sortedKeys(modes) {
 		params, _ := modes[mode].(map[string]any)
-		if value, ok := params["defaultValue"]; ok && !isStringMap(value) {
+		if value, ok := params["defaultValue"]; ok && !kind.isValidDefault(value) {
 			invalid = append(invalid, fmt.Sprintf("fieldParams.modes.%s.defaultValue", mode))
 		}
 	}
@@ -185,7 +185,7 @@ func invalidMapDefaults(item map[string]any) []string {
 //	validation:
 //	  min: 3
 //	  max: 2      # -> "validation needs at least 3 entries but allows at most 2, ..."
-func describeInvalidLimits(validation any) string {
+func describeInvalidLimits(validation any, kind rowsKind) string {
 	for _, b := range effectiveBranches(validation) {
 		for _, limit := range []string{"min", "max"} {
 			if value, ok := b.rules[limit]; ok && !isCount(value) {
@@ -195,7 +195,7 @@ func describeInvalidLimits(validation any) string {
 		minEntries, hasMin := b.rules["min"]
 		maxEntries, hasMax := b.rules["max"]
 		if hasMin && hasMax && toFloat(minEntries) > toFloat(maxEntries) {
-			return fmt.Sprintf("%s needs at least %v entries but allows at most %v, so no map passes", b.at, minEntries, maxEntries)
+			return fmt.Sprintf("%s needs at least %v entries but allows at most %v, so no %s passes", b.at, minEntries, maxEntries, kind.uiType)
 		}
 	}
 	return ""
@@ -247,19 +247,6 @@ func effectiveBranches(validation any) []branch {
 func hasCel(rules map[string]any) bool {
 	list, ok := rules["celExpressions"].([]any)
 	return ok && len(list) > 0
-}
-
-func isStringMap(value any) bool {
-	m, ok := value.(map[string]any)
-	if !ok {
-		return false
-	}
-	for _, entry := range m {
-		if _, ok := entry.(string); !ok {
-			return false
-		}
-	}
-	return true
 }
 
 // isCount reports whether value is a whole number of 0 or more. A schema

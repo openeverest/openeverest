@@ -17,6 +17,7 @@ import type {
   ComponentGroup,
   Section,
 } from '../../ui-generator.types';
+import { getListFieldCodec } from '../list-field';
 import { getMapFieldCodec } from '../map-field';
 import {
   deepClone,
@@ -39,6 +40,7 @@ import type {
 // changes.
 const RESOLVERS: FieldCodecResolver[] = [
   getMapFieldCodec,
+  getListFieldCodec,
   getQuantityFieldCodec,
 ];
 

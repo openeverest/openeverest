@@ -26,6 +26,9 @@ A map of strings, such as labels, annotations or environment variables, edited a
 adds and removes. Each row is a key and a value; the field writes `{ key: value, … }` to its
 `path`.
 
+For a list of strings, edited as the same rows with one input each, see the
+[list field](list-field.md).
+
 ## Properties:
 
 - `uiType`: `"map"` (**Required**)

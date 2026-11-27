@@ -12,4 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { MapField } from './map-field';
+export const Messages = {
+  valueRequired: 'Enter a value',
+  duplicateValue: (value: string) => `${value} is added more than once`,
+};

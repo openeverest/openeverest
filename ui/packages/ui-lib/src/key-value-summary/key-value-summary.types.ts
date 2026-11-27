@@ -13,7 +13,8 @@
 // limitations under the License.
 
 export interface KeyValueEntry {
-  key: string;
+  /** Left out by an entry of a list, which is a value alone. */
+  key?: string;
   value: string;
   /** The row shows a mask in place of the entry, so it offers no copy. */
   masked?: boolean;

@@ -15,8 +15,8 @@
 import type { Component } from '../../ui-generator.types';
 
 // How a field whose value in the form differs from the one in the API crosses
-// between the two, e.g. a map kept as rows or a quantity kept as a number.
-// Most fields hold the same value on both sides and have no codec.
+// between the two, e.g. a map or a list kept as rows, or a quantity kept as a
+// number. Most fields hold the same value on both sides and have no codec.
 export interface FieldCodec {
   // A saved value, as the form keeps it.
   toForm: (apiValue: unknown) => unknown;

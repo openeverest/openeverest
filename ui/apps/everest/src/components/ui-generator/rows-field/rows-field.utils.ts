@@ -15,29 +15,30 @@
 import { orderComponents } from 'components/ui-generator/utils/component-renderer/order-components';
 import {
   getRowFieldRole,
-  toAddedMapRow,
-} from 'components/ui-generator/utils/map-field';
-import type { ComponentGroup, MapComponent } from '../ui-generator.types';
-import { Messages } from './map-field.messages';
-import type { RowState } from './map-field.types';
+  toAddedRow,
+} from 'components/ui-generator/utils/rows-field';
+import type { ComponentGroup, RowsComponent } from '../ui-generator.types';
+import { Messages } from './rows-field.messages';
+import type { RowState } from './rows-field.types';
 
-// Whether the map carries a CEL rule of its own, in any form mode.
-export const hasOwnCelRule = ({ validation }: MapComponent): boolean =>
+// Whether the field carries a CEL rule of its own, in any form mode.
+export const hasOwnCelRule = ({ validation }: RowsComponent): boolean =>
   !!validation &&
   [validation, ...Object.values(validation.modes ?? {})].some(
     (rules) => !!rules.celExpressions?.length
   );
 
-// One row's fields: each named for the row ("Key 2"), disabled with the map,
+// One row's fields: each named for the row ("Key 2"), disabled with the field,
 // showing a cut-off value on hover, and the first one focused when the row was
-// just added. A field's own `disabled` holds for a row the form opened with
-// only: an added row's fields are enabled, so the focused one can be typed in.
+// just added. A row field's own `disabled` holds for a row the form opened
+// with only: an added row's fields are enabled, so the focused one can be
+// typed in.
 export const toRowAtIndex = (
-  mapRow: ComponentGroup,
+  preparedRow: ComponentGroup,
   index: number,
   { disabled, added, focus }: RowState
 ): ComponentGroup => {
-  const row = added ? toAddedMapRow(mapRow) : mapRow;
+  const row = added ? toAddedRow(preparedRow) : preparedRow;
   // The first as the row draws them, which `componentsOrder` may change.
   const [firstDrawn] = orderComponents(row.components, row.componentsOrder);
   return {

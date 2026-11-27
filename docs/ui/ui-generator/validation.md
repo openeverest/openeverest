@@ -164,7 +164,7 @@ A field that is disabled, always or in the current mode (`fieldParams.modes.<mod
 
 So put a rule that links two fields on the one the user can edit. For example, if `version` is disabled in `restore`, a rule on `replicas` that reads `spec.version` still runs there, and its error shows under `replicas`.
 
-In a [map field](components/map-field.md#locking-rows), a row field's `disabled` applies to the rows the form opened with: a row the user adds is editable, so the field's rules check it.
+In a [map field](components/map-field.md#locking-rows) or a [list field](components/list-field.md#locking-rows), a row field's `disabled` applies to the rows the form opened with: a row the user adds is editable, so the field's rules check it.
 
 ### CEL Evaluation Context
 
@@ -197,7 +197,8 @@ holds its **empty value**:
 - an empty text or select field is unset or `''`, and a toggle that is off is unset or `false`.
   Which one depends on the field's own `validation`, on the form mode and on whether the instance
   was saved with it, so allow both;
-- an empty number, quantity or [map](components/map-field.md) field is unset in every mode;
+- an empty number or quantity field, and a [map](components/map-field.md) or a
+  [list](components/list-field.md) with no entries, is unset in every mode;
 - every field of a [toggleable group](groups.md#toggleable-group) that is off is unset.
 
 Reading an unset field fails with a CEL error: the form can't be submitted, and the user sees
@@ -271,6 +272,59 @@ externalAccess:
 
 A rule on a row's key or value isn't supported yet: check the entries from the map with
 `.all(k, …)`, see [A CEL Rule on the Map](components/map-field.md#a-cel-rule-on-the-map).
+
+### Reading a List Field
+
+A rule reads a [list field](components/list-field.md) as the list it writes, an array of strings
+in the order of the rows, at the list's `path`. The rule may sit on another field or on the list
+itself; its error shows under the field it sits on. A list with no entries writes nothing, so the
+rule finds it unset: ask for it with `has()` first, as for any
+[optional field](#optional-fields-and-has). The same goes for the saved list at `original.<path>`.
+
+| To check                              | Write                                                                                         |
+| ------------------------------------- | --------------------------------------------------------------------------------------------- |
+| there are no entries                  | `!has(spec.args)`                                                                             |
+| a value is in the list                | `has(spec.args) && '--verbose' in spec.args`                                                  |
+| a value is not in the list            | `!has(spec.args) \|\| !('--verbose' in spec.args)`                                            |
+| the number of entries                 | `!has(spec.args) \|\| size(spec.args) <= 5`                                                   |
+| every entry                           | `!has(spec.args) \|\| spec.args.all(v, v.startsWith('--'))`                                   |
+| at least one entry                    | `has(spec.args) && spec.args.exists(v, v.startsWith('--config='))`                            |
+| exactly one entry                     | `has(spec.args) && spec.args.exists_one(v, v.startsWith('--config='))`                        |
+| the first entry                       | `has(spec.args) && spec.args[0] == 'serve'`                                                   |
+| the second entry                      | `has(spec.args) && size(spec.args) > 1 && spec.args[1] == '--verbose'`                        |
+| no saved entry is removed (edit mode) | `!has(original.spec.args) \|\| (has(spec.args) && original.spec.args.all(v, v in spec.args))` |
+
+- **An entry by its place.** `spec.args[1]` fails with a CEL error instead of your `message` when
+  the list has fewer than two entries, so check `size()` first, as in the table. A list that is
+  set has a first entry, so `spec.args[0]` needs only `has()`. An entry's place changes when the
+  user removes a row above it: unless the order is what the rule is about, ask with `in`,
+  `.all(v, …)` or `.exists(v, …)`.
+- **`has()` takes a path, not a place.** `has(spec.args[1])` is a CEL error.
+- **Rows the user hasn't finished.** An empty row isn't an entry, so the rule doesn't see it.
+
+In the section edit dialog the rule runs again whenever the list's rows change. A rule on the list
+itself does so in every form.
+
+```yaml
+serviceType:
+  uiType: select
+  path: spec.components.proxy.service.serviceType
+  fieldParams:
+    label: Service type
+    options:
+      - { label: ClusterIP, value: ClusterIP }
+      - { label: LoadBalancer, value: LoadBalancer }
+  validation:
+    celExpressions:
+      - celExpr: >-
+          !has(spec.components.proxy.service.serviceType) ||
+          spec.components.proxy.service.serviceType != 'LoadBalancer' ||
+          has(spec.components.proxy.service.loadBalancerService.sourceRanges)
+        message: Add the source ranges allowed to reach a LoadBalancer
+```
+
+A rule on the item isn't supported yet: check the entries from the list with `.all(v, …)`, see
+[A CEL Rule on the List](components/list-field.md#a-cel-rule-on-the-list).
 
 ### Full Example: Mongo Node Edit Constraints
 

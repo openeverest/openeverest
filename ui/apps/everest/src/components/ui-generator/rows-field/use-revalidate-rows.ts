@@ -15,26 +15,38 @@
 import { useEffect, useRef } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { isPlainObject } from 'components/ui-generator/utils/object-path';
+import type { RowsFieldKind } from 'components/ui-generator/utils/rows-field';
 
-// What the map's built-in rules read from each row: its key, and whether the
-// row counts as filled. A CEL rule on the map may read the value too.
-const toRowSignature = (row: unknown, withValues: boolean) => {
+// What the field's built-in rules read from each row: what its entry goes by,
+// and whether the row counts as filled. A CEL rule on the field may read the
+// rest of the row too.
+const toRowSignature = (
+  row: unknown,
+  { roles, identity }: RowsFieldKind,
+  withEveryPart: boolean
+) => {
   if (!isPlainObject(row)) return null;
-  return withValues
-    ? [row.key, row.value]
-    : [row.key, row.key !== '' || row.value !== ''];
+  const parts = roles.map((role) => row[role]);
+  return withEveryPart
+    ? parts
+    : [row[identity], parts.some((part) => part !== '')];
 };
 
-// Some issues span rows: a duplicate key, the entry count, a value without a
-// key, a CEL rule on the map. Typing in one row validates only that row's
-// input, so the whole map is re-validated whenever a key changes or a row
-// fills or empties, and on any change of a value when a CEL rule may read it.
-export const useRevalidateMap = (name: string, withValues: boolean) => {
+// Some issues span rows: a duplicate, the entry count, a row filled without
+// what its entry goes by, a CEL rule on the field. Typing in one row validates
+// only that row's input, so the whole field is re-validated whenever a row's
+// identity changes or a row fills or empties, and on any change of a row when
+// a CEL rule may read it.
+export const useRevalidateRows = (
+  name: string,
+  kind: RowsFieldKind,
+  withEveryPart: boolean
+) => {
   const { control, trigger } = useFormContext();
   const rows: unknown = useWatch({ control, name });
   const signature = JSON.stringify(
     (Array.isArray(rows) ? rows : []).map((row) =>
-      toRowSignature(row, withValues)
+      toRowSignature(row, kind, withEveryPart)
     )
   );
   const validatedSignature = useRef(signature);
