@@ -21,7 +21,8 @@ describe('toRowAtIndex', () => {
     const row = { ...keyValueRow(), componentsOrder: ['value', 'key'] };
 
     expect(
-      toRowAtIndex(row, 0, { disabled: false, focus: true }).components
+      toRowAtIndex(row, 0, { disabled: false, added: true, focus: true })
+        .components
     ).toMatchObject({
       key: { _renderOverrides: { autoFocus: false } },
       value: { _renderOverrides: { autoFocus: true } },

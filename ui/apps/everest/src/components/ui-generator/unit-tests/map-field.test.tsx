@@ -20,7 +20,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FormProvider, useForm, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TestWrapper } from 'utils/test';
 import { UIGenerator } from '../ui-generator';
@@ -28,12 +28,16 @@ import { useCelValidation } from '../hooks/use-cel-validation';
 import {
   ComponentGroup,
   FieldType,
+  FormMode,
   GroupType,
+  MapFieldParams,
+  TextFieldParams,
   TopologyUISchemas,
 } from '../ui-generator.types';
 import { keyValueRow } from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import { buildZodSchema } from '../utils/schema-builder';
 import { getDefaultValues } from '../utils/default-values';
+import { preprocessSchema } from '../utils/preprocess/preprocess-schema';
 
 const schema: TopologyUISchemas = {
   replicaSet: {
@@ -475,5 +479,215 @@ describe('UIGenerator - map field', () => {
       expect(screen.queryByText('Name the team')).not.toBeInTheDocument()
     );
     expect(screen.getByText('Added to the Service')).toBeInTheDocument();
+  });
+});
+
+describe('UIGenerator - map field with locked rows', () => {
+  // A map that opens with one entry, as the form of `formMode` gets it: with
+  // `fieldParams.modes` applied to the map and to its row's fields.
+  const lockedSchema = (
+    {
+      map,
+      key = {},
+    }: {
+      map?: Partial<MapFieldParams>;
+      key?: TextFieldParams;
+    },
+    formMode: FormMode = FormMode.Edit
+  ): TopologyUISchemas =>
+    preprocessSchema(
+      {
+        replicaSet: {
+          sections: {
+            advanced: {
+              components: {
+                annotations: {
+                  uiType: FieldType.Map,
+                  path: 'spec.proxy.annotations',
+                  fieldParams: {
+                    label: 'Annotations',
+                    defaultValue: { team: 'db' },
+                    ...map,
+                  },
+                  itemTemplate: keyValueRow({
+                    key: {
+                      fieldParams: key,
+                      validation: {
+                        regex: {
+                          pattern: '^[a-z]+$',
+                          message: 'Lowercase only',
+                        },
+                      },
+                    },
+                  }),
+                },
+              },
+            },
+          },
+        },
+      },
+      undefined,
+      formMode
+    );
+
+  const mapForm = (uiSchema: TopologyUISchemas) => (
+    <TestWrapper>
+      <FormWrapper uiSchema={uiSchema}>
+        <UIGenerator
+          sections={uiSchema.replicaSet.sections}
+          sectionKey="advanced"
+        />
+      </FormWrapper>
+    </TestWrapper>
+  );
+
+  const KEY_FIXED_IN_EDIT: TextFieldParams = {
+    modes: { edit: { disabled: true } },
+  };
+
+  it('fixes the keys the form opened with, and lets the user type the key of a row they add', async () => {
+    render(mapForm(lockedSchema({ key: KEY_FIXED_IN_EDIT })));
+
+    expect(screen.getByRole('textbox', { name: 'Key 1' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Value 1' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(screen.getByRole('textbox', { name: 'Key 2' })).toBeEnabled();
+    expect(screen.getByRole('textbox', { name: 'Key 2' })).toHaveFocus();
+
+    // Let the validation the new row started settle, as it would before a
+    // user types.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    await type('Value 2', 'gold');
+    expect(await screen.findByText('Enter a key')).toBeInTheDocument();
+
+    // The key's own rule checks the new row, though it skips the fixed ones.
+    await type('Key 2', 'Tier');
+    expect(await screen.findByText('Lowercase only')).toBeInTheDocument();
+    expect(screen.queryByText('Enter a key')).not.toBeInTheDocument();
+
+    await type('Key 2', 'tier');
+    await waitFor(() =>
+      expect(screen.queryByText('Lowercase only')).not.toBeInTheDocument()
+    );
+  });
+
+  it("keeps an added row the user's after an earlier row is removed, and until the form is reset", async () => {
+    const uiSchema = lockedSchema({ key: KEY_FIXED_IN_EDIT });
+    const ResetToLoadedValues = () => {
+      const { reset } = useFormContext();
+      return (
+        <button
+          onClick={() =>
+            reset({
+              spec: {
+                proxy: { annotations: [{ key: 'tier', value: 'gold' }] },
+              },
+            })
+          }
+        >
+          Load
+        </button>
+      );
+    };
+    render(
+      <TestWrapper>
+        <FormWrapper uiSchema={uiSchema}>
+          <UIGenerator
+            sections={uiSchema.replicaSet.sections}
+            sectionKey="advanced"
+          />
+          <ResetToLoadedValues />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove 1' }));
+
+    // The added row moved up to the first place and is still editable.
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('textbox', { name: 'Key 2' })
+      ).not.toBeInTheDocument()
+    );
+    expect(screen.getByRole('textbox', { name: 'Key 1' })).toBeEnabled();
+    await type('Key 1', 'Tier');
+    expect(await screen.findByText('Lowercase only')).toBeInTheDocument();
+
+    // Values loaded into the form are rows it opened with.
+    fireEvent.click(screen.getByRole('button', { name: 'Load' }));
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Key 1' })).toBeDisabled()
+    );
+    expect(screen.getByRole('textbox', { name: 'Key 1' })).toHaveValue('tier');
+  });
+
+  it('lets the user type in an added row whose key is read-only in the rows the form opened with', () => {
+    render(
+      mapForm(lockedSchema({ key: { modes: { edit: { readOnly: true } } } }))
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Key 1' })).toHaveAttribute(
+      'readonly'
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(screen.getByRole('textbox', { name: 'Key 2' })).not.toHaveAttribute(
+      'readonly'
+    );
+  });
+
+  it('keeps Remove off for the rows the form opened with, and on for a row added since', async () => {
+    render(mapForm(lockedSchema({ map: { disableRemove: true } })));
+
+    expect(screen.getByRole('button', { name: 'Remove 1' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(screen.getByRole('button', { name: 'Remove 2' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove 2' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('textbox', { name: 'Key 2' })
+      ).not.toBeInTheDocument()
+    );
+    expect(screen.getByRole('textbox', { name: 'Key 1' })).toHaveValue('team');
+    expect(screen.getByRole('button', { name: 'Remove 1' })).toBeDisabled();
+  });
+
+  it('disables Add alone, in the mode that says so', () => {
+    const map: Partial<MapFieldParams> = {
+      modes: { edit: { disableAdd: true } },
+    };
+
+    const { unmount } = render(mapForm(lockedSchema({ map }, FormMode.Edit)));
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Key 1' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Remove 1' })).toBeEnabled();
+    unmount();
+
+    render(mapForm(lockedSchema({ map }, FormMode.New)));
+    expect(screen.getByRole('button', { name: 'Add' })).toBeEnabled();
+  });
+
+  it('disables a row the user added too, once the map is disabled', () => {
+    const { rerender } = render(
+      mapForm(lockedSchema({ key: KEY_FIXED_IN_EDIT }))
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(screen.getByRole('textbox', { name: 'Key 2' })).toBeEnabled();
+
+    // The same form, now drawing the map disabled.
+    rerender(
+      mapForm(lockedSchema({ map: { disabled: true }, key: KEY_FIXED_IN_EDIT }))
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Key 2' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Value 2' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Remove 2' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
   });
 });

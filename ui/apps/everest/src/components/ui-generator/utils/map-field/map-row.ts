@@ -71,17 +71,43 @@ const toRowField = (
   };
 };
 
-// The row a map's item template declares, as the form draws it.
-export const toMapRow = (itemTemplate: ComponentGroup): ComponentGroup => ({
-  ...itemTemplate,
+const withRowFields = (
+  row: ComponentGroup,
+  toField: (field: Component | ComponentGroup) => Component | ComponentGroup
+): ComponentGroup => ({
+  ...row,
   components: Object.fromEntries(
-    Object.entries(itemTemplate.components).map(([name, field]) => [
+    Object.entries(row.components).map(([name, field]) => [
       name,
-      toRowField(field),
+      toField(field),
     ])
   ),
 });
 
+// The row a map's item template declares, as the form draws it.
+export const toMapRow = (itemTemplate: ComponentGroup): ComponentGroup =>
+  withRowFields(itemTemplate, toRowField);
+
 // Preprocess sets `_row`; a form that skips it gets the row prepared here.
 export const getMapRow = (component: MapComponent): ComponentGroup =>
   component._row ?? toMapRow(component.itemTemplate);
+
+// A row field's `disabled` or `readOnly` fixes what the form opened with, e.g.
+// a saved key. A row the user adds has nothing to fix yet: its key and value
+// are theirs to type, so its fields are editable and their rules apply.
+const toAddedRowField = (
+  field: Component | ComponentGroup
+): Component | ComponentGroup => {
+  if ('components' in field || field.uiType !== FieldType.Text) return field;
+  const { disabled, readOnly } = field.fieldParams;
+  if (!disabled && !readOnly) return field;
+  return {
+    ...field,
+    fieldParams: { ...field.fieldParams, disabled: false, readOnly: false },
+  };
+};
+
+// The row as a row added since the form opened draws and validates it. Takes
+// the prepared row (`getMapRow`), with the form mode's overrides applied.
+export const toAddedMapRow = (row: ComponentGroup): ComponentGroup =>
+  withRowFields(row, toAddedRowField);

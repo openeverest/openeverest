@@ -22,7 +22,11 @@ import {
 import { Box, Divider, FormHelperText, IconButton, Stack } from '@mui/material';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { ActionableLabeledContent } from '@percona/ui-lib';
-import { getMapRow } from 'components/ui-generator/utils/map-field';
+import {
+  createAddedRow,
+  getMapRow,
+  isAddedRow,
+} from 'components/ui-generator/utils/map-field';
 import { useUiGeneratorContext } from '../ui-generator-context';
 import { Messages } from './map-field.messages';
 import { GroupType } from '../ui-generator.types';
@@ -32,6 +36,8 @@ import { useRevalidateMap } from './use-revalidate-map';
 
 // Edits a map as rows. Each row is the item template's fields, drawn by the UI
 // Generator like any other field, so every param and rule of theirs applies.
+// What a schema locks (a disabled row field, `disableRemove`) holds for the
+// rows the form opened with: a row the user adds is theirs to fill or remove.
 export const MapField = ({
   item,
   name,
@@ -67,9 +73,9 @@ export const MapField = ({
       actionButtonProps={{
         dataTestId: `${name}-add`,
         buttonText: fieldParams.addButtonLabel ?? Messages.add,
-        disabled,
+        disabled: disabled || !!fieldParams.disableAdd,
         onClick: () => {
-          append({ key: '', value: '' }, { shouldFocus: false });
+          append(createAddedRow(), { shouldFocus: false });
           setFocusNewRow(true);
         },
       }}
@@ -78,26 +84,30 @@ export const MapField = ({
         gap={stacked ? 2 : 1}
         divider={stacked ? <Divider flexItem /> : undefined}
       >
-        {fields.map((field, index) => (
-          <Stack key={field.id} direction="row" alignItems="center" gap={1}>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              {renderRow(
-                toRowAtIndex(row, index, {
-                  disabled,
-                  focus: focusNewRow && index === fields.length - 1,
-                }),
-                `${name}.${index}`
-              )}
-            </Box>
-            <IconButton
-              aria-label={Messages.remove(index + 1)}
-              disabled={disabled}
-              onClick={() => remove(index)}
-            >
-              <DeleteOutlineOutlinedIcon />
-            </IconButton>
-          </Stack>
-        ))}
+        {fields.map((field, index) => {
+          const added = isAddedRow(field);
+          return (
+            <Stack key={field.id} direction="row" alignItems="center" gap={1}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                {renderRow(
+                  toRowAtIndex(row, index, {
+                    disabled,
+                    added,
+                    focus: focusNewRow && index === fields.length - 1,
+                  }),
+                  `${name}.${index}`
+                )}
+              </Box>
+              <IconButton
+                aria-label={Messages.remove(index + 1)}
+                disabled={disabled || (!!fieldParams.disableRemove && !added)}
+                onClick={() => remove(index)}
+              >
+                <DeleteOutlineOutlinedIcon />
+              </IconButton>
+            </Stack>
+          );
+        })}
       </Stack>
       {(errorMessage || fieldParams.helperText) && (
         <FormHelperText error={!!errorMessage}>

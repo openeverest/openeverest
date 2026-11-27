@@ -28,6 +28,7 @@ import {
   MAP_ROOT_ERROR_PATH,
   buildMapFieldSchema,
   getMapRow,
+  toAddedMapRow,
 } from '../map-field';
 import {
   applyValidationFromSchema,
@@ -114,22 +115,29 @@ export const buildShapeFromComponents = (
     if (component.uiType === FieldType.Map) {
       // Rows are validated even without rules: a map can't hold a key twice.
       // Each row against its own fields' rules, built here like any field's. A
-      // shape this version doesn't implement isn't validated, so its value
-      // passes through like an unknown uiType's.
+      // row field disabled for the rows the form opened with skips its rules
+      // there, as any disabled field does, and keeps them for a row added
+      // since, where it is enabled. A shape this version doesn't implement
+      // isn't validated, so its value passes through like an unknown uiType's.
       const mapValidation = resolveValidationForMode(
         component.validation,
         formMode
       );
-      fieldSchema = isMapComponent(component)
-        ? buildMapFieldSchema(
-            buildShapeFromComponents(
-              getMapRow(component).components,
-              '',
-              formMode
-            ).schemaShape,
-            mapValidation
-          )
-        : z.any().optional();
+      if (isMapComponent(component)) {
+        const row = getMapRow(component);
+        const buildRowShape = ({ components: rowFields }: ComponentGroup) =>
+          buildShapeFromComponents(rowFields, '', formMode).schemaShape;
+        fieldSchema = buildMapFieldSchema(
+          {
+            openedWith: buildRowShape(row),
+            added: buildRowShape(toAddedMapRow(row)),
+          },
+          mapValidation,
+          !!component.fieldParams.disableRemove
+        );
+      } else {
+        fieldSchema = z.any().optional();
+      }
 
       // A rule on the map reads it by its path, like a rule on any field. Its
       // error goes where the map's count errors go, beside the rows' own.

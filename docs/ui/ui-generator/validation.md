@@ -164,6 +164,8 @@ A field that is disabled, always or in the current mode (`fieldParams.modes.<mod
 
 So put a rule that links two fields on the one the user can edit. For example, if `version` is disabled in `restore`, a rule on `replicas` that reads `spec.version` still runs there, and its error shows under `replicas`.
 
+In a [map field](components/map-field.md#locking-rows), a row field's `disabled` applies to the rows the form opened with: a row the user adds is editable, so the field's rules check it.
+
 ### CEL Evaluation Context
 
 CEL expressions have access to the following variables:

@@ -23,7 +23,11 @@ export interface MapFieldProps {
 }
 
 export interface RowState {
+  // The map is disabled, and every row with it.
   disabled: boolean;
+  // The user added the row since the form opened, so a `disabled` of its own
+  // fields doesn't apply to it.
+  added: boolean;
   // The row was just added, so its first field takes the focus.
   focus: boolean;
 }

@@ -21,3 +21,10 @@ export const IGNORED_ROW_FIELD_RULES = ['celExpressions'];
 // every form mode: one hidden in a mode would no longer hold the key or the
 // value, and the map would be written without its entries.
 export const IGNORED_ROW_FIELD_OPTIONS = ['dataSource', 'modes'];
+
+// Marks a row the user added with the Add button, in the form's own data: the
+// rows a form is initialised with, or reset with loaded values, don't carry
+// it, so they are rows the form opened with. Starts with `_`, like the keys the
+// engine sets on a schema, so no row field's `path` can take the name. Only
+// the form reads it: the map is written from each row's key and value alone.
+export const ADDED_ROW_FLAG = '_added';
