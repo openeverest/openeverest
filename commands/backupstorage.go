@@ -36,6 +36,7 @@ var backupStorageCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(backupStorageCmd)
 	backupStorageCmd.AddCommand(backupstorage.GetListCmd())
+	backupStorageCmd.AddCommand(backupstorage.GetGetCmd())
 	backupStorageCmd.AddCommand(backupstorage.GetCreateCmd())
 	backupStorageCmd.AddCommand(backupstorage.GetDeleteCmd())
 	backupStorageCmd.AddCommand(backupstorage.GetUpdateCmd())
