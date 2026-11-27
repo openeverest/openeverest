@@ -28,8 +28,11 @@ flowchart TD
   - **`resolveSelectOptions`** — `optionsPath` → static `options[]` (reads the array from the Provider
     by path, maps `labelPath` / `valuePath`). The `defaultValue` is then the schema's own
     `defaultValue`, else (create only) the option named by `optionsPathConfig.defaultValuePath`
-    (e.g. the Provider's `spec.defaultVersion`), else the first option. A `defaultValuePath` that
-    resolves to a value outside the options falls back to the first option with a dev-time warning.
+    (e.g. the Provider's `spec.defaultVersion`), else the first option. A schema `defaultValue` or a
+    `defaultValuePath` value that is not one of the options is skipped with a dev-time warning; an
+    empty `defaultValue` is kept as an explicitly empty selection. The Go validator
+    `provider-runtime/uischema` reports both cases when it is given the Provider;
+    `provider-runtime/uischema/testdata/select-defaults.yaml` is the case set both are tested against.
   - **`dataSource` validation** — for a component with `dataSource: { provider }`, warns (dev-time) if
     the provider is not registered. Options are not resolved here — they are loaded at runtime by
     `DataSourceField` and prefetched by `DataSourcePrefetcher`.
@@ -374,4 +377,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-20
+- Last updated: 2026-11-25

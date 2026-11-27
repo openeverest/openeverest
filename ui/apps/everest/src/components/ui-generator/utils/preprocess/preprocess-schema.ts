@@ -24,6 +24,7 @@ import {
 import { Provider } from 'shared-types/api.types';
 import { resolveSelectOptions } from '../../ui-component/utils/select-component-handler';
 import { getValueByPath } from '../../ui-component/utils/get-value-by-path';
+import { isEmptyFieldValue } from '../object-path';
 import { withNormalizedPathMeta } from './normalized-component';
 import { applyModeOverrides } from './apply-mode-overrides';
 import { providerRegistry } from '../../api-providers';
@@ -52,6 +53,36 @@ const describeDegrade = (
     default:
       return undefined;
   }
+};
+
+// The schema's own `defaultValue`, when the form can open with it: an option,
+// an explicitly empty selection, or the list default of a `multiple` select.
+// Undefined when it is unset or names no option (a stale value, or an unquoted
+// number) — the caller then falls back to the Provider default or the first option.
+// The Go validator reports the same case (select-default-not-an-option).
+const resolveSchemaDefault = (
+  defaultValue: unknown,
+  options: { label: string; value: string }[],
+  keyPath: string[]
+): unknown => {
+  if (defaultValue === undefined) {
+    return undefined;
+  }
+  if (
+    isEmptyFieldValue(defaultValue) ||
+    Array.isArray(defaultValue) ||
+    options.some((option) => option.value === defaultValue)
+  ) {
+    return defaultValue;
+  }
+
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[UISchema] "${keyPath.join('.')}" sets defaultValue ${JSON.stringify(defaultValue)}, which is not one of its options; ignoring it.`
+    );
+  }
+  return undefined;
 };
 
 // The option named by `optionsPathConfig.defaultValuePath` (e.g. the Provider's
@@ -167,9 +198,15 @@ const preprocessComponent = (
         {}
       ) as SelectFieldParams;
 
-    // Precedence: the schema's own defaultValue, then the Provider's declared
-    // default, then the first option. The Provider default applies to create only:
-    // edit shows the instance's value, and restore/import follow the source.
+    // Precedence: the schema's own defaultValue (if it is an option), then the
+    // Provider's declared default, then the first option. The Provider default
+    // applies to create only: edit shows the instance's value, and restore/import
+    // follow the source.
+    const schemaDefault = resolveSchemaDefault(
+      baseParams.defaultValue,
+      options,
+      keyPath
+    );
     const providerDefault =
       formMode === FormMode.New
         ? resolveProviderDefault(
@@ -180,8 +217,8 @@ const preprocessComponent = (
           )
         : undefined;
     const defaultValue =
-      baseParams.defaultValue !== undefined
-        ? baseParams.defaultValue
+      schemaDefault !== undefined
+        ? schemaDefault
         : (providerDefault ?? options[0].value);
 
     return {

@@ -15,6 +15,7 @@
 package uischema
 
 import (
+	"io/fs"
 	"os"
 	"testing"
 
@@ -32,14 +33,15 @@ type expectedIssue struct {
 
 type sharedCase struct {
 	Name     string          `json:"name"`
+	Provider map[string]any  `json:"provider,omitempty"`
 	UISchema map[string]any  `json:"uiSchema"`
 	Issues   []expectedIssue `json:"issues"`
 }
 
-// The same file drives the UI preprocess tests; see the package doc.
-func loadToggleableCases(t *testing.T) []sharedCase {
+// The same files drive the UI preprocess tests; see the package doc.
+func loadSharedCases(t *testing.T, file string) []sharedCase {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/toggleable.yaml")
+	raw, err := fs.ReadFile(os.DirFS("testdata"), file)
 	require.NoError(t, err)
 	var doc struct {
 		Cases []sharedCase `json:"cases"`
@@ -49,12 +51,12 @@ func loadToggleableCases(t *testing.T) []sharedCase {
 	return doc.Cases
 }
 
-func TestValidateToggleableSharedCases(t *testing.T) {
-	t.Parallel()
-	for _, tc := range loadToggleableCases(t) {
+func runSharedCases(t *testing.T, file string) {
+	t.Helper()
+	for _, tc := range loadSharedCases(t, file) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			issues := Validate(Input{UISchema: tc.UISchema})
+			issues := Validate(Input{UISchema: tc.UISchema, Provider: tc.Provider})
 			got := make([]expectedIssue, 0, len(issues))
 			for _, issue := range issues {
 				assert.NotEmpty(t, issue.Message)
@@ -66,6 +68,23 @@ func TestValidateToggleableSharedCases(t *testing.T) {
 			}
 			assert.Equal(t, want, got)
 		})
+	}
+}
+
+func TestValidateToggleableSharedCases(t *testing.T) {
+	t.Parallel()
+	runSharedCases(t, "toggleable.yaml")
+}
+
+func TestValidateSelectDefaultSharedCases(t *testing.T) {
+	t.Parallel()
+	runSharedCases(t, "select-defaults.yaml")
+}
+
+func TestValidateSkipsSelectDefaultsWithoutProvider(t *testing.T) {
+	t.Parallel()
+	for _, tc := range loadSharedCases(t, "select-defaults.yaml") {
+		assert.Empty(t, Validate(Input{UISchema: tc.UISchema}), tc.Name)
 	}
 }
 
