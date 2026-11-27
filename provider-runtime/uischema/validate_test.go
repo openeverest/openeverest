@@ -31,9 +31,10 @@ type expectedIssue struct {
 }
 
 type sharedCase struct {
-	Name     string          `json:"name"`
-	UISchema map[string]any  `json:"uiSchema"`
-	Issues   []expectedIssue `json:"issues"`
+	Name       string          `json:"name"`
+	Topologies map[string]any  `json:"topologies"`
+	UISchema   map[string]any  `json:"uiSchema"`
+	Issues     []expectedIssue `json:"issues"`
 }
 
 // The same file drives the UI preprocess tests; see the package doc.
@@ -54,7 +55,7 @@ func TestValidateToggleableSharedCases(t *testing.T) {
 	for _, tc := range loadToggleableCases(t) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			issues := Validate(Input{UISchema: tc.UISchema})
+			issues := Validate(Input{UISchema: tc.UISchema, Topologies: tc.Topologies})
 			got := make([]expectedIssue, 0, len(issues))
 			for _, issue := range issues {
 				assert.NotEmpty(t, issue.Message)
