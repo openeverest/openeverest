@@ -33,6 +33,7 @@ require (
 	github.com/openeverest/helm-charts/charts/everest v0.0.0-20261125185428-b697f706679d
 	github.com/operator-framework/api v0.46.0
 	github.com/percona/everest-operator v0.6.0-dev1.0.20260429065444-70caa52c384a
+	github.com/prometheus/client_golang v1.24.0
 	github.com/rodaine/table v1.4.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
@@ -338,7 +339,6 @@ require (
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/prometheus/client_golang v1.24.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.0 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect

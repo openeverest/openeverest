@@ -1,0 +1,446 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package metrics exposes the OpenEverest inventory as Prometheus metrics.
+//
+// The collector builds every series at scrape time from an inventory
+// Snapshot, the way kube-state-metrics does: no reconciler keeps gauges up to
+// date, and the series of a deleted object disappear on the next scrape.
+package metrics
+
+import (
+	"context"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract"
+	"github.com/openeverest/openeverest/v2/internal/inventory"
+	"github.com/openeverest/openeverest/v2/pkg/version"
+)
+
+const (
+	// DefaultReuseFor is how long a scrape's result answers the next scrapes.
+	// It bounds the work /metrics can cause however often it is called, and
+	// is shorter than any usual scrape interval.
+	DefaultReuseFor = 10 * time.Second
+
+	syncCheckTimeout = time.Second
+)
+
+// Options configure a Collector.
+type Options struct {
+	// IsLeader reports whether this replica emits the inventory. Every
+	// controller replica shares the same view, so only the leader emits it
+	// and scraping every replica yields one copy of each series; the others
+	// emit only openeverest_build_info.
+	IsLeader func() bool
+	// Synced reports, without waiting, whether the reader holds every kind
+	// the inventory covers. Until it does, a scrape emits no inventory rather
+	// than wait for the API server.
+	Synced func(ctx context.Context) bool
+	// ReuseFor is how long a result answers the next scrapes; 0 recomputes
+	// every scrape.
+	ReuseFor time.Duration
+	// Now returns the current time; time.Now if nil.
+	Now func() time.Time
+}
+
+// Collector is a prometheus.Collector over the inventory of one cluster.
+//
+// A scrape never reaches the API server: it reads the controller's cache, and
+// only once every informer it needs has synced. Repeated scrapes within
+// ReuseFor share one result.
+type Collector struct {
+	reader client.Reader
+	opts   Options
+	log    logr.Logger
+
+	mu       sync.Mutex
+	last     []prometheus.Metric
+	lastTime time.Time
+}
+
+// NewCollector returns a Collector that reads the inventory from reader.
+func NewCollector(reader client.Reader, opts Options, log logr.Logger) *Collector {
+	if opts.Now == nil {
+		opts.Now = time.Now
+	}
+	return &Collector{reader: reader, opts: opts, log: log}
+}
+
+// CacheSynced returns an Options.Synced that reports whether the informer of
+// every inventory kind has synced, without waiting for any. GetInformer starts
+// an informer for a kind the cache doesn't hold yet, so every kind in
+// inventory.Kinds() must already be watched by a controller, and the
+// controller's RBAC must allow listing and watching it.
+func CacheSynced(informers cache.Informers) func(ctx context.Context) bool {
+	return func(ctx context.Context) bool {
+		for _, obj := range inventory.Kinds() {
+			informer, err := informers.GetInformer(ctx, obj, cache.BlockUntilSynced(false))
+			if err != nil || !informer.HasSynced() {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+// Describe implements prometheus.Collector.
+func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
+	for _, d := range allDescs {
+		ch <- d
+	}
+}
+
+// Collect implements prometheus.Collector.
+func (c *Collector) Collect(ch chan<- prometheus.Metric) {
+	for _, m := range c.metrics() {
+		ch <- m
+	}
+}
+
+// metrics returns the series of a recent scrape, or computes them. The lock
+// covers only in-memory work: reading the synced cache and building series.
+func (c *Collector) metrics() []prometheus.Metric {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	now := c.opts.Now()
+	if c.last != nil && now.Sub(c.lastTime) < c.opts.ReuseFor {
+		return c.last
+	}
+
+	e := newEmitter()
+	e.gauge(buildInfo, 1, version.Version, contract.Version)
+	if c.opts.IsLeader() {
+		c.emitInventory(e)
+	}
+	c.last, c.lastTime = e.metrics, now
+	return c.last
+}
+
+func (c *Collector) emitInventory(e *emitter) {
+	ctx, cancel := context.WithTimeout(context.Background(), syncCheckTimeout)
+	defer cancel()
+	if !c.opts.Synced(ctx) {
+		c.log.V(1).Info("The cache has not synced every inventory kind yet; /metrics leaves the inventory out")
+		return
+	}
+	snap, err := inventory.Collect(ctx, c.reader)
+	if err != nil {
+		c.log.Error(err, "Failed to collect the inventory for /metrics")
+		return
+	}
+	emitSnapshot(e, snap)
+}
+
+func emitSnapshot(e *emitter, s *inventory.Snapshot) {
+	emitExtensions(e, s.InstalledExtensions)
+	emitPlugins(e, s.Plugins)
+	emitProviders(e, s.Providers)
+	emitClasses(e, s)
+	emitBackupStorages(e, s.BackupStorages)
+	emitMonitoringDestinations(e, s.MonitoringDestinations)
+	emitInstances(e, s.Instances)
+	emitBackups(e, s.Backups, s.Instances)
+	emitRestores(e, s.Restores)
+}
+
+func emitExtensions(e *emitter, extensions []extensionsv1alpha1.InstalledExtension) {
+	for i := range extensions {
+		ie := &extensions[i]
+		typ := string(ie.Spec.Type)
+		e.gauge(extensionInfo, 1, typ, ie.Name, ie.Spec.Version)
+		e.oneHot(extensionPhase, string(ie.Status.Phase), extensionPhases, typ, ie.Name)
+	}
+}
+
+func emitPlugins(e *emitter, plugins []extensionsv1alpha1.Plugin) {
+	for i := range plugins {
+		e.gauge(pluginInfo, 1, plugins[i].Name, plugins[i].Spec.Version)
+	}
+}
+
+func emitProviders(e *emitter, providers []corev1alpha1.Provider) {
+	for i := range providers {
+		p := &providers[i]
+		e.gauge(providerInfo, 1, p.Name, p.Status.ContractVersion)
+		for _, cond := range p.Status.Conditions {
+			e.conditionStatus(providerCondition, cond, p.Name, cond.Type)
+		}
+	}
+}
+
+func emitClasses(e *emitter, s *inventory.Snapshot) {
+	const (
+		kindMonitoringClass    = "MonitoringClass"
+		kindBackupClass        = "BackupClass"
+		kindBackupStorageClass = "BackupStorageClass"
+	)
+	for i := range s.MonitoringClasses {
+		mc := &s.MonitoringClasses[i]
+		e.gauge(classInfo, 1, kindMonitoringClass, mc.Name, mc.Spec.ControllerName)
+		emitAccepted(e, kindMonitoringClass, mc.Name, mc.Status.Conditions, monitoringv1alpha1.MonitoringClassConditionAccepted)
+	}
+	for i := range s.BackupClasses {
+		bc := &s.BackupClasses[i]
+		controller := ""
+		if bc.Spec.ProviderManaged != nil {
+			controller = bc.Spec.ProviderManaged.ProviderRef.Name
+		}
+		e.gauge(classInfo, 1, kindBackupClass, bc.Name, controller)
+		emitAccepted(e, kindBackupClass, bc.Name, bc.Status.Conditions, backupv1alpha1.BackupClassConditionAccepted)
+	}
+	for i := range s.BackupStorageClasses {
+		e.gauge(classInfo, 1, kindBackupStorageClass, s.BackupStorageClasses[i].Name, "")
+	}
+}
+
+func emitAccepted(e *emitter, kind, name string, conditions []metav1.Condition, conditionType string) {
+	for _, cond := range conditions {
+		if cond.Type == conditionType {
+			e.conditionStatus(classAccepted, cond, kind, name)
+			return
+		}
+	}
+}
+
+func emitBackupStorages(e *emitter, storages []backupv1alpha1.BackupStorage) {
+	for i := range storages {
+		bs := &storages[i]
+		e.gauge(backupStorageInfo, 1, bs.Namespace, bs.Name, bs.Spec.BackupStorageClassRef.Name)
+		for _, cond := range bs.Status.Conditions {
+			if cond.Type == backupv1alpha1.BackupStorageConditionAccepted {
+				e.conditionStatus(backupStorageAccepted, cond, bs.Namespace, bs.Name)
+				break
+			}
+		}
+	}
+}
+
+func emitMonitoringDestinations(e *emitter, destinations []monitoringv1alpha1.MonitoringDestination) {
+	for i := range destinations {
+		md := &destinations[i]
+		e.gauge(monitoringDestinationInfo, 1, md.Namespace, md.Name, md.Spec.ClassRef.Name)
+		for _, cond := range md.Status.Conditions {
+			if cond.Type == monitoringv1alpha1.MonitoringDestinationConditionReady {
+				e.conditionStatus(monitoringDestinationReady, cond, md.Namespace, md.Name)
+				break
+			}
+		}
+	}
+}
+
+func emitInstances(e *emitter, instances []corev1alpha1.Instance) {
+	for i := range instances {
+		inst := &instances[i]
+		ns, name := inst.Namespace, inst.Name
+		e.gauge(instanceInfo, 1, ns, name, inst.Spec.ProviderRef.Name, instanceVersion(inst))
+		e.oneHot(instancePhase, string(inst.Status.Phase), instancePhases, ns, name)
+		for _, cond := range inst.Status.Conditions {
+			if instanceConditions[cond.Type] {
+				e.conditionStatus(instanceCondition, cond, ns, name, cond.Type)
+			}
+		}
+		emitComponentReplicas(e, inst)
+		emitInstanceResources(e, inst)
+		emitPITR(e, inst)
+	}
+}
+
+// instanceVersion is the version the Instance runs, as the provider reports
+// it, or the one its spec asks for before the provider has reported. An
+// Instance that leaves spec.version to the provider's default has only the
+// former.
+func instanceVersion(inst *corev1alpha1.Instance) string {
+	if inst.Status.Version != "" {
+		return inst.Status.Version
+	}
+	return inst.Spec.Version
+}
+
+func emitComponentReplicas(e *emitter, inst *corev1alpha1.Instance) {
+	for _, c := range inst.Status.Components {
+		for kind, replicas := range map[string]*int32{
+			"desired": c.DesiredReplicas,
+			"current": c.Replicas,
+			"ready":   c.ReadyReplicas,
+		} {
+			if replicas != nil {
+				e.gauge(instanceComponentReplicas, float64(*replicas), inst.Namespace, inst.Name, c.Name, kind)
+			}
+		}
+	}
+}
+
+func emitInstanceResources(e *emitter, inst *corev1alpha1.Instance) {
+	for _, r := range inventory.InstanceResources(inst) {
+		for res, v := range r.Requests {
+			e.gauge(instanceResourceRequests, v, inst.Namespace, inst.Name, r.Component, string(res))
+		}
+		for res, v := range r.Limits {
+			e.gauge(instanceResourceLimits, v, inst.Namespace, inst.Name, r.Component, string(res))
+		}
+	}
+}
+
+func emitPITR(e *emitter, inst *corev1alpha1.Instance) {
+	if inst.Status.Backup == nil {
+		return
+	}
+	for _, st := range inst.Status.Backup.Storages {
+		if st.PITR == nil {
+			continue
+		}
+		available := 0.0
+		if st.PITR.State == corev1alpha1.PITRStateAvailable {
+			available = 1
+		}
+		e.gauge(instancePITRAvailable, available, inst.Namespace, inst.Name, st.Name)
+	}
+}
+
+type backupKey struct{ namespace, instance, storage, state string }
+
+type storageKey struct{ namespace, instance, storage string }
+
+func emitBackups(e *emitter, backups []backupv1alpha1.Backup, instances []corev1alpha1.Instance) {
+	counts := make(map[backupKey]int)
+	lastSuccess := make(map[storageKey]time.Time)
+	for i := range backups {
+		b := &backups[i]
+		instance := ""
+		if b.Spec.Origin.InstanceRef != nil {
+			instance = b.Spec.Origin.InstanceRef.Name
+		}
+		storage := b.Spec.StorageRef.Name
+		counts[backupKey{b.Namespace, instance, storage, stateOrUnknown(string(b.Status.State))}]++
+		if b.Status.State != backupv1alpha1.BackupStateSucceeded || instance == "" {
+			continue
+		}
+		completed := b.CreationTimestamp.Time
+		if b.Status.CompletedAt != nil {
+			completed = b.Status.CompletedAt.Time
+		}
+		k := storageKey{b.Namespace, instance, storage}
+		if completed.After(lastSuccess[k]) {
+			lastSuccess[k] = completed
+		}
+	}
+	for k, n := range counts {
+		e.gauge(backupsCount, float64(n), k.namespace, k.instance, k.storage, k.state)
+	}
+	for k, t := range lastSuccess {
+		e.gauge(instanceLastSuccessfulBackup, float64(t.Unix()), k.namespace, k.instance, k.storage)
+	}
+	// A storage with an enabled schedule but no successful Backup yet reports
+	// 0, so a staleness alert also finds backups that have never succeeded.
+	for k := range scheduledStorages(instances) {
+		if _, ok := lastSuccess[k]; !ok {
+			e.gauge(instanceLastSuccessfulBackup, 0, k.namespace, k.instance, k.storage)
+		}
+	}
+}
+
+func scheduledStorages(instances []corev1alpha1.Instance) map[storageKey]struct{} {
+	keys := make(map[storageKey]struct{})
+	for i := range instances {
+		inst := &instances[i]
+		if inst.Spec.Backup == nil || !inst.Spec.Backup.Enabled {
+			continue
+		}
+		for _, st := range inst.Spec.Backup.Storages {
+			for _, sch := range st.Schedules {
+				if sch.Enabled {
+					keys[storageKey{inst.Namespace, inst.Name, st.StorageRef.Name}] = struct{}{}
+					break
+				}
+			}
+		}
+	}
+	return keys
+}
+
+type restoreKey struct{ namespace, instance, state string }
+
+func emitRestores(e *emitter, restores []backupv1alpha1.Restore) {
+	counts := make(map[restoreKey]int)
+	for i := range restores {
+		r := &restores[i]
+		counts[restoreKey{r.Namespace, r.Spec.InstanceRef.Name, stateOrUnknown(string(r.Status.State))}]++
+	}
+	for k, n := range counts {
+		e.gauge(restoresCount, float64(n), k.namespace, k.instance, k.state)
+	}
+}
+
+// stateOrUnknown keeps objects without a reported state from producing an
+// empty label value, which Prometheus treats as a missing label.
+func stateOrUnknown(state string) string {
+	if state == "" {
+		return "Unknown"
+	}
+	return state
+}
+
+// emitter builds const metrics and drops a series whose labels were already
+// emitted. A duplicate series fails the whole scrape, and an object with, say,
+// a repeated condition type must not take /metrics down.
+type emitter struct {
+	metrics []prometheus.Metric
+	seen    map[seriesKey]struct{}
+}
+
+type seriesKey struct {
+	desc   *prometheus.Desc
+	labels string
+}
+
+func newEmitter() *emitter {
+	return &emitter{seen: make(map[seriesKey]struct{})}
+}
+
+func (e *emitter) gauge(desc *prometheus.Desc, value float64, labels ...string) {
+	key := seriesKey{desc, strings.Join(labels, "\x00")}
+	if _, ok := e.seen[key]; ok {
+		return
+	}
+	e.seen[key] = struct{}{}
+	e.metrics = append(e.metrics, prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, value, labels...))
+}
+
+// oneHot emits one series per possible value, 1 for the current one.
+func (e *emitter) oneHot(desc *prometheus.Desc, current string, values []string, labels ...string) {
+	for _, v := range values {
+		value := 0.0
+		if v == current {
+			value = 1
+		}
+		e.gauge(desc, value, append(labels, v)...)
+	}
+}
+
+func (e *emitter) conditionStatus(desc *prometheus.Desc, cond metav1.Condition, labels ...string) {
+	e.oneHot(desc, strings.ToLower(string(cond.Status)), conditionStatuses, labels...)
+}
