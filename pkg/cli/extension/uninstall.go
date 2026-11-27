@@ -19,8 +19,10 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
@@ -32,7 +34,8 @@ type UninstallConfig struct {
 	Name           string
 }
 
-// PluginUninstaller uninstalls an extension by deleting its Plugin CR.
+// PluginUninstaller uninstalls an extension by deleting its InstalledExtension
+// and Plugin CRs.
 type PluginUninstaller struct {
 	cfg        UninstallConfig
 	kubeClient kubernetes.KubernetesConnector
@@ -57,11 +60,19 @@ func NewPluginUninstaller(cfg UninstallConfig, l *zap.SugaredLogger) (*PluginUni
 	return pu, nil
 }
 
-// Run deletes the Plugin CR.
+// Run deletes the InstalledExtension and Plugin CRs created by install.
 func (pu *PluginUninstaller) Run(ctx context.Context) error {
 	plugin, err := pu.kubeClient.GetPlugin(ctx, ctrlclient.ObjectKey{Name: pu.cfg.Name})
 	if err != nil {
 		return fmt.Errorf("plugin %q not found: %w", pu.cfg.Name, err)
+	}
+
+	// The InstalledExtension is created next to the Plugin by install, is
+	// cluster-scoped and carries no owner reference, so nothing else will ever
+	// reclaim it. Remove it first, so it doesn't briefly report the Plugin as
+	// missing before it goes away itself.
+	if err := pu.deleteInstalledExtension(ctx); err != nil {
+		return err
 	}
 
 	if err := pu.kubeClient.DeletePlugin(ctx, plugin); err != nil {
@@ -69,5 +80,32 @@ func (pu *PluginUninstaller) Run(ctx context.Context) error {
 	}
 
 	fmt.Printf("Plugin %q uninstalled successfully.\n", pu.cfg.Name)
+	return nil
+}
+
+// deleteInstalledExtension removes the InstalledExtension install recorded for
+// the plugin. A missing one is not an error: the Plugin may have been created
+// without going through install. One that is not a plugin install pointing at
+// this plugin is left alone.
+func (pu *PluginUninstaller) deleteInstalledExtension(ctx context.Context) error {
+	ie, err := pu.kubeClient.GetInstalledExtension(ctx, ctrlclient.ObjectKey{Name: pu.cfg.Name})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("cannot read InstalledExtension %q: %w", pu.cfg.Name, err)
+	}
+
+	// InstalledExtension names are cluster-wide and shared with providers, so a
+	// same-named object may belong to something else. Only remove the one that
+	// records this plugin's install.
+	if ie.Spec.Type != extensionsv1alpha1.InstalledExtensionTypePlugin ||
+		ie.Spec.Plugin == nil || ie.Spec.Plugin.PluginRef.Name != pu.cfg.Name {
+		return nil
+	}
+
+	if err := pu.kubeClient.DeleteInstalledExtension(ctx, ie); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("cannot delete InstalledExtension %q: %w", pu.cfg.Name, err)
+	}
 	return nil
 }
