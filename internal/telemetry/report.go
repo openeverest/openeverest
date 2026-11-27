@@ -85,6 +85,12 @@ func NewReport(inst Installation, fleet inventory.Fleet) Report {
 	for _, plugin := range fleet.Plugins {
 		r["plugin."+plugin] = "1"
 	}
+	for _, class := range fleet.MonitoringClassNames {
+		r["monitoring_class."+class] = "1"
+	}
+	for _, class := range fleet.BackupStorageClassNames {
+		r["backup_storage_class."+class] = "1"
+	}
 	return r
 }
 

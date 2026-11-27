@@ -30,6 +30,7 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 )
 
 func instance(ns, name, provider string, conditions ...metav1.Condition) corev1alpha1.Instance {
@@ -86,6 +87,11 @@ func TestSummarize(t *testing.T) {
 			{Status: backupv1alpha1.BackupStatus{State: backupv1alpha1.BackupStateRunning}},
 		},
 		Restores: []backupv1alpha1.Restore{{}},
+		MonitoringClasses: []monitoringv1alpha1.MonitoringClass{
+			{ObjectMeta: metav1.ObjectMeta{Name: "pmm"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "acme-observability"}},
+		},
+		BackupStorageClasses: []backupv1alpha1.BackupStorageClass{{ObjectMeta: metav1.ObjectMeta{Name: "s3"}}},
 	}
 
 	got := Summarize(snap, "cluster-1", now)
@@ -111,6 +117,10 @@ func TestSummarize(t *testing.T) {
 		Restores:                   1,
 		InstancesWithBackupStorage: 1,
 		InstancesWithPITR:          1,
+		MonitoringClasses:          2,
+		BackupStorageClasses:       1,
+		MonitoringClassNames:       []string{CustomProvider, "pmm"},
+		BackupStorageClassNames:    []string{"s3"},
 	}, got,
 	)
 }

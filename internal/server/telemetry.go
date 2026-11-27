@@ -28,7 +28,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/version"
 )
 
-const telemetryDocsURL = "https://openeverest.io/docs/reference/telemetry"
+const telemetryDocsURL = "https://openeverest.io/docs/current/reference/telemetry/"
 
 // StartTelemetry starts sending the anonymous usage report in the background,
 // or logs why it doesn't. Either way it logs one line saying so.

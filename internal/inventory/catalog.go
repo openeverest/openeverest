@@ -18,10 +18,12 @@ import "k8s.io/apimachinery/pkg/util/sets"
 
 // The names of the extensions the openeverest-official catalog publishes
 // (openeverest/hub, index/index.json): the Provider name each provider entry
-// installs (provider.providerName) and the Plugin name of each plugin entry.
+// installs (provider.providerName), the Plugin name of each plugin entry and
+// the MonitoringClasses of each monitoring integration
+// (integration.monitoring.classes), plus the BackupStorageClasses core ships.
 //
-// Telemetry reports a provider or plugin by name only when it is listed here;
-// every other one is counted without its name. A name missing here therefore
+// Telemetry reports a provider, plugin or class by name only when it is listed
+// here; every other one is counted without its name. A name missing here therefore
 // costs detail, never privacy. Add the name when the catalog adds an entry.
 //
 //nolint:gochecknoglobals
@@ -54,5 +56,16 @@ var (
 		"plugin-migrations",
 		"plugin-mongodb-explorer",
 		"plugin-user-management",
+	)
+	officialMonitoringClasses = sets.New(
+		"coroot",
+		"opentelemetry",
+		"pmm",
+		"prometheus",
+		"releem",
+		"victoriametrics",
+	)
+	officialBackupStorageClasses = sets.New(
+		"s3",
 	)
 )

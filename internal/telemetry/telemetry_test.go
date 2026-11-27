@@ -224,6 +224,8 @@ func TestReportCarriesNoUserChosenNames(t *testing.T) {
 		},
 		&backupv1alpha1.BackupStorage{ObjectMeta: metav1.ObjectMeta{Name: secret + "-bucket", Namespace: secret + "-ns"}},
 		&monitoringv1alpha1.MonitoringDestination{ObjectMeta: metav1.ObjectMeta{Name: secret + "-grafana", Namespace: secret + "-ns"}},
+		&monitoringv1alpha1.MonitoringClass{ObjectMeta: metav1.ObjectMeta{Name: secret + "-monitoring"}},
+		&monitoringv1alpha1.MonitoringClass{ObjectMeta: metav1.ObjectMeta{Name: "victoriametrics"}},
 	}
 	reader := fake.NewClientBuilder().WithScheme(s).WithObjects(objects...).Build()
 	transport := &recordingTransport{}
@@ -245,6 +247,8 @@ func TestReportCarriesNoUserChosenNames(t *testing.T) {
 	assert.Equal(t, "1", transport.reports[0]["provider.custom.instances"])
 	assert.Equal(t, "2", transport.reports[0]["provider_installations"])
 	assert.True(t, strings.HasPrefix(transport.reports[0]["providers"], "valkey"))
+	assert.Equal(t, "1", transport.reports[0]["monitoring_class.victoriametrics"])
+	assert.Equal(t, "1", transport.reports[0]["monitoring_class.custom"])
 }
 
 // pagingReader serves Instances page by page and decodes each page into the

@@ -32,7 +32,8 @@ const (
 	SummarySchemaVersion = 1
 
 	// CustomProvider is the key under which Summary.InstancesByProvider
-	// counts the instances of providers that are not in the official catalog.
+	// counts the instances of providers that are not in the official catalog,
+	// and the name that stands for any class not in it.
 	CustomProvider = "custom"
 )
 
@@ -83,6 +84,10 @@ type Summary struct {
 	BackupClasses          int `json:"backupClasses"`
 	BackupStorageClasses   int `json:"backupStorageClasses"`
 	BackupStorages         int `json:"backupStorages"`
+	// MonitoringClassNames and BackupStorageClassNames list the official
+	// classes installed, sorted, with CustomProvider standing for any other.
+	MonitoringClassNames    []string `json:"monitoringClassNames,omitempty"`
+	BackupStorageClassNames []string `json:"backupStorageClassNames,omitempty"`
 }
 
 // Summarize reduces a Snapshot of the cluster clusterID to a Summary.
@@ -118,6 +123,17 @@ func Summarize(s *Snapshot, clusterID string, now time.Time) Summary {
 		}
 	}
 	sum.Plugins = sets.List(plugins)
+
+	monitoringClasses := make([]string, 0, len(s.MonitoringClasses))
+	for i := range s.MonitoringClasses {
+		monitoringClasses = append(monitoringClasses, s.MonitoringClasses[i].Name)
+	}
+	sum.MonitoringClassNames = officialOrCustom(monitoringClasses, officialMonitoringClasses)
+	backupStorageClasses := make([]string, 0, len(s.BackupStorageClasses))
+	for i := range s.BackupStorageClasses {
+		backupStorageClasses = append(backupStorageClasses, s.BackupStorageClasses[i].Name)
+	}
+	sum.BackupStorageClassNames = officialOrCustom(backupStorageClasses, officialBackupStorageClasses)
 
 	summarizeInstances(&sum, s.Instances)
 
@@ -183,6 +199,20 @@ func hasPITR(inst *corev1alpha1.Instance) bool {
 	return false
 }
 
+// officialOrCustom returns the official names among names, sorted, with
+// CustomProvider in place of every other name.
+func officialOrCustom(names []string, official sets.Set[string]) []string {
+	out := sets.New[string]()
+	for _, n := range names {
+		if official.Has(n) {
+			out.Insert(n)
+		} else {
+			out.Insert(CustomProvider)
+		}
+	}
+	return sets.List(out)
+}
+
 // Add adds the counts and sums of o to s and unions the name sets. The
 // identity fields of s are left as they are.
 func (s *Summary) Add(o Summary) {
@@ -218,6 +248,8 @@ func (s *Summary) Add(o Summary) {
 	s.BackupClasses += o.BackupClasses
 	s.BackupStorageClasses += o.BackupStorageClasses
 	s.BackupStorages += o.BackupStorages
+	s.MonitoringClassNames = union(s.MonitoringClassNames, o.MonitoringClassNames)
+	s.BackupStorageClassNames = union(s.BackupStorageClassNames, o.BackupStorageClassNames)
 }
 
 func union(a, b []string) []string {
