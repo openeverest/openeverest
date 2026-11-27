@@ -24,7 +24,7 @@
   - [Text Field](components/text-field.md)
   - [Toggle Field](components/toggle-field.md)
 - [Groups](groups.md)
-  - [Line Group](groups.md#line-group)
+  - [Layout direction](groups.md#layout-direction)
   - [Accordion Group](groups.md#accordion-group)
   - [Bordered Group](groups.md#bordered-group)
   - [Toggleable Group](groups.md#toggleable-group)
@@ -174,14 +174,15 @@ The label and description display format may look different for different groups
 
 - **`components`**: Nested components (can include other groups)
 - **`componentsOrder`** (optional): Order of nested components
-- **`groupParams`** (optional): Reserved for group-specific settings; no group type reads it yet, so it currently has no effect.
+- **`groupParams`** (optional): Group-specific settings. Today: `direction` (`row` | `column`, default `column`) for how direct children are laid out. See [Layout direction](groups.md#layout-direction).
 
 Example:
 
 ```yaml
 resources:
   uiType: group
-  groupType: line
+  groupParams:
+    direction: row
   label: Resources
   components:
     cpu:
@@ -386,7 +387,8 @@ uiSchema:
 
               resources:
                 uiType: group
-                groupType: line
+                groupParams:
+                  direction: row
                 components:
                   cpu:
                     path: "spec.components.engine.resources.limits.cpu"
@@ -497,7 +499,8 @@ uiSchema:
                   message: "The number of nodes must be odd"
           nodesResources:
             uiType: group
-            groupType: line
+            groupParams:
+              direction: row
             components:
               cpu:
                 path: "spec.components.engine.resources.limits.cpu"
@@ -540,7 +543,8 @@ uiSchema:
               label: "Number of routers"
           routersResources:
             uiType: group
-            groupType: line
+            groupParams:
+              direction: row
             components:
               cpu:
                 path: "spec.components.proxy.resources.limits.cpu"

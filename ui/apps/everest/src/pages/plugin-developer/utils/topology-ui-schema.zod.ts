@@ -13,7 +13,11 @@
 // limitations under the License.
 
 import { z } from 'zod';
-import { FieldType } from 'components/ui-generator/ui-generator.types';
+import {
+  FieldType,
+  GroupDirection,
+  GroupType,
+} from 'components/ui-generator/ui-generator.types';
 
 // Runtime schema for the skeleton UIGenerator depends on: topology → sections →
 // components/groups, with a known `uiType` on every leaf. Everything else passes
@@ -27,6 +31,14 @@ const fieldUiType = z.nativeEnum(FieldType);
 // `group` is a container, not a field, so it has no FieldType member.
 const groupUiType = z.enum(['group', 'hidden']);
 
+const groupTypeSchema = z.nativeEnum(GroupType);
+
+const groupParamsSchema = z
+  .object({
+    direction: z.enum([GroupDirection.Row, GroupDirection.Column]).optional(),
+  })
+  .passthrough();
+
 const fieldSchema = z.object({ uiType: fieldUiType }).passthrough();
 
 const groupSchema: z.ZodTypeAny = z.lazy(() =>
@@ -34,6 +46,8 @@ const groupSchema: z.ZodTypeAny = z.lazy(() =>
     .object({
       uiType: groupUiType,
       components: z.record(componentOrGroupSchema),
+      groupType: groupTypeSchema.optional(),
+      groupParams: groupParamsSchema.optional(),
     })
     .passthrough()
 );

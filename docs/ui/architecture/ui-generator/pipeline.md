@@ -119,7 +119,8 @@ flowchart TD
     - has `dataSource` → `<ComponentErrorBoundary><DataSourceField><UIComponent/></DataSourceField></ComponentErrorBoundary>`
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.
-- **`UIGroup`** — picks the wrapper by `groupType`. `ToggleableWrapper` mounts the body only
+- **`UIGroup`** — picks the wrapper by `groupType` and forwards `groupParams` (e.g. `direction`
+  for children layout: `row` | `column`, default `column`). `ToggleableWrapper` mounts the body only
   while the switch is on; turning it on focuses the first field without validating untouched ones.
 - **`UIComponent`** — maps `uiType` to a concrete input (`@percona/ui-lib`: SelectInput / TextInput /
   SwitchInput …). `quantity` reuses the number TextInput; the adornment is `unitLabel ?? unit`,
@@ -374,4 +375,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-20
+- Last updated: 2026-11-24

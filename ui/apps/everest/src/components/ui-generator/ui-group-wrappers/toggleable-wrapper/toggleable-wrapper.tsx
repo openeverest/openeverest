@@ -27,6 +27,7 @@ import { FOCUSABLE_FIELD } from './toggleable-wrapper.constants';
 export const ToggleableWrapper = ({
   label,
   description,
+  groupParams,
   toggleable,
   children,
 }: ToggleableWrapperProps) => {
@@ -58,6 +59,7 @@ export const ToggleableWrapper = ({
     <BorderedWrapper
       label={label}
       description={description}
+      groupParams={groupParams}
       bodyRef={bodyRef}
       action={
         switchName && (

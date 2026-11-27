@@ -73,7 +73,7 @@
           },
           "loadBalancerConfig": {
             "uiType": "group",
-            "groupType": "line",
+            "groupParams": { "direction": "row" },
             "components": {
               "loadBalancerConfigName": {
                 "uiType": "select",

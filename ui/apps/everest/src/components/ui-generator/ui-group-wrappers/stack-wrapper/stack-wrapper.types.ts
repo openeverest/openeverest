@@ -12,6 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { GroupWrapperProps } from 'components/ui-generator/ui-generator.types';
+import { Ref } from 'react';
+import {
+  GroupDirection,
+  GroupWrapperProps,
+} from 'components/ui-generator/ui-generator.types';
 
-export type StackWrapperProps = Pick<GroupWrapperProps, 'children'>;
+export type StackWrapperProps = Pick<GroupWrapperProps, 'children'> & {
+  direction?: GroupDirection;
+  stackRef?: Ref<HTMLDivElement>;
+};

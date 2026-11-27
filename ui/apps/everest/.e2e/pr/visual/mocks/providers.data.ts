@@ -392,7 +392,7 @@ export const mockProviders: any = {
                             },
                           },
                         },
-                        groupType: 'line',
+                        groupParams: { direction: 'row' },
                         uiType: 'group',
                       },
                     },
@@ -560,7 +560,7 @@ export const mockProviders: any = {
                         },
                       },
                     },
-                    groupType: 'line',
+                    groupParams: { direction: 'row' },
                     uiType: 'group',
                   },
                   numberOfConfigServers: {
@@ -677,7 +677,7 @@ export const mockProviders: any = {
                         },
                       },
                     },
-                    groupType: 'line',
+                    groupParams: { direction: 'row' },
                     uiType: 'group',
                   },
                   shards: {

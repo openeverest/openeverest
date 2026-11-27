@@ -19,11 +19,19 @@ import {
   Box,
   Typography,
 } from '@mui/material';
-import { AccordionWrapperProps } from './accordion-wrapper.types';
+import { readGroupDirection } from 'components/ui-generator/utils/group-params/read-group-direction';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import StackWrapper from '../stack-wrapper';
+import { AccordionWrapperProps } from './accordion-wrapper.types';
 
 // TODO can be customizable with props
-const AccordionWrapper = ({ children, label }: AccordionWrapperProps) => {
+const AccordionWrapper = ({
+  children,
+  label,
+  groupParams,
+}: AccordionWrapperProps) => {
+  const direction = readGroupDirection(groupParams);
+
   return (
     <Accordion defaultExpanded>
       {label && (
@@ -51,8 +59,8 @@ const AccordionWrapper = ({ children, label }: AccordionWrapperProps) => {
           </Box>
         </AccordionSummary>
       )}
-      <AccordionDetails style={{ display: 'flex', flexDirection: 'column' }}>
-        {children}
+      <AccordionDetails>
+        <StackWrapper direction={direction}>{children}</StackWrapper>
       </AccordionDetails>
     </Accordion>
   );
