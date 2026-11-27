@@ -14,7 +14,7 @@ We welcome many types of contributions including:
 
 - New features and enhancements
 - Bug reports and fixes
-- [Documentation](https://github.com/openeverest/everest-doc)
+- [Documentation](https://github.com/openeverest/docs)
 - Builds, CI/CD improvements
 - Issue triage
 - Answering questions on [Slack or other community channels](https://openeverest.io/#community) and GitHub Discussions
