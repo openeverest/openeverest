@@ -88,6 +88,18 @@ func TestCollectPaths(t *testing.T) {
 				},
 			},
 		},
+		"annotations": map[string]any{
+			"uiType": "map",
+			"path":   "spec.components.engine.service.annotations",
+			// The row's fields write inside the row, not to the Instance.
+			"itemTemplate": map[string]any{
+				"uiType": "group",
+				"components": map[string]any{
+					"key":   map[string]any{"uiType": "text", "path": "key"},
+					"value": map[string]any{"uiType": "text", "path": "value"},
+				},
+			},
+		},
 		// Addresses the options payload, not an Instance field.
 		"labelPath": "name",
 	}, &paths)
@@ -95,6 +107,7 @@ func TestCollectPaths(t *testing.T) {
 	assert.ElementsMatch(t, []string{
 		"spec.components.engine.resources.limits.cpu",
 		"spec.components.engine.replicas",
+		"spec.components.engine.service.annotations",
 	}, paths)
 }
 

@@ -115,7 +115,12 @@ func collectPaths(node any, out *[]string) {
 // walkFields calls visit for every node that binds a form control to a single
 // Instance path.
 func walkFields(node any, visit func(path string, field map[string]any)) {
-	const pathKey = "path"
+	const (
+		pathKey = "path"
+		// A map field's row: its fields' paths (`key`, `value`) name places in
+		// the row, not Instance fields.
+		itemTemplateKey = "itemTemplate"
+	)
 
 	switch t := node.(type) {
 	case map[string]any:
@@ -123,7 +128,7 @@ func walkFields(node any, visit func(path string, field map[string]any)) {
 			visit(path, t)
 		}
 		for key, value := range t {
-			if key != pathKey {
+			if key != pathKey && key != itemTemplateKey {
 				walkFields(value, visit)
 			}
 		}
