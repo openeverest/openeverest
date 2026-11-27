@@ -87,7 +87,7 @@ func (r *PluginReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if controllerutil.ContainsFinalizer(plugin, legacyPluginFinalizer) {
 		patch := client.MergeFromWithOptions(plugin.DeepCopy(), client.MergeFromWithOptimisticLock{})
 		controllerutil.RemoveFinalizer(plugin, legacyPluginFinalizer)
-		if err := r.Client.Patch(ctx, plugin, patch); client.IgnoreNotFound(err) != nil {
+		if err := r.Patch(ctx, plugin, patch); client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to remove legacy finalizer: %w", err)
 		}
 	}
