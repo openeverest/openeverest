@@ -24,11 +24,12 @@ import {
   getToggleableMeta,
   isToggleableOn,
 } from '../utils/toggleable/toggleable';
+import { toFormId } from '../utils/object-path';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { getReconciledDataSourceValue } from './data-source-field/data-source-field.utils';
 
 type PrefetchField = {
-  path?: string;
+  apiPath?: string;
   // Switch of the toggleable group containing the field; fetched only when on.
   switchName?: string;
 };
@@ -65,7 +66,10 @@ const collectDataSources = (
         byKey.set(provider, decl);
         results.push(decl);
       }
-      decl.fields.push({ path: getComponentSourcePath(comp), switchName });
+      decl.fields.push({
+        apiPath: getComponentSourcePath(comp),
+        switchName,
+      });
     }
   };
 
@@ -81,12 +85,12 @@ const collectDataSources = (
 const PrefetchItem = ({
   provider,
   namespace,
-  fieldPaths,
+  apiPaths,
   autoSelect,
 }: {
   provider: string;
   namespace: string;
-  fieldPaths: string[];
+  apiPaths: string[];
   autoSelect: boolean;
 }) => {
   const cluster = useClusterName();
@@ -99,14 +103,18 @@ const PrefetchItem = ({
   useEffect(() => {
     if (isLoading || !autoSelect) return;
 
-    for (const path of fieldPaths) {
-      const nextValue = getReconciledDataSourceValue(getValues(path), options);
+    for (const apiPath of apiPaths) {
+      const formId = toFormId(apiPath);
+      const nextValue = getReconciledDataSourceValue(
+        getValues(formId),
+        options
+      );
 
       if (nextValue !== null) {
-        setValue(path, nextValue, { shouldValidate: true });
+        setValue(formId, nextValue, { shouldValidate: true });
       }
     }
-  }, [isLoading, autoSelect, options, fieldPaths, getValues, setValue]);
+  }, [isLoading, autoSelect, options, apiPaths, getValues, setValue]);
 
   return null;
 };
@@ -135,10 +143,10 @@ export const DataSourcePrefetcher = ({
         ({ switchName }) => !switchName || isToggleableOn(values, switchName)
       );
       if (reachableFields.length === 0) return [];
-      const fieldPaths = reachableFields.flatMap(({ path }) =>
-        path ? [path] : []
+      const apiPaths = reachableFields.flatMap(({ apiPath }) =>
+        apiPath ? [apiPath] : []
       );
-      return [{ provider, fieldPaths }];
+      return [{ provider, apiPaths }];
     });
   }, [dataSources, switches]);
 
@@ -146,7 +154,7 @@ export const DataSourcePrefetcher = ({
 
   return (
     <>
-      {reachable.map(({ provider, fieldPaths }) => (
+      {reachable.map(({ provider, apiPaths }) => (
         <ComponentErrorBoundary
           key={provider}
           componentName={`prefetch:${provider}`}
@@ -154,7 +162,7 @@ export const DataSourcePrefetcher = ({
           <PrefetchItem
             provider={provider}
             namespace={namespace}
-            fieldPaths={fieldPaths}
+            apiPaths={apiPaths}
             autoSelect={autoSelect}
           />
         </ComponentErrorBoundary>
