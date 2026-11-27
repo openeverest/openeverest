@@ -237,9 +237,12 @@ func TestNamespaceLister_getNamespaceOperators_errors(t *testing.T) {
 	t.Parallel()
 
 	const nsName = "db-ns"
-	sub := &olmv1alpha1.Subscription{
-		ObjectMeta: metav1.ObjectMeta{Name: common.MongoDBOperatorName, Namespace: nsName},
-		Status:     olmv1alpha1.SubscriptionStatus{InstalledCSV: "psmdb-operator.v1.20.0"},
+	// Built per subtest: the fake client writes a resource version onto the objects it is given.
+	newSub := func() *olmv1alpha1.Subscription {
+		return &olmv1alpha1.Subscription{
+			ObjectMeta: metav1.ObjectMeta{Name: common.MongoDBOperatorName, Namespace: nsName},
+			Status:     olmv1alpha1.SubscriptionStatus{InstalledCSV: "psmdb-operator.v1.20.0"},
+		}
 	}
 	csvResource := schema.GroupResource{Group: "operators.coreos.com", Resource: "clusterserviceversions"}
 	subResource := schema.GroupResource{Group: "operators.coreos.com", Resource: "subscriptions"}
@@ -275,7 +278,7 @@ func TestNamespaceLister_getNamespaceOperators_errors(t *testing.T) {
 
 			c := fakeclient.NewClientBuilder().
 				WithScheme(kubernetes.CreateScheme()).
-				WithObjects(sub).
+				WithObjects(newSub()).
 				WithInterceptorFuncs(tc.funcs).
 				Build()
 			nsL := &NamespaceLister{
