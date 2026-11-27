@@ -38,6 +38,19 @@ export const logAuthError = (context: string, error: unknown) => {
 
 export const SSO_LOGIN_ERROR_KEY = 'ssoLoginError';
 
+// Survives the OIDC round-trip when React state is lost on the IdP redirect.
+export const POST_LOGIN_REDIRECT_KEY = 'everestPostLoginRedirect';
+
+// Accepts only same-app relative paths to avoid open redirects.
+export const getSafeRedirectPath = (
+  value: string | null | undefined
+): string | null => {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) {
+    return null;
+  }
+  return value;
+};
+
 const SSO_EXCHANGE_MAX_RETRIES = 3;
 const SSO_RENEW_LOCK_NAME = 'everest-sso-renew';
 const MIN_REUSABLE_TOKEN_VALIDITY_MS = 60_000;

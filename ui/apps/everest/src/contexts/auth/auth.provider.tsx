@@ -54,6 +54,7 @@ import {
   exchangeSsoToken,
   withSsoRenewLock,
   isReusableToken,
+  POST_LOGIN_REDIRECT_KEY,
 } from './auth.utils';
 import type { HttpApi } from '@generated/api-types';
 
@@ -91,6 +92,10 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   const login = async (mode: AuthMode, manualAuthArgs?: ManualAuthArgs) => {
     setAuthStatus('loggingIn');
     if (mode === 'sso') {
+      // React state does not survive the IdP round-trip; persist for onSignIn.
+      if (redirect) {
+        sessionStorage.setItem(POST_LOGIN_REDIRECT_KEY, redirect);
+      }
       await signIn();
     } else {
       const { username, password } = manualAuthArgs!;
@@ -154,7 +159,8 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     }
 
     broadcastLogoutSync();
-    await setLogoutStatus();
+    // Explicit logout clears the saved deep-link so the next login lands on `/`.
+    await setLogoutStatus(true);
   };
 
   const setRedirectRoute = (route: string) => {
@@ -168,20 +174,27 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     initializeAuthorizerFetchLoop(username);
   };
 
-  const setLogoutStatus = useCallback(async () => {
-    setAuthStatus('loggedOut');
-    clearAccessToken();
-    localStorage.removeItem('everestToken');
-    sessionStorage.clear();
-    setRedirect(null);
-    removeApiErrorInterceptor();
-    removeApiAuthInterceptor();
-    if (isSsoEnabled) {
-      await userManager.clearStaleState();
-      await userManager.removeUser();
-    }
-    stopAuthorizerFetchLoop();
-  }, [isSsoEnabled, userManager]);
+  // clearRedirect defaults to false so session bootstrap / expiry / failed login
+  // keep a deep-link saved by ProtectedRoute for post-login navigation.
+  const setLogoutStatus = useCallback(
+    async (clearRedirect = false) => {
+      setAuthStatus('loggedOut');
+      clearAccessToken();
+      localStorage.removeItem('everestToken');
+      sessionStorage.clear();
+      if (clearRedirect) {
+        setRedirect(null);
+      }
+      removeApiErrorInterceptor();
+      removeApiAuthInterceptor();
+      if (isSsoEnabled) {
+        await userManager.clearStaleState();
+        await userManager.removeUser();
+      }
+      stopAuthorizerFetchLoop();
+    },
+    [isSsoEnabled, userManager]
+  );
 
   // Renews the Everest JWT from a still-valid IdP session, returning the new token
   // or null if renewal is no longer possible. Also used by the 401 handler (see api.ts).
