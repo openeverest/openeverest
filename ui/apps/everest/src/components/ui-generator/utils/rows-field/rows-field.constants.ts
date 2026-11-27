@@ -23,8 +23,9 @@ export const IGNORED_ROW_FIELD_RULES = ['celExpressions'];
 export const IGNORED_ROW_FIELD_OPTIONS = ['dataSource', 'modes'];
 
 // Marks a row the user added with the Add button, in the form's own data: the
-// rows a form is initialised with, or reset with loaded values, don't carry
-// it, so they are rows the form opened with. Starts with `_`, like the keys the
+// entries a form is initialised with, or reset with loaded values, don't carry
+// it, so they are rows the form opened with. The empty row a field with no
+// entries gets does carry it: no entry stands behind it. Starts with `_`, like the keys the
 // engine sets on a schema, so no row field's `path` can take the name. Only
 // the form reads it: the field is written from what its rows' fields hold.
 export const ADDED_ROW_FLAG = '_added';

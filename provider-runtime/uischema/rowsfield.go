@@ -34,20 +34,29 @@ type rowsKind struct {
 	supportedItemTemplate string
 	// rowFields returns the fields of a row as the schema writes them.
 	rowFields func(itemTemplate any) []rowField
+	// ignoredRules and ignoredRowFieldRules are the rules a schema may set
+	// that do nothing here, besides the ones no rows field acts on (`regex`
+	// on the field, CEL on a row's field): on the field itself, and on a
+	// field of its row.
+	ignoredRules         []string
+	ignoredRowFieldRules []string
 	// isValidDefault reports whether a default is in the shape the field
 	// writes, which valueShape names.
 	isValidDefault func(value any) bool
 	valueShape     string
+	// countEntries returns the number of entries a valid default holds.
+	countEntries func(defaultValue any) int
 }
 
 // rowsRules are the rules of one kind, named after its uiType.
 type rowsRules struct {
-	unsupported    Rule
-	multiPath      Rule
-	overlap        Rule
-	ignoredOption  Rule
-	invalidDefault Rule
-	invalidLimits  Rule
+	unsupported         Rule
+	multiPath           Rule
+	overlap             Rule
+	ignoredOption       Rule
+	invalidDefault      Rule
+	invalidLimits       Rule
+	unsatisfiableLimits Rule
 }
 
 // rowField is a field of a row with where the schema writes it:
@@ -65,35 +74,44 @@ func rowsKindOf(uiType any) (rowsKind, bool) {
 		return rowsKind{
 			uiType: uiTypeMap,
 			rules: rowsRules{
-				unsupported:    RuleMapUnsupported,
-				multiPath:      RuleMapMultiPath,
-				overlap:        RuleMapOverlap,
-				ignoredOption:  RuleMapIgnoredOption,
-				invalidDefault: RuleMapInvalidDefault,
-				invalidLimits:  RuleMapInvalidLimits,
+				unsupported:         RuleMapUnsupported,
+				multiPath:           RuleMapMultiPath,
+				overlap:             RuleMapOverlap,
+				ignoredOption:       RuleMapIgnoredOption,
+				invalidDefault:      RuleMapInvalidDefault,
+				invalidLimits:       RuleMapInvalidLimits,
+				unsatisfiableLimits: RuleMapUnsatisfiableLimits,
 			},
 			isSupported:           isKeyValueRow,
 			supportedItemTemplate: `a group, with groupType "line" or none, of exactly a text field with path "key" and a text field with path "value", which is the only row supported yet`,
 			rowFields:             mapRowFields,
-			isValidDefault:        isStringMap,
-			valueShape:            "map of strings",
+			// A map holds a key once whatever `unique` says.
+			ignoredRules:   []string{"unique"},
+			isValidDefault: isStringMap,
+			valueShape:     "map of strings",
+			countEntries:   countMapEntries,
 		}, true
 	case uiTypeList:
 		return rowsKind{
 			uiType: uiTypeList,
 			rules: rowsRules{
-				unsupported:    RuleListUnsupported,
-				multiPath:      RuleListMultiPath,
-				overlap:        RuleListOverlap,
-				ignoredOption:  RuleListIgnoredOption,
-				invalidDefault: RuleListInvalidDefault,
-				invalidLimits:  RuleListInvalidLimits,
+				unsupported:         RuleListUnsupported,
+				multiPath:           RuleListMultiPath,
+				overlap:             RuleListOverlap,
+				ignoredOption:       RuleListIgnoredOption,
+				invalidDefault:      RuleListInvalidDefault,
+				invalidLimits:       RuleListInvalidLimits,
+				unsatisfiableLimits: RuleListUnsatisfiableLimits,
 			},
 			isSupported:           isTextItem,
 			supportedItemTemplate: "a text field with no path or id, which is the only item supported yet",
 			rowFields:             listRowFields,
-			isValidDefault:        isStringList,
-			valueShape:            "list of strings",
+			// A row is an entry only once it holds a value, so none is ever
+			// missing.
+			ignoredRowFieldRules: []string{"required"},
+			isValidDefault:       isStringList,
+			valueShape:           "list of strings",
+			countEntries:         countListEntries,
 		}, true
 	}
 	return rowsKind{}, false
@@ -211,4 +229,30 @@ func isStringList(value any) bool {
 		}
 	}
 	return true
+}
+
+// countMapEntries returns the entries the form reads from a default map: an
+// entry with neither a key nor a value is an empty row, which is no entry.
+func countMapEntries(defaultValue any) int {
+	entries, _ := defaultValue.(map[string]any)
+	count := 0
+	for key, value := range entries {
+		if key != "" || value != "" {
+			count++
+		}
+	}
+	return count
+}
+
+// countListEntries returns the entries the form reads from a default list:
+// an empty string is an empty row, which is no entry.
+func countListEntries(defaultValue any) int {
+	entries, _ := defaultValue.([]any)
+	count := 0
+	for _, entry := range entries {
+		if entry != "" {
+			count++
+		}
+	}
+	return count
 }

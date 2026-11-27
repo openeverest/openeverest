@@ -16,7 +16,7 @@ import { FieldType, ROW_ROLES } from '../../ui-generator.types';
 import { isPlainObject } from '../object-path';
 import { toDisplayText } from '../rows-field/rows';
 import type { RowsFieldKind } from '../rows-field/rows-field.types';
-import { isStringMap, toMap } from './map-field';
+import { isStringMap, objectToRows, toMap } from './map-field';
 import { Messages } from './map-field.messages';
 
 // What a map is, among the fields edited as rows: a row holds a key and a
@@ -31,6 +31,7 @@ export const MAP_FIELD_KIND: RowsFieldKind = {
     identityRequired: Messages.keyRequired,
     duplicate: Messages.duplicateKey,
   },
+  toRows: objectToRows,
   toEntries: (value) => {
     const map = toMap(value);
     return isPlainObject(map)
@@ -40,6 +41,9 @@ export const MAP_FIELD_KIND: RowsFieldKind = {
         }))
       : [];
   },
+  // A map holds a key once whatever `unique` says.
+  ignoredRules: ['unique'],
+  ignoredRowFieldRules: [],
   isValidDefault: isStringMap,
   valueShape: 'map of strings',
   supportedItemTemplate:

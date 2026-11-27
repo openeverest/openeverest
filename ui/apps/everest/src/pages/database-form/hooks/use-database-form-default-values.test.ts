@@ -14,9 +14,11 @@
 
 import { renderHook } from '@testing-library/react';
 import {
+  FieldType,
   FormMode,
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
+import { keyValueRow } from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import { Provider } from 'shared-types/api.types';
 import {
   buildImportNavigationRouteState,
@@ -91,6 +93,73 @@ describe('useDatabasePageDefaultValues', () => {
     expect(result.current.defaultValues).toMatchObject({
       k8sNamespace: 'team-a',
       monitoring: { destinations },
+    });
+  });
+
+  describe('with a map and a list that have nothing to show', () => {
+    const schema: TopologyUISchemas = {
+      replicaset: {
+        sections: {
+          advanced: {
+            components: {
+              labels: {
+                uiType: FieldType.Map,
+                path: 'spec.labels',
+                fieldParams: { label: 'Labels' },
+                itemTemplate: keyValueRow(),
+              },
+              args: {
+                uiType: FieldType.List,
+                path: 'spec.args',
+                fieldParams: { label: 'Arguments' },
+                itemTemplate: { uiType: FieldType.Text },
+              },
+            },
+          },
+        },
+      },
+    };
+    // The form starts from these values, so it is unchanged while they stand.
+    const ONE_EMPTY_ROW = {
+      spec: {
+        labels: [expect.objectContaining({ key: '', value: '' })],
+        args: [expect.objectContaining({ value: '' })],
+      },
+    };
+
+    it.each([FormMode.New, FormMode.Import])(
+      'opens the %s form with one empty row in each',
+      (mode) => {
+        mocks.state =
+          mode === FormMode.Import
+            ? buildImportNavigationRouteState(PROVIDER, IMPORT_SOURCE)
+            : undefined;
+        const { result } = renderHook(() =>
+          useDatabasePageDefaultValues(mode, schema, 'replicaset')
+        );
+
+        expect(result.current.defaultValues).toMatchObject(ONE_EMPTY_ROW);
+      }
+    );
+
+    it('opens a restore from an instance without them the same way', () => {
+      mocks.state = buildRestoreNavigationRouteState('orders', 'team-a', {
+        type: 'Backup',
+        backupName: 'orders-backup',
+      });
+      mocks.sourceInstance = {
+        metadata: { name: 'orders', namespace: 'team-a' },
+        spec: {
+          providerRef: { name: 'psmdb' },
+          topology: { type: 'replicaset' },
+        },
+      };
+      const { result } = renderHook(() =>
+        useDatabasePageDefaultValues(FormMode.Restore, schema, 'replicaset')
+      );
+      mocks.sourceInstance = undefined;
+
+      expect(result.current.defaultValues).toMatchObject(ONE_EMPTY_ROW);
     });
   });
 

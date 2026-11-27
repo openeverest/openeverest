@@ -19,7 +19,6 @@ import {
   Section,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
-import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
 import { getFieldCodec } from '../field-codecs';
 import { stripBadgeFromValue } from '../badge-to-api/badge-to-api';
 import { generateFieldId } from '../component-renderer/generate-field-id';
@@ -31,13 +30,16 @@ import {
   isToggleableOnInInstance,
 } from '../toggleable/toggleable';
 import { getWidgetTargets } from '../widget-targets';
+import { getEmptyFormValue } from './get-empty-form-value';
 import { getSchemaDefault } from './get-schema-default';
 
 /*
  Walks schema components across all sections and extracts current values
  from an existing instance, producing form-compatible default values.
 
- In Edit mode: only instance values are used. Missing values are left undefined.
+ In Edit mode: only instance values are used. Missing values are left undefined,
+ so they can be laid over defaults; a form with nothing under them adds what
+ its fields hold with no value (withEmptyFormValues).
  In New/Restore/Import modes: falls back to schema defaultValue, then type default.
 */
 const extractFlat = (
@@ -112,7 +114,7 @@ const extractFlat = (
     } else if (isWidgetComponent(component)) {
       // Widget components manage their own default value.
     } else {
-      result[fieldId] = UI_TYPE_DEFAULT_VALUE[component.uiType];
+      result[fieldId] = getEmptyFormValue(component);
     }
   }
 

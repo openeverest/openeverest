@@ -48,8 +48,12 @@ flowchart TD
     [Rows fields](#rows-fields-map-and-list).
   - **`lintRowsFields`** (`utils/rows-field/lint-rows-fields.ts`) — warns (dev-time) about what a
     rendered map or list ignores or can't use: `regex` on the field, CEL, a `dataSource` or a
-    default / badge on a row's field, a `defaultValue` that isn't in the shape the field writes
-    (`getSchemaDefault` ignores it), limits no value meets.
+    default / badge on a row's field, the rules that have nothing to check on its kind (`unique`
+    on a map, `required` on a list's item), a `defaultValue` that isn't in the shape the field
+    writes (`getSchemaDefault` ignores it), limits no value meets, and limits no form can meet: in
+    a mode whose form starts from the default (`new`, `import`; a preset picked in `new` isn't
+    taken into account), `disableAdd` with fewer default entries than `required` / `min` need, or
+    `disableRemove` with more than `max` allows.
   - **`withRow`** (`utils/rows-field/rows-field-kinds.ts`) — prepares the row from the field's
     `itemTemplate` into `_row`, and gives the field the `fieldParams` a schema may leave out. A
     map's row is the group as the schema writes it. A list's is a
@@ -148,8 +152,9 @@ flowchart TD
 - **Field codecs** (`utils/field-codecs/`) — a field whose form value differs from its API value
   has a codec: `toForm` (a saved value → the form), `toApi` (the form → the API, given the value
   stored at the same path), `defaultToForm` (a schema default → the form, when the default is
-  written in the API shape), `toCel` (what a CEL rule reads, when not the form's value) and
-  `ownsWholeValue`. `getFieldCodec(component)` returns it, and the
+  written in the API shape), `emptyToForm` (what the form holds with nothing saved and no
+  default, when not the type's empty value), `toCel` (what a CEL rule reads, when not the form's
+  value) and `ownsWholeValue`. `getFieldCodec(component)` returns it, and the
   stages below call it instead of branching on the field type. Three fields have one today:
   - **map** (`utils/map-field/map-field-codec.ts`) — rows (`[{ key, value }]`) in the form, a map
     in the API and in the schema's `defaultValue`; owns its whole value. It reads a row's `key`
@@ -164,14 +169,36 @@ flowchart TD
   A new field type that converts adds its resolver to `RESOLVERS` in `field-codecs.ts`; no stage
   changes. Zod transforms can't do the conversion: the create wizard runs the generated schema in
   a `superRefine`, so its output never reaches submit.
-- `getSchemaDefault` reads a default through the codec's `defaultToForm`, when it has one.
-- **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` drops the previous
-  topology's values with `dropOtherTopologyValues` (`utils/topology-scope/`), then merges the new
-  topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
-  defaults, not stale values.
+
+  The map's and the list's are built by `createRowsFieldCodec`
+  (`utils/rows-field/rows-field-codec.ts`) from the kind's conversions. It gives the form **one
+  empty row** wherever the field has no entries: for a saved or default value without any
+  (`toForm`, `defaultToForm`) and for no value at all (`emptyToForm`). The row is marked as added,
+  so no lock holds for it, and it is an empty row like any other: not written, not counted, not
+  read by CEL. It comes with the form's values rather than from the component, so the form holds
+  it from its first render: its values equal its `defaultValues`, and react-hook-form doesn't see
+  the form as dirty. That matters where a form acts on dirty state: the wizard's leave guard and
+  restore reset, a dialog's close-on-click-outside, the monitoring destination's restart notice.
+
+  The empty row is no value, so it is the last thing a field gets and never stands in the way of
+  a value. Two helpers of `field-codecs.ts` keep that true where values are put together:
+  `withEmptyFormValues` gives the row to the fields that hold nothing, for a form with no defaults
+  under its values (the section edit modal), and `withoutEmptyFormValues` takes away the rows of
+  a field with no entry, before a merge that fills only what is unset (the topology switch).
+- `getSchemaDefault` reads a default through the codec's `defaultToForm`, when it has one. A
+  field with no usable default gets `getEmptyFormValue`: the codec's `emptyToForm`, or else the
+  empty value of its type.
+- **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` calls
+  `switchTopologyValues` (`utils/topology-scope/`): it drops the previous topology's values with
+  `dropOtherTopologyValues`, then fills what is unset with the new topology's defaults
+  (`mergeTopologyDefaults`). Switching back therefore starts from defaults, not stale values. A
+  map or a list with no entry counts as unset there (`withoutEmptyFormValues`), so at a path both
+  topologies bind the empty row gives way to the new topology's default; rows the user filled
+  stay.
 - **`extractInstanceValues`** — reads values from the instance (by `sourcePath`). In edit it uses
-  **only** the instance, so edit doesn't inject defaults; in restore and for a preset it falls back
-  to schema defaults. A field hidden in the mode has no `sourcePath`, so restore doesn't copy its
+  **only** the instance, so edit doesn't inject defaults and what it returns can be laid over
+  defaults (a section form does). In restore and for a preset it
+  falls back to schema defaults. A field hidden in the mode has no `sourcePath`, so restore doesn't copy its
   value from the source. A field with a codec is read through its `toForm`: a `quantity` into a
   number in `unit` (or cores / bytes when `unit` is omitted), a `map` or a `list` into rows.
 - **Toggleable switches** — `false` on create; when values come from an instance or preset, on
@@ -205,11 +232,17 @@ flowchart TD
       span rows. The Add button appends a row marked as added (`createAddedRow`, the
       `ADDED_ROW_FLAG` key of the row in the form data). The rows a form is initialised with, or
       `reset()` with loaded values (an instance, a restore source, a preset, defaults), come from
-      the codec, unmarked, so they are rows the form opened with. The topology switch resets the
+      the codec, unmarked, so they are rows the form opened with; the one empty row of a field
+      with no entries is marked. The topology switch resets the
       form with its current values and keeps the marks. For a marked row `toRowAtIndex` clears a
       row field's own `disabled` and `readOnly` (`toAddedRow`), and `fieldParams.disableRemove`
       leaves its Remove button enabled; `fieldParams.disableAdd` disables Add. The field's own
-      `disabled` disables all of it, marked rows too;
+      `disabled` disables all of it, marked rows too. The field never shows no rows: its values
+      come with one empty row (see the codecs above), and removing the last row replaces it with
+      one. `getRowAccess` decides each row: a marked row is disabled under `disableAdd`, where it
+      can only be that empty row, and the Remove button of the only row is disabled while the row
+      is empty. The text under the rows (helper text or error) keeps a `theme.spacing(1)` gap
+      below it;
     - has `dataSource` → `<ComponentErrorBoundary><DataSourceField><UIComponent/></DataSourceField></ComponentErrorBoundary>`
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.
@@ -324,10 +357,11 @@ none where a codec does the work.
 | Shared (`utils/rows-field/`, `rows-field/`)                                             | Per kind (`utils/map-field/`, `utils/list-field/`)                                       |
 | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `RowsField`: label, Add, rows, Remove, divider, locks, errors, re-validation, focus     | The row template: a map's is the authored group; a list's is built from its item         |
+| `createRowsFieldCodec`: the codec, with the one empty row of a field with no entries    | The conversions: rows to an object, rows to an array, and back                           |
 | `prepareRow` / `toAddedRow`: the row as drawn, and as a row added since draws it        | What a row holds (`roles`): `key` and `value`, or `value` alone                          |
 | `buildRowsFieldSchema`: rows, filled-row count, `root` issue, added rows, the output    | What an entry goes by (`identity`) and when it must be unique (`isUnique`), its messages |
-| `resolveRowsFields`: one path, owned alone                                              | The codec: rows to an object, rows to an array, and back                                 |
-| `lintRowsFields`: ignored options, limits                                               | The default check (`isValidDefault`) and the rule-name prefix (`uiType`)                 |
+| `resolveRowsFields`: one path, owned alone                                              | The default check (`isValidDefault`) and the rule-name prefix (`uiType`)                 |
+| `lintRowsFields`: ignored options, limits                                               | The rules with nothing to check (`ignoredRules`, `ignoredRowFieldRules`)                 |
 | `getRowsFieldDisplayEntries`: the entries a read-only view shows, masked like the input | The entries of a value (`toEntries`)                                                     |
 
 In the shared code, `rows-field-kinds.ts` alone tells the two apart by `uiType`. A third kind,
@@ -344,7 +378,7 @@ flowchart TD
   OVERVIEW["Overview page"] --> EDITABLE["isSectionEditable(section, Edit)"]
   EDITABLE --> MODAL["SectionEditModal"]
   MODAL --> MODE["applyModeOverrides(sections, Edit)"]
-  MODE --> VALUES["extractInstanceValues(editSections, instance)"]
+  MODE --> VALUES["withEmptyFormValues(<br/>extractInstanceValues(editSections, instance))"]
   VALUES --> ORIGINAL["originalDataForCel =<br/>stripBadges(deepMerge(instance, defaultValues))"]
   ORIGINAL --> ZOD_EDIT["buildSectionZodSchema(…, { originalData })"]
   MODE --> ZOD_EDIT
@@ -363,6 +397,10 @@ CEL's `original` is built from the same read as the form (`extractInstanceValues
 `quantity` disk rule like `size >= original.size` compares numbers (`10 >= 10`), not
 `10 >= "10240Mi"`. Legacy `badgeToApi` fields are still stripped on top.
 
+The form shows the instance and no defaults, so `withEmptyFormValues` gives a map or a list the
+instance has no value for its one empty row. A rule reads such a field as unset, in the form and
+in `original` alike.
+
 The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
 `mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
 left empty. Widget, map and list values are written whole for the same reason: a map entry removed
@@ -380,7 +418,9 @@ destination, credentials and Instance entry forms), goes through the same stages
   (`preprocessSection`) and keeps both shapes the stages take: `{ sectionKey, sections, schema }`.
 - **`getSectionFormDefaults`** — create defaults (`getDefaultValues`).
 - **`getSectionFormValues(form, saved)`** — edit values: saved values over the defaults, then the
-  fields the schema owns in the form's shape (`extractInstanceValues`, e.g. a map → rows).
+  fields the schema owns in the form's shape (`extractInstanceValues`, e.g. a map → rows). A map
+  or a list the saved object lacks keeps its default like any other field, or else the empty row
+  the defaults hold for it.
   Saved keys the schema doesn't own are kept, so a save doesn't drop them. The destination modal
   reads with it; the Instance's monitoring entries editor still loads saved entries as they are
   (see [Known Limitations](../../ui-generator/known-limitations.md#maps-and-lists)).
@@ -532,4 +572,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-27
+- Last updated: 2026-11-28

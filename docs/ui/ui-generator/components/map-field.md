@@ -126,7 +126,8 @@ On the map, `min` and `max` count entries, the way they count characters on a
 [text field](text-field.md). The map's `min` and `max` are whole numbers of 0 or more, and `min`
 can't be above `max` in any form mode, or no map would pass: `provider-sdk generate` rejects that
 (rule `map-invalid-limits`). Only filled rows count. `regex` isn't supported on the map: the UI
-ignores it and `provider-sdk generate` rejects it (rule `map-ignored-option`).
+ignores it and `provider-sdk generate` rejects it (rule `map-ignored-option`). The same goes for
+`unique`, a rule of the [list field](list-field.md): a map holds a key once, whatever it says.
 
 On a row's field, `min` and `max` are still a text field's: `max: 63` there limits the length of a
 key or a value, not the number of entries.
@@ -185,7 +186,8 @@ form tells two kinds of rows apart:
 - **Rows the form opened with**: the entries the form held when it loaded. When an instance is
   edited or restored, these are its saved entries. In the create wizard, they are the entries of
   the map's `defaultValue`, or of the preset the user picked.
-- **Added rows**: rows the user added with the Add button since then.
+- **Added rows**: rows the user added with the Add button since then, and the
+  [empty row](#behavior) a map with no entries shows: no entry stands behind it.
 
 **A row field's `disabled` applies to the rows the form opened with. A row added since is
 editable.** The same goes for `readOnly`. An added row's inputs are checked by the field's rules.
@@ -195,13 +197,17 @@ In a row the form opened with, a disabled input skips its own rules, like any
 | Set                         | Effect                                                                                      |
 | --------------------------- | ------------------------------------------------------------------------------------------- |
 | `disabled` on a row's field | That input is disabled in the rows the form opened with                                     |
-| `disableAdd` on the map     | The Add button is disabled                                                                  |
+| `disableAdd` on the map     | The Add button is disabled, and so is the empty row of a map with no entries                |
 | `disableRemove` on the map  | The rows the form opened with can't be removed, or emptied. An added row can be removed     |
 | `disabled` on the map       | Everything is disabled: every input, the Add button and every Remove button, added rows too |
 
 All four go under `fieldParams`, and under `fieldParams.modes.<mode>` to apply in one form mode
 only. A disabled button stays visible.
 
+- **A map with no entries still shows its empty row.** The user can fill it, also when a row's
+  field is `disabled`: it is an added row. With `disableAdd`, or with `disabled` on the map, it is
+  shown disabled, so the map looks the same and the user sees there is nothing to edit.
+  `disableRemove` doesn't report it as an entry the user emptied.
 - **Every row the form opened with is locked the same way.** One entry can't be locked alone.
 - **A saved entry is no longer an added one.** After a save, the next form that opens the instance
   starts with the entry, so the locks apply to it.
@@ -214,6 +220,22 @@ only. A disabled button stays visible.
 
 The snippets below lock the edit form. Without `modes`, the same params lock every form, the
 create wizard too, where they apply to the entries of `defaultValue`.
+
+A lock can leave a form with limits it can never meet. `provider-sdk generate` rejects that (rule
+`map-unsatisfiable-limits`), and the UI warns about it in the browser console of a development
+build:
+
+- `disableAdd`, while the map needs more entries than its `defaultValue` has (`required` needs
+  one, `min` its number): none can be added.
+- `disableRemove`, while the `defaultValue` has more entries than `max` allows: none can be
+  removed.
+
+This is checked for the forms that start from the `defaultValue`: a new instance (`new`) and one
+imported from a backup (`import`), each with its own `modes`. A new instance can also be created
+from a preset, which sends its own values and isn't checked by the form. That doesn't make the
+schema right: without a preset the form can never be submitted. An edit and a restore start from
+a saved instance, which may hold the entries needed, so nothing is reported for them. Neither is
+a map that the form mode disables or hides: it skips its rules.
 
 ### Nothing Can Be Changed
 
@@ -288,7 +310,8 @@ labels:
 
 ### No Adding
 
-`disableAdd` on the map: no entry can be added. The saved ones can be changed and removed.
+`disableAdd` on the map: no entry can be added. The saved ones can be changed and removed. Once
+the last one is removed, the map shows its empty row, disabled.
 
 ```yaml
 labels:
@@ -433,6 +456,12 @@ podMonitorLabels:
 
 ## Behavior:
 
+- **Always a row**: a map with no entries shows one empty row to fill, so the field never looks
+  empty. The row is no entry: nothing is written for it, it doesn't count for `required`, `min` or
+  `max`, a CEL rule finds the map unset, and opening a form with it changes nothing in the form.
+  Its Remove button is disabled while it is the only row and empty: there is nothing to remove.
+  Removing the last row leaves an empty row again. See [Locking Rows](#locking-rows) for a map
+  that can't take entries.
 - **Empty rows**: a row with neither key nor value is dropped on save, not reported.
 - **Empty values**: an entry whose value is empty is sent with it, e.g. a label `infra: ""`: a map
   still holds the key. Set `validation.required` on the row's value field if an entry needs a value.

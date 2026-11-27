@@ -20,7 +20,7 @@ import {
 } from '../../ui-generator.types';
 import { toDisplayText } from '../rows-field/rows';
 import type { RowsFieldKind } from '../rows-field/rows-field.types';
-import { LIST_ROW_ROLES, isStringList, toList } from './list-field';
+import { LIST_ROW_ROLES, isStringList, listToRows, toList } from './list-field';
 import { Messages } from './list-field.messages';
 
 const [ENTRY] = LIST_ROW_ROLES;
@@ -51,12 +51,16 @@ export const LIST_FIELD_KIND: RowsFieldKind = {
     identityRequired: Messages.valueRequired,
     duplicate: Messages.duplicateValue,
   },
+  toRows: listToRows,
   toEntries: (value) => {
     const list = toList(value);
     return Array.isArray(list)
       ? list.map((entry) => ({ value: toDisplayText(entry) }))
       : [];
   },
+  ignoredRules: [],
+  // A row is an entry only once it holds a value, so none is ever missing.
+  ignoredRowFieldRules: ['required'],
   isValidDefault: isStringList,
   valueShape: 'list of strings',
   supportedItemTemplate: 'a text field with no path or id',

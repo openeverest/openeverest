@@ -26,7 +26,10 @@ import {
   getByPath,
   setByPath,
 } from '../object-path';
-import { getComponentTargetPaths } from '../preprocess/normalized-component';
+import {
+  getComponentSourcePath,
+  getComponentTargetPaths,
+} from '../preprocess/normalized-component';
 import { getQuantityFieldCodec } from '../quantity';
 import { walkLeafComponents } from '../schema-walker';
 import type {
@@ -75,6 +78,56 @@ export const writeFieldsInApiShape = (
       }
     });
   });
+
+// The values with, for every field that holds nothing, what its codec keeps
+// in the form for a field with no value, e.g. the one empty row of a map or a
+// list. For a form with no defaults under its values, such as the edit of a
+// section of an instance: there nothing else gives a field that row.
+export const withEmptyFormValues = (
+  values: Record<string, unknown>,
+  sections: Record<string, Section>
+): Record<string, unknown> => {
+  const result = deepClone(values);
+  Object.values(sections).forEach((section) => {
+    if (!section?.components) return;
+    walkLeafComponents(section.components, ({ component }) => {
+      const path = getComponentSourcePath(component);
+      const empty = getFieldCodec(component)?.emptyToForm?.();
+      if (
+        path &&
+        empty !== undefined &&
+        getByPath(result, path) === undefined
+      ) {
+        setByPath(result, path, empty);
+      }
+    });
+  });
+  return result;
+};
+
+// The values without what a field holds but writes nothing for, such as the
+// rows of a map or a list with no entry. To a merge that fills what is unset,
+// such a field must count as unset, or its empty row would keep a default out.
+export const withoutEmptyFormValues = (
+  values: Record<string, unknown>,
+  sections: Record<string, Section>
+): Record<string, unknown> => {
+  const result = deepClone(values);
+  Object.values(sections).forEach((section) => {
+    if (!section?.components) return;
+    walkLeafComponents(section.components, ({ component }) => {
+      const codec = getFieldCodec(component);
+      if (!codec) return;
+      getComponentTargetPaths(component).forEach((path) => {
+        const held = getByPath(result, path);
+        if (held !== undefined && codec.toApi(held, undefined) === undefined) {
+          deleteByPath(result, path);
+        }
+      });
+    });
+  });
+  return result;
+};
 
 // The paths of the fields that own their value as a whole.
 export const getWholeValuePaths = (

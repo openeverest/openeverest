@@ -64,8 +64,15 @@ export interface RowsFieldKind {
     identityRequired: string;
     duplicate: (identity: string) => string;
   };
+  // The rows of a value in the API shape: a saved one, or a schema's default.
+  toRows: (apiValue: unknown) => Row[];
   // The entries of the form's rows or of a saved value, for a read-only view.
   toEntries: (value: unknown) => RowsEntry[];
+  // Rules a schema may set that do nothing here, besides the ones no rows
+  // field acts on (`regex` on the field, CEL on a row's field): on the field
+  // itself, and on a field of its row.
+  ignoredRules: readonly string[];
+  ignoredRowFieldRules: readonly string[];
   // Whether a schema's `defaultValue` is in the shape the field writes.
   isValidDefault: (defaultValue: unknown) => boolean;
   // The two below word a warning to a schema author: the shape the field

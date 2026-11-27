@@ -219,7 +219,7 @@ describe('list field through the pipeline', () => {
     ['a list holding a number', '[10, 20]'],
     ['a map', '{ office: 10.0.0.0/8 }'],
     ['a string', '10.0.0.0/8'],
-  ])('starts empty from a default that is %s', (_, defaultValue) => {
+  ])('starts with no entry from a default that is %s', (_, defaultValue) => {
     // As a provider's YAML may hold it: read as rows, the 10 would be written
     // back as the string "10".
     const schema: TopologyUISchemas = parse(`
@@ -235,8 +235,11 @@ describe('list field through the pipeline', () => {
     `);
 
     expect(
-      getByPath(getDefaultValues(schema, 'replicaSet'), PATH)
-    ).toBeUndefined();
+      postprocessSchemaData(getDefaultValues(schema, 'replicaSet'), {
+        schema,
+        selectedTopology: 'replicaSet',
+      })
+    ).toEqual({});
   });
 
   it('reads a saved list into rows for edit, in its order', () => {

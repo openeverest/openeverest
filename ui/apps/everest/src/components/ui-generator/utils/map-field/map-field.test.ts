@@ -27,7 +27,7 @@ import {
 } from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import { getDefaultValues } from '../default-values';
 import { extractInstanceValues } from '../default-values/extract-instance-values';
-import { deepMerge, getByPath } from '../object-path';
+import { deepMerge } from '../object-path';
 import { postprocessSchemaData } from '../postprocess/postprocess-schema';
 import { mergeSectionEdit } from '../postprocess/merge-section-edit';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
@@ -228,7 +228,7 @@ describe('map field through the pipeline', () => {
     });
   });
 
-  it('starts empty from a default that is not a map of strings', () => {
+  it('starts with no entry from a default that is not a map of strings', () => {
     // As a provider's YAML may hold it: read as rows, the 3 would be written
     // back as the string "3".
     const schema: TopologyUISchemas = parse(`
@@ -244,8 +244,11 @@ describe('map field through the pipeline', () => {
     `);
 
     expect(
-      getByPath(getDefaultValues(schema, 'replicaSet'), PATH)
-    ).toBeUndefined();
+      postprocessSchemaData(getDefaultValues(schema, 'replicaSet'), {
+        schema,
+        selectedTopology: 'replicaSet',
+      })
+    ).toEqual({});
   });
 
   it('reads a saved map into rows for edit', () => {

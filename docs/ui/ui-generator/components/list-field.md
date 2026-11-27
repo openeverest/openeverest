@@ -66,8 +66,8 @@ itemTemplate:
   `validation`, with `modes` too. Transforms such as `trim` or `toLowerCase` change what is
   written. They run after the other rules, as on any text field: a `regex` checks the entry as
   typed. With no `placeholder`, the input shows `Value`.
-- **`required` changes nothing on an item.** A row left empty is dropped, not reported. To ask
-  for entries, set `required` or `min` on the list.
+- **No `required`.** A row is an entry only once something is typed in it, so an entry always
+  has a value. To ask for entries, set `required` or `min` on the list.
 - **`disabled` applies to the rows the form opened with.** A row the user adds is editable, see
   [Locking Rows](#locking-rows).
 - **The list decides what is written.** `uiType: list` writes the rows as one array of their
@@ -96,6 +96,8 @@ shown, not sent, and an edit keeps its saved value.
 - `modes` on the item, e.g. `modes: { edit: { uiType: hidden } }`: a row has the same input in
   every form mode. `fieldParams.modes` and `validation.modes` do work.
 - `badge` / `badgeToApi` on the item.
+- `required` on the item, in `validation` or in a mode: it has nothing to check, as a row left
+  empty is dropped, not reported.
 
 ## Validation
 
@@ -171,13 +173,16 @@ with from the rows the user added since.
 | Set                         | Effect                                                                                      |
 | --------------------------- | ------------------------------------------------------------------------------------------- |
 | `disabled` on the item      | The input is disabled in the rows the form opened with                                      |
-| `disableAdd` on the list    | The Add button is disabled                                                                  |
+| `disableAdd` on the list    | The Add button is disabled, and so is the empty row of a list with no entries               |
 | `disableRemove` on the list | The rows the form opened with can't be removed, or emptied. An added row can be removed     |
 | `disabled` on the list      | Everything is disabled: every input, the Add button and every Remove button, added rows too |
 
 All four go under `fieldParams`, and under `fieldParams.modes.<mode>` to apply in one form mode
 only. A disabled button stays visible.
 
+- **A list with no entries still shows its empty row.** The user can fill it, also when the item
+  is `disabled`: it is an added row. With `disableAdd`, or with `disabled` on the list, it is
+  shown disabled. `disableRemove` doesn't report it as an entry the user emptied.
 - **An added row is checked by the item's rules**, also when the item is disabled. In a row the
   form opened with, a disabled input skips its own rules, like any
   [disabled field](../validation.md#disabled-fields).
@@ -187,6 +192,11 @@ only. A disabled button stays visible.
   also when the other row is disabled.
 - **Only the form is locked.** The API doesn't know these params, so a change made outside the
   form, e.g. with kubectl, isn't stopped.
+- **A lock can't leave limits no form can meet.** `disableAdd` while the list needs more entries
+  than its `defaultValue` has, or `disableRemove` while the `defaultValue` has more than `max`
+  allows, is rejected by `provider-sdk generate` (rule `list-unsatisfiable-limits`) for the forms
+  that start from the `defaultValue`, `new` and `import`. The map's
+  [Locking Rows](map-field.md#locking-rows) has the details.
 
 ### Append-Only
 
@@ -267,6 +277,12 @@ additionalNames:
 
 ## Behavior:
 
+- **Always a row**: a list with no entries shows one empty row to fill, so the field never looks
+  empty. The row is no entry: nothing is written for it, it doesn't count for `required`, `min` or
+  `max`, a CEL rule finds the list unset, and opening a form with it changes nothing in the form.
+  Its Remove button is disabled while it is the only row and empty: there is nothing to remove.
+  Removing the last row leaves an empty row again. See [Locking Rows](#locking-rows) for a list
+  that can't take entries.
 - **Empty rows**: a row with nothing typed in it is dropped on save, not reported.
 - **Blank entries**: a row of spaces only is an entry, written as typed. With `trim` on the item
   it is reported with `Enter a value`.

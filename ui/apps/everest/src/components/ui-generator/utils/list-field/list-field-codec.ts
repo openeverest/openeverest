@@ -13,25 +13,17 @@
 // limitations under the License.
 
 import { isListComponent } from '../../ui-generator.types';
-import type {
-  FieldCodec,
-  FieldCodecResolver,
-} from '../field-codecs/field-codecs.types';
-import { isStringList, listToRows, toList } from './list-field';
+import type { FieldCodecResolver } from '../field-codecs/field-codecs.types';
+import { createRowsFieldCodec } from '../rows-field/rows-field-codec';
+import { toList } from './list-field';
+import { LIST_FIELD_KIND } from './list-field-kind';
 
-// The form keeps a list as rows ({ value }); the API takes the list.
-const LIST_FIELD_CODEC: FieldCodec = {
-  toForm: listToRows,
+// The form keeps a list as rows ({ value }); the API takes the list. No entry
+// leaves no list, so a rule reads what is written.
+const LIST_FIELD_CODEC = createRowsFieldCodec(LIST_FIELD_KIND, {
   toApi: toList,
-  // A default is written in the API shape. One that isn't a list of strings
-  // is ignored rather than written back as text.
-  defaultToForm: (defaultValue) =>
-    isStringList(defaultValue) ? listToRows(defaultValue) : undefined,
-  // A rule reads what the field writes, so it can be written against the
-  // API: the list, and nothing at all while it has no entries.
   toCel: toList,
-  ownsWholeValue: true,
-};
+});
 
 export const getListFieldCodec: FieldCodecResolver = (component) =>
   isListComponent(component) ? LIST_FIELD_CODEC : undefined;

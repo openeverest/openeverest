@@ -13,6 +13,9 @@
 // limitations under the License.
 
 import { TopologyUISchemas } from '../../ui-generator.types';
+import { getDefaultValues } from '../default-values';
+import { mergeTopologyDefaults } from '../default-values/merge-topology-defaults';
+import { withoutEmptyFormValues } from '../field-codecs';
 import { deepClone, deleteByPath, isSameOrNestedPath } from '../object-path';
 import { collectAllSchemaPaths } from '../schema-walker';
 import { collectToggleableMetas } from '../toggleable/toggleable';
@@ -58,4 +61,22 @@ export const dropOtherTopologyValues = (
     .forEach((switchName) => deleteByPath(result, switchName));
 
   return result;
+};
+
+// The form's values once the user switches to `topology`: what only the other
+// topologies bind is dropped, and the new topology's defaults fill what is
+// then unset. A map or a list with no entry counts as unset, though the form
+// holds an empty row for it: the row a field showed before the switch must
+// not keep out the default the new topology gives it. Rows the user filled
+// stay.
+export const switchTopologyValues = (
+  values: Record<string, unknown>,
+  schema: TopologyUISchemas,
+  topology: string
+): Record<string, unknown> => {
+  const kept = withoutEmptyFormValues(
+    dropOtherTopologyValues(values, schema, topology),
+    schema[topology]?.sections ?? {}
+  );
+  return mergeTopologyDefaults(kept, getDefaultValues(schema, topology));
 };

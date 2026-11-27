@@ -44,8 +44,8 @@ type branch struct {
 
 // lintFields mirrors lintRowsFields in the UI: it reports what the UI renders
 // anyway while ignoring part of it. For every map and list the UI renders
-// (not in dropped): options it ignores, a default it can't use and limits no
-// value meets.
+// (not in dropped): options it ignores, a default it can't use, limits no
+// value meets and limits no form can meet.
 //
 //	labels:                          # map-ignored-option: regex is ignored
 //	  uiType: map
@@ -86,7 +86,7 @@ func lintField(f field, dropped map[string]bool) []finding {
 	if ignored := ignoredRowsOptions(f.item, kind); len(ignored) > 0 {
 		findings = append(findings, finding{
 			rule:    kind.rules.ignoredOption,
-			message: fmt.Sprintf("sets %s, which a %s field doesn't support yet and ignores", strings.Join(ignored, ", "), kind.uiType),
+			message: fmt.Sprintf("sets %s, which a %s field ignores", strings.Join(ignored, ", "), kind.uiType),
 		})
 	}
 	if defaults := invalidDefaults(f.item, kind); len(defaults) > 0 {
@@ -98,12 +98,15 @@ func lintField(f field, dropped map[string]bool) []finding {
 	if limits := describeInvalidLimits(f.item["validation"], kind); limits != "" {
 		findings = append(findings, finding{rule: kind.rules.invalidLimits, message: limits})
 	}
+	if unsatisfiable := describeUnsatisfiableLimits(f.item, kind); unsatisfiable != "" {
+		findings = append(findings, finding{rule: kind.rules.unsatisfiableLimits, message: unsatisfiable})
+	}
 	return findings
 }
 
 // ignoredRowsOptions lists the options of a map or a list the UI ignores:
-// `regex` on the field, and what a row's field sets that a row can't act on
-// yet. Mode branches count too.
+// `regex` on the field and the rules that do nothing on its kind, and what a
+// row's field sets that a row can't act on. Mode branches count too.
 //
 //	validation:
 //	  regex: {pattern: "^a"}                   # -> validation.regex
@@ -117,21 +120,30 @@ func lintField(f field, dropped map[string]bool) []finding {
 //	      validation:
 //	        celExpressions: [{celExpr: "..."}] # -> itemTemplate.components.value.validation.celExpressions
 func ignoredRowsOptions(item map[string]any, kind rowsKind) []string {
-	var ignored []string
-	for _, b := range declaredBranches(item["validation"], "validation") {
-		if _, ok := b.rules["regex"]; ok {
-			ignored = append(ignored, b.at+".regex")
-		}
-	}
+	ignored := ignoredRules(item["validation"], "validation", append([]string{"regex"}, kind.ignoredRules...))
 	for _, f := range kind.rowFields(item["itemTemplate"]) {
-		ignored = append(ignored, ignoredRowFieldSettings(f.at, f.item)...)
+		ignored = append(ignored, ignoredRowFieldSettings(f.at, f.item, kind)...)
+	}
+	return ignored
+}
+
+// ignoredRules lists the rules of a validation block, sitting at `at`, that
+// do nothing: each in the block itself and in its mode branches.
+func ignoredRules(validation any, at string, rules []string) []string {
+	var ignored []string
+	for _, b := range declaredBranches(validation, at) {
+		for _, rule := range rules {
+			if _, ok := b.rules[rule]; ok {
+				ignored = append(ignored, b.at+"."+rule)
+			}
+		}
 	}
 	return ignored
 }
 
 // ignoredRowFieldSettings lists what one row field, sitting at `at`, sets
-// that a row can't act on yet. A default counts in a mode too.
-func ignoredRowFieldSettings(at string, rowField map[string]any) []string {
+// that a row can't act on. A default counts in a mode too.
+func ignoredRowFieldSettings(at string, rowField map[string]any, kind rowsKind) []string {
 	var ignored []string
 	for _, option := range ignoredRowFieldOptions() {
 		if _, ok := rowField[option]; ok {
@@ -156,7 +168,7 @@ func ignoredRowFieldSettings(at string, rowField map[string]any) []string {
 			ignored = append(ignored, b.at+".celExpressions")
 		}
 	}
-	return ignored
+	return append(ignored, ignoredRules(rowField["validation"], at+".validation", kind.ignoredRowFieldRules)...)
 }
 
 // invalidDefaults lists the defaults of a map or a list, in fieldParams or
@@ -199,6 +211,97 @@ func describeInvalidLimits(validation any, kind rowsKind) string {
 		}
 	}
 	return ""
+}
+
+// formModesStartingFromDefault returns the form modes whose form starts from
+// the schema's default: a new instance, and one imported from a backup. An
+// edit and a restore start from a saved instance, which may hold any entries.
+// A preset can fill a new form instead, and it is sent unchecked by the form;
+// with none picked the form starts from the default, and that it can't pass
+// then is enough to report.
+func formModesStartingFromDefault() []string {
+	return []string{"new", "import"}
+}
+
+// describeUnsatisfiableLimits returns why a form can never meet the field's
+// limits, in the first mode whose form starts from the default where it
+// can't, or "": the default's entries are too few and none can be added, or
+// too many and none can be removed. A field the mode hides or disables
+// skips its rules, so it is left alone.
+//
+//	fieldParams: {disableAdd: true}
+//	validation: {required: true}   # -> no entry to open with, and none can be added
+func describeUnsatisfiableLimits(item map[string]any, kind rowsKind) string {
+	for _, mode := range formModesStartingFromDefault() {
+		params := paramsInMode(item["fieldParams"], mode)
+		if hiddenInMode(item, mode) || params["disabled"] == true {
+			continue
+		}
+		rules := rulesInMode(item["validation"], mode)
+		entries := 0
+		if kind.isValidDefault(params["defaultValue"]) {
+			entries = kind.countEntries(params["defaultValue"])
+		}
+		if needed := neededEntries(rules); params["disableAdd"] == true && entries < needed {
+			return fmt.Sprintf("fieldParams.disableAdd lets no entry be added in the %q form, which starts from %d of the %d it needs, so the form never passes", mode, entries, needed)
+		}
+		if maxEntries := rules["max"]; params["disableRemove"] == true && isCount(maxEntries) && toFloat(maxEntries) < float64(entries) {
+			return fmt.Sprintf("fieldParams.disableRemove lets no entry be removed in the %q form, which starts from %d while it allows at most %v, so the form never passes", mode, entries, maxEntries)
+		}
+	}
+	return ""
+}
+
+// neededEntries returns the number of entries the rules ask for: one when
+// `required`, and `min` when it is a count.
+func neededEntries(rules map[string]any) int {
+	needed := 0
+	if rules["required"] == true {
+		needed = 1
+	}
+	if minEntries := rules["min"]; isCount(minEntries) {
+		needed = max(needed, int(toFloat(minEntries)))
+	}
+	return needed
+}
+
+// hiddenInMode reports whether a form mode hides the field
+// (`modes.<mode>.uiType: hidden`), so that its rules don't run there.
+func hiddenInMode(item map[string]any, mode string) bool {
+	modes, _ := item["modes"].(map[string]any)
+	override, _ := modes[mode].(map[string]any)
+	return override["uiType"] == uiTypeHidden
+}
+
+// paramsInMode returns the params a form mode draws the field with:
+// `fieldParams` without `modes`, with `modes.<mode>` over them, as in the UI.
+func paramsInMode(fieldParams any, mode string) map[string]any {
+	shared, ok := fieldParams.(map[string]any)
+	if !ok {
+		return nil
+	}
+	params := maps.Clone(shared)
+	delete(params, "modes")
+	modes, _ := shared["modes"].(map[string]any)
+	if override, ok := modes[mode].(map[string]any); ok {
+		maps.Copy(params, override)
+	}
+	return params
+}
+
+// rulesInMode returns the rules a form mode applies: its own branch over the
+// shared ones, or the shared ones alone (see effectiveBranches).
+func rulesInMode(validation any, mode string) map[string]any {
+	branches := effectiveBranches(validation)
+	for _, b := range branches {
+		if b.at == "validation.modes."+mode {
+			return b.rules
+		}
+	}
+	if len(branches) > 0 {
+		return branches[0].rules
+	}
+	return nil
 }
 
 // declaredBranches returns a validation block and each of its mode branches,

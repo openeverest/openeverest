@@ -30,14 +30,24 @@ export const isRow = (value: unknown, { roles }: RowRoles): value is Row =>
 export const isEmptyRow = (row: Row, { roles }: RowRoles): boolean =>
   roles.every((role) => (row[role] ?? '') === '');
 
+// Whether a field holds its one empty row and nothing else: the row that
+// stands in while the field has no entries.
+export const isOneEmptyRow = (rows: unknown, kind: RowRoles): boolean => {
+  if (!Array.isArray(rows) || rows.length !== 1) return false;
+  const [row] = rows;
+  return isRow(row, kind) && isEmptyRow(row, kind);
+};
+
 // The row the Add button appends: empty, and marked as added.
 export const createAddedRow = ({ emptyRow }: RowsFieldKind): Row => ({
   ...emptyRow,
   [ADDED_ROW_FLAG]: true,
 });
 
-// Whether the user added the row since the form opened. The rows a form opens
-// with, a saved value's or a default's, are built by the codec, unmarked.
+// Whether the row is one the user may fill and remove freely: one added since
+// the form opened, or the empty row of a field with no entries. The entries a
+// form opens with, a saved value's or a default's, are built by the codec,
+// unmarked.
 export const isAddedRow = (row: unknown): boolean =>
   isPlainObject(row) && row[ADDED_ROW_FLAG] === true;
 

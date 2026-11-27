@@ -22,8 +22,30 @@ export interface RowsFieldProps {
   children: (row: ComponentGroup, root: string) => ReactNode;
 }
 
-export interface RowState {
+// What the field's params say about its rows as a whole.
+export interface RowLocks {
   // The field is disabled, and every row with it.
+  disabled: boolean;
+  disableAdd: boolean;
+  disableRemove: boolean;
+}
+
+// What tells one row from the others for those locks.
+export interface RowStanding {
+  // The user added the row since the form opened, or it is the empty row a
+  // field with no entries opens with.
+  added: boolean;
+  // It is the field's only row, and nothing is typed in it.
+  onlyEmptyRow: boolean;
+}
+
+export interface RowAccess {
+  disabled: boolean;
+  removeDisabled: boolean;
+}
+
+export interface RowState {
+  // The row's inputs are disabled.
   disabled: boolean;
   // The user added the row since the form opened, so a `disabled` of its own
   // fields doesn't apply to it.

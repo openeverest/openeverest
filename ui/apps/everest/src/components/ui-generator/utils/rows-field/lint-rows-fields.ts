@@ -16,6 +16,7 @@ import {
   type RowsComponent,
   type RowsFieldType,
   type Section,
+  FormMode,
   isRowsComponent,
 } from '../../ui-generator.types';
 import { isPlainObject } from '../object-path';
@@ -24,6 +25,7 @@ import {
   IGNORED_ROW_FIELD_OPTIONS,
   IGNORED_ROW_FIELD_PARAMS,
 } from './rows-field.constants';
+import { isEmptyRow } from './rows';
 import { getDeclaredRowFields, getRowsFieldKind } from './rows-field-kinds';
 import type { RowsFieldKind } from './rows-field.types';
 
@@ -31,7 +33,7 @@ import type { RowsFieldKind } from './rows-field.types';
 // reports the same mistakes when a provider is built: `map-ignored-option`,
 // `list-invalid-default`, …
 export type RowsLintRule =
-  `${RowsFieldType}-${'ignored-option' | 'invalid-default' | 'invalid-limits'}`;
+  `${RowsFieldType}-${'ignored-option' | 'invalid-default' | 'invalid-limits' | 'unsatisfiable-limits'}`;
 
 export interface RowsLintIssue {
   // Section key followed by group keys and the field key, e.g. `advanced.labels`.
@@ -85,9 +87,26 @@ const getEffectiveBranches = (validation: unknown): Branch[] => {
 const has = (options: unknown, option: string): boolean =>
   isPlainObject(options) && options[option] !== undefined;
 
+// The rules of a `validation` block, written at `at`, that do nothing: each in
+// the block itself and in its mode branches.
+const findIgnoredRules = (
+  validation: unknown,
+  at: string,
+  ignoredRules: readonly string[]
+): string[] =>
+  getDeclaredBranches(validation, at).flatMap(([branchAt, branch]) =>
+    ignoredRules
+      .filter((rule) => branch[rule] !== undefined)
+      .map((rule) => `${branchAt}.${rule}`)
+  );
+
 // What a row's field, written at `at`, sets that a row can't act on yet. A
 // default counts in a mode too.
-const findIgnoredRowOptions = (at: string, field: unknown): string[] => {
+const findIgnoredRowOptions = (
+  at: string,
+  field: unknown,
+  { ignoredRowFieldRules }: RowsFieldKind
+): string[] => {
   if (!isPlainObject(field)) return [];
   const { fieldParams, validation } = field;
   const modes =
@@ -107,15 +126,20 @@ const findIgnoredRowOptions = (at: string, field: unknown): string[] => {
     ...getDeclaredBranches(validation, `${at}.validation`)
       .filter(([, branch]) => hasCel(branch))
       .map(([branchAt]) => `${branchAt}.celExpressions`),
+    ...findIgnoredRules(validation, `${at}.validation`, ignoredRowFieldRules),
   ];
 };
 
-const findIgnoredOptions = (component: RowsComponent): string[] => [
-  ...getDeclaredBranches(component.validation, 'validation').flatMap(
-    ([at, branch]) => (branch.regex !== undefined ? [`${at}.regex`] : [])
-  ),
+const findIgnoredOptions = (
+  component: RowsComponent,
+  kind: RowsFieldKind
+): string[] => [
+  ...findIgnoredRules(component.validation, 'validation', [
+    'regex',
+    ...kind.ignoredRules,
+  ]),
   ...getDeclaredRowFields(component).flatMap(([at, field]) =>
-    findIgnoredRowOptions(at, field)
+    findIgnoredRowOptions(at, field, kind)
   ),
 ];
 
@@ -158,6 +182,70 @@ const describeLimits = (
   return undefined;
 };
 
+// The forms that start from the schema's default: a new instance, and one
+// imported from a backup. An edit and a restore start from a saved instance,
+// which may hold any entries. A preset can fill a new form instead, and it is
+// sent unchecked by the form; with none picked the form starts from the
+// default, and that it can't pass then is enough to report.
+const MODES_STARTING_FROM_DEFAULT = [FormMode.New, FormMode.Import];
+
+// The params a form mode draws the field with, merged like applyModeOverrides.
+const getParamsInMode = (
+  fieldParams: unknown,
+  mode: FormMode
+): Record<string, unknown> => {
+  if (!isPlainObject(fieldParams)) return {};
+  const { modes, ...shared } = fieldParams;
+  const override = isPlainObject(modes) ? modes[mode] : undefined;
+  return isPlainObject(override) ? { ...shared, ...override } : shared;
+};
+
+// The rules a form mode applies: its own branch over the shared ones, or the
+// shared ones alone.
+const getRulesInMode = (
+  validation: unknown,
+  mode: FormMode
+): Record<string, unknown> => {
+  const branches = getEffectiveBranches(validation);
+  const [, rules = {}] =
+    branches.find(([at]) => at === `validation.modes.${mode}`) ??
+    branches[0] ??
+    [];
+  return rules;
+};
+
+// Limits a form can never meet, in a mode whose form starts from the default:
+// the default's entries are too few and none can be added, or too many and
+// none can be removed. A field the mode hides or disables skips its
+// rules, so it is left alone.
+const describeUnsatisfiableLimits = (
+  component: RowsComponent,
+  kind: RowsFieldKind
+): string | undefined => {
+  for (const mode of MODES_STARTING_FROM_DEFAULT) {
+    const params = getParamsInMode(component.fieldParams, mode);
+    if (
+      component.modes?.[mode]?.uiType === 'hidden' ||
+      params.disabled === true
+    ) {
+      continue;
+    }
+    const { required, min, max } = getRulesInMode(component.validation, mode);
+    const entries = kind.isValidDefault(params.defaultValue)
+      ? kind.toRows(params.defaultValue).filter((row) => !isEmptyRow(row, kind))
+          .length
+      : 0;
+    const needed = Math.max(required === true ? 1 : 0, isCount(min) ? min : 0);
+    if (params.disableAdd === true && entries < needed) {
+      return `fieldParams.disableAdd lets no entry be added in the "${mode}" form, which starts from ${entries} of the ${needed} it needs, so the form never passes`;
+    }
+    if (params.disableRemove === true && isCount(max) && max < entries) {
+      return `fieldParams.disableRemove lets no entry be removed in the "${mode}" form, which starts from ${entries} while it allows at most ${max}, so the form never passes`;
+    }
+  }
+  return undefined;
+};
+
 // Mistakes in a schema the UI renders anyway, ignoring the part it can't use.
 // Run on sections whose unsupported rows fields are already dropped.
 export const lintRowsFields = (
@@ -172,12 +260,12 @@ export const lintRowsFields = (
         if (!isRowsComponent(component)) return;
         const kind = getRowsFieldKind(component);
         const { uiType, valueShape } = kind;
-        const ignored = findIgnoredOptions(component);
+        const ignored = findIgnoredOptions(component, kind);
         if (ignored.length > 0) {
           issues.push({
             keyPath,
             rule: `${uiType}-ignored-option`,
-            message: `sets ${ignored.join(', ')}, which a ${uiType} field doesn't support yet and ignores`,
+            message: `sets ${ignored.join(', ')}, which a ${uiType} field ignores`,
           });
         }
         const defaults = findInvalidDefaults(component, kind);
@@ -196,6 +284,14 @@ export const lintRowsFields = (
             keyPath,
             rule: `${uiType}-invalid-limits`,
             message: limits,
+          });
+        }
+        const unsatisfiable = describeUnsatisfiableLimits(component, kind);
+        if (unsatisfiable) {
+          issues.push({
+            keyPath,
+            rule: `${uiType}-unsatisfiable-limits`,
+            message: unsatisfiable,
           });
         }
       },

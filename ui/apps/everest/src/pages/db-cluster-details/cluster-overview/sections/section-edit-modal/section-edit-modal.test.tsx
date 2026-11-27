@@ -372,6 +372,102 @@ describe('SectionEditModal map field', () => {
   });
 });
 
+describe.each<[string, Component, string]>([
+  [
+    'map',
+    {
+      uiType: FieldType.Map,
+      path: 'spec.labels',
+      fieldParams: { label: 'Labels' },
+      itemTemplate: keyValueRow(),
+    },
+    'Key 1',
+  ],
+  [
+    'list',
+    {
+      uiType: FieldType.List,
+      path: 'spec.args',
+      fieldParams: { label: 'Arguments' },
+      itemTemplate: { uiType: FieldType.Text },
+    },
+    'Value 1',
+  ],
+])(
+  'SectionEditModal with a %s the instance holds no value for',
+  (_, field, input) => {
+    const { sections } = preprocessSchema({
+      replicaSet: {
+        sections: { advanced: { label: 'Advanced', components: { field } } },
+      },
+    }).replicaSet;
+    const instance: Instance = {
+      metadata: { name: 'test-db', namespace: 'ns' },
+      spec: {
+        providerRef: { name: 'psmdb' },
+        topology: { type: 'replicaSet' },
+      },
+    };
+    const provider: Provider = { metadata: { name: 'psmdb' }, spec: {} };
+
+    const renderModal = () => {
+      const onClose = vi.fn();
+      render(
+        <TestWrapper>
+          <SectionEditModal
+            sectionKey="advanced"
+            sections={sections}
+            instance={instance}
+            provider={provider}
+            namespace="ns"
+            onClose={onClose}
+            onSuccess={vi.fn()}
+          />
+        </TestWrapper>
+      );
+      return onClose;
+    };
+
+    // A click outside closes the dialog only while the form is unchanged.
+    const clickOutside = () => {
+      const outside = document.querySelector('.MuiDialog-container');
+      if (!outside) throw new Error('The dialog is not open');
+      fireEvent.mouseDown(outside);
+      fireEvent.click(outside);
+    };
+
+    it('opens unchanged with its empty row, and saves the instance as it is', async () => {
+      mutate.mockClear();
+      const onClose = renderModal();
+
+      expect(screen.getByRole('textbox', { name: input })).toHaveValue('');
+
+      const saveButton = screen.getByTestId('form-dialog-save');
+      await waitFor(() => expect(saveButton).toBeEnabled());
+      fireEvent.click(saveButton);
+      await waitFor(() => expect(mutate).toHaveBeenCalled());
+      expect(mutate.mock.calls[0][0].spec).toEqual(instance.spec);
+
+      clickOutside();
+      expect(onClose).toHaveBeenCalled();
+    });
+
+    it('counts as changed once the user types in the row', async () => {
+      const onClose = renderModal();
+
+      fireEvent.change(screen.getByRole('textbox', { name: input }), {
+        target: { value: 'team' },
+      });
+      await waitFor(() =>
+        expect(screen.getByRole('textbox', { name: input })).toHaveValue('team')
+      );
+
+      clickOutside();
+      expect(onClose).not.toHaveBeenCalled();
+    });
+  }
+);
+
 describe('SectionEditModal dataSource field disabled on edit', () => {
   const { sections } = preprocessSchema({
     replicaSet: {

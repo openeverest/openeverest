@@ -21,7 +21,8 @@ rows of one input, see [List Field](components/list-field.md). Not supported yet
   [Not Supported Yet](components/list-field.md#not-supported-yet) for the whole list.
 - **On a row's field** (a map's key or value, a list's item): `defaultValue` (a new row starts
   empty; the field's own `defaultValue` sets the initial entries), `celExpressions`, `dataSource`,
-  `badge` / `badgeToApi` and component-level `modes`. The UI ignores them.
+  `badge` / `badgeToApi` and component-level `modes`. The UI ignores them, as it does `required`
+  on a list's item and `unique` on a map, which have nothing to check.
 - **Several paths** on a map or a list: an edit reads only the first, so such a field isn't
   rendered.
 - **CEL on a row's field**, and `regex` on the map or the list. The UI ignores them and
@@ -40,13 +41,14 @@ rows of one input, see [List Field](components/list-field.md). Not supported yet
   as `"null"`, an object as `"[object Object]"`, drops an entry that is an empty string, and
   removes a value that isn't a list at all. Bind a list field only to a path whose API schema is an array of strings.
 - **Backup class parameter forms** (backup schedules, on-demand backups, PITR): they don't write
-  rows in the API shape. Use map and list fields in Instance schemas and monitoring class
-  destination forms.
-- **Monitoring entry parameters on edit:** the Instance's monitoring editor loads saved entries as
-  they are, so a map field in a monitoring class's `instance` form shows no rows for a saved map
-  and fails validation. A list field there shows an empty row for each saved entry and fails
-  validation with `These entries can't be edited in this form`. Adding an entry works; only saved
-  ones are affected.
+  rows in the API shape, and a field with no `defaultValue` shows no row there. Use map and list
+  fields in Instance schemas and monitoring class destination forms.
+- **Saved monitoring entry parameters:** the Instance's monitoring editor, a restore and a preset
+  load saved entries as they are, so a map field in a monitoring class's `instance` form shows no
+  rows for a saved map and fails validation. A list field there shows an empty row for each saved
+  entry and fails validation with `These entries can't be edited in this form`. A map or a list
+  field the saved entry has no value for shows no row, only its Add button. Adding an entry
+  works; only saved ones are affected.
 - **A class's parameters schema** checks a list as a whole (`required`): the entries, described
   by `items`, are left to the server.
 - **Paths into an array:** a `path` like `storages.0.name` — in a reusable section **or** in a

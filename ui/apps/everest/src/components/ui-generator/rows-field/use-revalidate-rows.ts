@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useEffect, useRef } from 'react';
-import { useFormContext, useWatch } from 'react-hook-form';
+import { useFormContext } from 'react-hook-form';
 import { isPlainObject } from 'components/ui-generator/utils/object-path';
 import type { RowsFieldKind } from 'components/ui-generator/utils/rows-field';
 
@@ -39,11 +39,12 @@ const toRowSignature = (
 // a CEL rule may read it.
 export const useRevalidateRows = (
   name: string,
+  // The rows as the form holds them now.
+  rows: unknown,
   kind: RowsFieldKind,
   withEveryPart: boolean
 ) => {
-  const { control, trigger } = useFormContext();
-  const rows: unknown = useWatch({ control, name });
+  const { trigger } = useFormContext();
   const signature = JSON.stringify(
     (Array.isArray(rows) ? rows : []).map((row) =>
       toRowSignature(row, kind, withEveryPart)

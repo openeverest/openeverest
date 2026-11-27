@@ -102,13 +102,34 @@ They run on every map field `m` the UI renders (no [map rule](#map-rules) matche
 
 | Rule | Condition |
 |------|-----------|
-| `map-ignored-option` | `m` sets an option the UI ignores: `regex` in `m.validation` or in one of its `modes.<mode>` branches; or, for a row field `r = m.itemTemplate.components.<name>`: a non-empty `celExpressions` in `r.validation` or its mode branches; `defaultValue`, `badge` or `badgeToApi` in `r.fieldParams`; `defaultValue` in `r.fieldParams.modes.<mode>`; or `dataSource` or `modes` on `r`. An option counts as set when its key is present. |
+| `map-ignored-option` | `m` sets an option the UI ignores: `regex` or `unique` in `m.validation` or in one of its `modes.<mode>` branches; or, for a row field `r = m.itemTemplate.components.<name>`: a non-empty `celExpressions` in `r.validation` or its mode branches; `defaultValue`, `badge` or `badgeToApi` in `r.fieldParams`; `defaultValue` in `r.fieldParams.modes.<mode>`; or `dataSource` or `modes` on `r`. An option counts as set when its key is present. |
 | `map-invalid-default` | `m.fieldParams.defaultValue`, or `m.fieldParams.modes.<mode>.defaultValue`, is present and is not a map whose values are all strings |
 | `map-invalid-limits` | in a form mode's validation, `min` or `max` is present and is not a whole number of 0 or more, or both are and `min > max`. A mode's validation is `m.validation` without `modes`, with `modes.<mode>` over it unless that branch sets `inheritShared: false`; `m.validation` itself is checked too. |
+| `map-unsatisfiable-limits` | in a form mode `M ∈ {new, import}` that neither hides `m` (`m.modes.M.uiType = hidden`) nor disables it, the form starts from a `defaultValue` it can never bring within the limits, see [Limits no form can meet](#limits-no-form-can-meet) |
 
-**Effect.** The UI renders the field and ignores the option (`map-ignored-option`), starts the field empty (`map-invalid-default`), or applies limits no map meets (`map-invalid-limits`).
+**Effect.** The UI renders the field and ignores the option (`map-ignored-option`), starts the field empty (`map-invalid-default`), applies limits no map meets (`map-invalid-limits`), or shows a form that can never be submitted (`map-unsatisfiable-limits`).
 
-**Why.** None of these is supported yet: a row starts empty and writes only its key and value, takes no options from an API, is the same field in every form mode, and a rule set on a row's field has no row to read yet (a rule on the map or on another field can read the map). A default that isn't a map of strings would be written back as text. Limits that clash block every save.
+**Why.** None of the ignored options is supported yet: a row starts empty and writes only its key and value, takes no options from an API, is the same field in every form mode, and a rule set on a row's field has no row to read yet (a rule on the map or on another field can read the map). `unique` has nothing to check: a map holds a key once. A default that isn't a map of strings would be written back as text. Limits that clash block every save.
+
+### Limits no form can meet
+
+The rule is the same for a map and a list (`map-unsatisfiable-limits`, `list-unsatisfiable-limits`). It reports only what is certain, so it looks at the form modes whose form starts from the schema's `defaultValue`: `new` (a new instance) and `import` (one imported from a backup). An `edit` and a `restore` start from a saved instance, which may hold any entries, so they are never reported.
+
+A `new` form can also be filled from a preset, and an instance created from a preset is sent as the preset holds it, unchecked by the form. The rule doesn't take that into account: with no preset picked the form starts from the `defaultValue` and can never be submitted, which is reason enough to reject the schema.
+
+For a field `f` and a mode `M ∈ {new, import}`:
+
+- **params_M(f)**: `f.fieldParams` without `modes`, with `f.fieldParams.modes.M` over it.
+- **rules_M(f)**: `f.validation` without `modes`, with `f.validation.modes.M` over it unless that branch sets `inheritShared: false`.
+- **n**: the number of entries of `params_M(f).defaultValue` when it is in the shape the field writes, else 0. An entry the form reads as an empty row is not counted: a map entry whose key and value are both `""`, a list entry that is `""`.
+- **needed**: the larger of 1 when `rules_M(f).required = true` and of `rules_M(f).min` when it is a whole number of 0 or more; 0 with neither.
+
+`M` is skipped when `f.modes.M.uiType = hidden` or `params_M(f).disabled = true`: a hidden or disabled field skips its rules. Otherwise `f` gets the issue when, in the first such `M`:
+
+- `params_M(f).disableAdd = true` and `n < needed`: no entry can be added, so the count is never met; or
+- `params_M(f).disableRemove = true`, `rules_M(f).max` is a whole number of 0 or more and `max < n`: no entry can be removed.
+
+A field in a toggleable group is reported too: the group could never be switched on.
 
 ## List option rules
 
@@ -116,13 +137,14 @@ They run on every list field `l` the UI renders (no [list rule](#list-rules) mat
 
 | Rule | Condition |
 |------|-----------|
-| `list-ignored-option` | `l` sets an option the UI ignores: `regex` in `l.validation` or in one of its `modes.<mode>` branches; or, for the item `r = l.itemTemplate`: a non-empty `celExpressions` in `r.validation` or its mode branches; `defaultValue`, `badge` or `badgeToApi` in `r.fieldParams`; `defaultValue` in `r.fieldParams.modes.<mode>`; or `dataSource` or `modes` on `r`. An option counts as set when its key is present. |
+| `list-ignored-option` | `l` sets an option the UI ignores: `regex` in `l.validation` or in one of its `modes.<mode>` branches; or, for the item `r = l.itemTemplate`: `required`, or a non-empty `celExpressions`, in `r.validation` or its mode branches; `defaultValue`, `badge` or `badgeToApi` in `r.fieldParams`; `defaultValue` in `r.fieldParams.modes.<mode>`; or `dataSource` or `modes` on `r`. An option counts as set when its key is present. |
 | `list-invalid-default` | `l.fieldParams.defaultValue`, or `l.fieldParams.modes.<mode>.defaultValue`, is present and is not a list whose entries are all strings |
 | `list-invalid-limits` | in a form mode's validation, `min` or `max` is present and is not a whole number of 0 or more, or both are and `min > max`. A mode's validation is `l.validation` without `modes`, with `modes.<mode>` over it unless that branch sets `inheritShared: false`; `l.validation` itself is checked too. |
+| `list-unsatisfiable-limits` | the same as `map-unsatisfiable-limits`, see [Limits no form can meet](#limits-no-form-can-meet) |
 
-**Effect.** The UI renders the field and ignores the option (`list-ignored-option`), starts the field empty (`list-invalid-default`), or applies limits no list meets (`list-invalid-limits`).
+**Effect.** The UI renders the field and ignores the option (`list-ignored-option`), starts the field empty (`list-invalid-default`), applies limits no list meets (`list-invalid-limits`), or shows a form that can never be submitted (`list-unsatisfiable-limits`).
 
-**Why.** The same as for a map: a row starts empty and writes only its entry, takes no options from an API, is the same field in every form mode, and a rule set on the item has no row to read yet (a rule on the list or on another field can read the list). A default that isn't a list of strings would be written back as text. Limits that clash block every save. The item's own `min` and `max` count characters, as on any text field, and are not checked here.
+**Why.** The same as for a map: a row starts empty and writes only its entry, takes no options from an API, is the same field in every form mode, and a rule set on the item has no row to read yet (a rule on the list or on another field can read the list). `required` on the item has nothing to check: a row is an entry only once it holds a value. A default that isn't a list of strings would be written back as text. Limits that clash block every save. The item's own `min` and `max` count characters, as on any text field, and are not checked here.
 
 ## Reserved key rule: `reserved-key`
 

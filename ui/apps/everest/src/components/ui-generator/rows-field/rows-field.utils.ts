@@ -19,7 +19,12 @@ import {
 } from 'components/ui-generator/utils/rows-field';
 import type { ComponentGroup, RowsComponent } from '../ui-generator.types';
 import { Messages } from './rows-field.messages';
-import type { RowState } from './rows-field.types';
+import type {
+  RowAccess,
+  RowLocks,
+  RowStanding,
+  RowState,
+} from './rows-field.types';
 
 // Whether the field carries a CEL rule of its own, in any form mode.
 export const hasOwnCelRule = ({ validation }: RowsComponent): boolean =>
@@ -27,6 +32,19 @@ export const hasOwnCelRule = ({ validation }: RowsComponent): boolean =>
   [validation, ...Object.values(validation.modes ?? {})].some(
     (rules) => !!rules.celExpressions?.length
   );
+
+// What the user may do with one row. `disableRemove` holds for the rows the
+// form opened with. An added row is an entry in the making, so a field that
+// takes no new entry (`disableAdd`) shows it disabled: there it can only be the
+// empty row that stands in while the field has no entries. That row, while it
+// is the only one, has nothing to remove either.
+export const getRowAccess = (
+  { disabled, disableAdd, disableRemove }: RowLocks,
+  { added, onlyEmptyRow }: RowStanding
+): RowAccess => ({
+  disabled: disabled || (added && disableAdd),
+  removeDisabled: disabled || (disableRemove && !added) || onlyEmptyRow,
+});
 
 // One row's fields: each named for the row ("Key 2"), disabled with the field,
 // showing a cut-off value on hover, and the first one focused when the row was

@@ -94,11 +94,16 @@ flowchart TD
   fields are told apart by `path`, so their names are the schema's own. Preprocess prepares the row
   into `_row`, and it renders through the UI Generator, so a text field's params and rules apply,
   transforms included, but for `defaultValue`, badges, CEL and `dataSource`, which the row drops.
-- **Ignored options are reported**: what a rendered map can't use (`regex` on the map, CEL,
-  a `dataSource` or a default / badge on a row's field, a `defaultValue` that isn't a map of strings, limits no
-  map meets) is ignored at runtime with a dev warning (`lintRowsFields`), and the Go validator
-  reports `map-ignored-option` / `map-invalid-default` / `map-invalid-limits`.
+- **Ignored options are reported**: what a rendered map can't use (`regex` and `unique` on the
+  map, CEL, a `dataSource` or a default / badge on a row's field, a `defaultValue` that isn't a
+  map of strings, limits no map meets, limits no form can meet) is ignored at runtime with a dev
+  warning (`lintRowsFields`), and the Go validator reports `map-ignored-option` /
+  `map-invalid-default` / `map-invalid-limits` / `map-unsatisfiable-limits`.
 - **Unique keys** are implied by the map and can't be switched off.
+- **Always a row** — a map with no entries is one empty row in the form, given by its codec
+  with the form's values and marked as added (see
+  [Rows fields](pipeline.md#rows-fields-map-and-list)). It is not an entry, and no lock below
+  holds for it; `disableAdd` and `disabled` show it disabled.
 - **Row locks** — the form tells the rows it opened with (a saved map's, a default's) from the
   rows the user added since: `RowsField` marks an appended row in the form data
   (`ADDED_ROW_FLAG`), and a form `reset()` with loaded values replaces the rows, mark included.
@@ -139,9 +144,11 @@ flowchart TD
 - **Duplicates are allowed**, as an argument list needs them. `validation.unique` forbids them,
   after the item's transforms. A map's keys are always unique: that is where the rules of the
   two differ.
-- **Ignored options, row locks and other shapes** work as for a map, with rules named `list-…`:
-  `list-ignored-option` / `list-invalid-default` (a default that isn't a list of strings) /
-  `list-invalid-limits`, and `list-unsupported` / `list-multi-path` / `list-overlap`. A map and a
+- **The empty row, ignored options, row locks and other shapes** work as for a map, with rules
+  named `list-…`: `list-ignored-option` (also `required` on the item, which has nothing to
+  check) / `list-invalid-default` (a default that isn't a list of strings) /
+  `list-invalid-limits` / `list-unsatisfiable-limits`, and `list-unsupported` /
+  `list-multi-path` / `list-overlap`. A map and a
   list on overlapping paths are both dropped, each by its own rule.
 
 ## Level 2 — Widget (host-rendered leaf)

@@ -18,7 +18,7 @@ export {
   resolveRowsFields,
 } from './resolve-rows-fields';
 export { getRowFieldRole, toAddedRow } from './row-template';
-export { createAddedRow, isAddedRow } from './rows';
+export { createAddedRow, isAddedRow, isOneEmptyRow } from './rows';
 export { getRowsFieldDisplayEntries } from './rows-field-display';
 export {
   findRowsFieldKind,

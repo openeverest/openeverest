@@ -61,21 +61,14 @@ const cases: SharedCase[] = Object.entries(sharedCaseFiles).flatMap(
 const CEL_RULE = 'toggleable-cel-unguarded';
 // Rules the UI renders past, ignoring part of the schema; it reports them by
 // name as dev-time warnings.
-const LINT_RULES = new Set([
-  'map-ignored-option',
-  'map-invalid-default',
-  'map-invalid-limits',
-  'list-ignored-option',
-  'list-invalid-default',
-  'list-invalid-limits',
-  'reserved-key',
-]);
-// The rules that drop a map or a list.
+const LINT_RULE =
+  /^((map|list)-(ignored-option|invalid-default|invalid-limits|unsatisfiable-limits)|reserved-key)$/;
+// The other rules of a map or a list drop it.
 const DROP_RULE = /^(map|list)-/;
 
 // The UI only shows the outcome of a rule, not which rule it was.
 const toUiOutcome = ({ rule, topology, group, field }: SharedIssue): string => {
-  if (LINT_RULES.has(rule)) return `lint ${rule} ${topology}:${field}`;
+  if (LINT_RULE.test(rule)) return `lint ${rule} ${topology}:${field}`;
   if (rule === CEL_RULE) return `cel ${topology}:${group}:${field}`;
   if (rule.startsWith('toggleable-')) return `bordered ${topology}:${group}`;
   if (DROP_RULE.test(rule)) return `dropped ${topology}:${field}`;

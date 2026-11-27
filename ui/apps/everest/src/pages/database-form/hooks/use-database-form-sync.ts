@@ -23,9 +23,7 @@ import {
   FormMode,
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
-import { getDefaultValues } from 'components/ui-generator/utils/default-values';
-import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
-import { dropOtherTopologyValues } from 'components/ui-generator/utils/topology-scope';
+import { switchTopologyValues } from 'components/ui-generator/utils/topology-scope';
 import {
   DroppedPresetNotice,
   PresetStatus,
@@ -121,14 +119,10 @@ export const useDatabaseFormSync = ({
     // Preset owns topology while selected; its own sync handles population.
     if (preset.status !== 'none') return;
 
-    const topologyDefaults = getDefaultValues(uiSchema, topologyType);
-    const merged = mergeTopologyDefaults(
-      dropOtherTopologyValues(
-        getValues() as Record<string, unknown>,
-        uiSchema,
-        topologyType
-      ),
-      topologyDefaults
+    const merged = switchTopologyValues(
+      getValues() as Record<string, unknown>,
+      uiSchema,
+      topologyType
     );
     reset(merged as DbWizardType, { keepDirty: true, keepIsSubmitted: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
