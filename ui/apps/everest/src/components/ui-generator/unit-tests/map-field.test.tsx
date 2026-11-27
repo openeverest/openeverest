@@ -18,7 +18,12 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TestWrapper } from 'utils/test';
 import { UIGenerator } from '../ui-generator';
-import { FieldType, GroupType, TopologyUISchemas } from '../ui-generator.types';
+import {
+  ComponentGroup,
+  FieldType,
+  GroupType,
+  TopologyUISchemas,
+} from '../ui-generator.types';
 import { keyValueRow } from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import { buildZodSchema } from '../utils/schema-builder';
 import { getDefaultValues } from '../utils/default-values';
@@ -253,6 +258,49 @@ describe('UIGenerator - map field', () => {
       'placeholder',
       'NAME'
     );
+  });
+
+  it('separates stacked rows with a line, and rows in a line with none', () => {
+    const withRows = (itemTemplate: ComponentGroup): TopologyUISchemas => ({
+      replicaSet: {
+        sections: {
+          advanced: {
+            components: {
+              annotations: {
+                uiType: FieldType.Map,
+                path: 'spec.proxy.annotations',
+                fieldParams: {
+                  label: 'Annotations',
+                  defaultValue: { team: 'db', tier: 'prod' },
+                },
+                itemTemplate,
+              },
+            },
+          },
+        },
+      },
+    });
+    const renderMap = (uiSchema: TopologyUISchemas) =>
+      render(
+        <TestWrapper>
+          <FormWrapper uiSchema={uiSchema}>
+            <UIGenerator
+              sections={uiSchema.replicaSet.sections}
+              sectionKey="advanced"
+            />
+          </FormWrapper>
+        </TestWrapper>
+      );
+
+    // No groupType: the row's inputs are stacked.
+    const { unmount } = renderMap(
+      withRows({ ...keyValueRow(), groupType: undefined })
+    );
+    expect(screen.getAllByRole('separator')).toHaveLength(1);
+    unmount();
+
+    renderMap(withRows(keyValueRow()));
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
   });
 
   it('disables the rows and buttons of a disabled map', () => {

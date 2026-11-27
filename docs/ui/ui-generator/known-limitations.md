@@ -9,9 +9,10 @@ documented in the main [Readme](./Readme.md).
 [Map Field](components/map-field.md). Not supported yet:
 
 - **Other rows:** an `itemTemplate` other than a group of a text key and a text value, e.g. a
-  typed value, a third field or a map of objects. Such a map isn't rendered or sent, and an edit
-  keeps its saved value. See [Not Supported Yet](components/map-field.md#not-supported-yet) for
-  the whole list.
+  typed value, a third field or a map of objects. Both inputs are text, so the map writes
+  strings; a number, quantity, toggle or select value (with a `dataSource` too) is being
+  considered. Such a map isn't rendered or sent, and an edit keeps its saved value. See
+  [Not Supported Yet](components/map-field.md#not-supported-yet) for the whole list.
 - **On a row's field:** `defaultValue`, `celExpressions`, `dataSource` and component-level `modes`.
   The UI ignores them.
 - **Lists:** `uiType: list` (strings or objects) is planned; until then it's an unknown `uiType`.

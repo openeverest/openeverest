@@ -19,12 +19,13 @@ import {
   useFormContext,
   useFormState,
 } from 'react-hook-form';
-import { Box, FormHelperText, IconButton, Stack } from '@mui/material';
+import { Box, Divider, FormHelperText, IconButton, Stack } from '@mui/material';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { ActionableLabeledContent } from '@percona/ui-lib';
 import { getMapRow } from 'components/ui-generator/utils/map-field';
 import { useUiGeneratorContext } from '../ui-generator-context';
 import { Messages } from './map-field.messages';
+import { GroupType } from '../ui-generator.types';
 import { MapFieldProps } from './map-field.types';
 import { toRowAtIndex } from './map-field.utils';
 import { useRevalidateMap } from './use-revalidate-map';
@@ -40,6 +41,9 @@ export const MapField = ({
   const { loadingDefaultsForEdition } = useUiGeneratorContext();
   const disabled = !!loadingDefaultsForEdition || !!fieldParams.disabled;
   const row = getMapRow(item);
+  // Stacked inputs of one row sit as close as two rows do, so a line tells the
+  // rows apart.
+  const stacked = row.groupType !== GroupType.Line;
   const { control } = useFormContext();
   const { errors } = useFormState({ control, name });
   const { fields, append, remove } = useFieldArray({ control, name });
@@ -70,7 +74,10 @@ export const MapField = ({
         },
       }}
     >
-      <Stack gap={1}>
+      <Stack
+        gap={stacked ? 2 : 1}
+        divider={stacked ? <Divider flexItem /> : undefined}
+      >
         {fields.map((field, index) => (
           <Stack key={field.id} direction="row" alignItems="center" gap={1}>
             <Box sx={{ flex: 1, minWidth: 0 }}>

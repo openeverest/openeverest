@@ -58,7 +58,8 @@ itemTemplate:
   with `path: key` holds the entry's key, the one with `path: value` its value. A row has exactly
   these two. The component names (`key` and `value` above) are yours, as anywhere in a schema.
 - **Layout.** `groupType: line` puts the two inputs side by side. With no `groupType` they are
-  stacked. The button that removes the row sits to the right of it in both.
+  stacked, and a line separates the rows. The button that removes the row sits to the right of it
+  in both.
 - **Params and rules are a text field's.** `label`, `placeholder`, `helperText`, `type: password`,
   `disabled` and `modes` under `fieldParams`; `required`, `min`, `max`, `regex` and the transforms
   under `validation`, with `modes` too. Transforms such as `trim` or `toLowerCase` change what is
@@ -75,8 +76,9 @@ of it is planned, none is ruled out.
 **The map isn't rendered** (rule `map-unsupported`). It is treated like an unknown `uiType`: not
 shown, not sent, and an edit keeps its saved value.
 
-- A key or a value that isn't `uiType: text`, e.g. a number, a quantity or a select. Both inputs
-  are text, so the map writes strings.
+- A key or a value that isn't `uiType: text`. Both inputs are text, so the map writes strings. A
+  typed value is being considered: a number, a quantity, a toggle, or a select, with its options
+  from a `dataSource` too.
 - A third field, e.g. a note beside the value: an entry holds one value.
 - A group inside the row.
 - A `groupType` other than `line`.
