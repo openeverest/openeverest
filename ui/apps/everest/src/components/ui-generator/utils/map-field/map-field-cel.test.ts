@@ -20,9 +20,11 @@ import {
   FieldType,
   FormMode,
   GroupType,
-  TemplateWidgetType,
-  WIDGET_UI_TYPE,
 } from 'components/ui-generator/ui-generator.types';
+import {
+  KEY_VALUE_ROW_YAML,
+  keyValueRow,
+} from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
 import { buildZodSchema } from '../schema-builder';
 import { TOGGLEABLE_SWITCHES_KEY } from '../toggleable/toggleable';
@@ -42,9 +44,11 @@ const schemaWith = (celExpr: string, keyRules = '{}'): TopologyUISchemas =>
                 path: spec.labels
                 fieldParams: { label: Labels }
                 itemTemplate:
-                  uiType: widget
-                  widgetType: keyValue
-                  validation: { key: ${keyRules} }
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key, validation: ${keyRules} }
+                    value: { uiType: text, path: value }
               name:
                 uiType: text
                 path: spec.name
@@ -196,7 +200,7 @@ describe('a map field read by the CEL rule of another field', () => {
                     uiType: map
                     path: spec.proxy.labels
                     fieldParams: { label: Labels }
-                    itemTemplate: { uiType: widget, widgetType: keyValue }
+                    itemTemplate: ${KEY_VALUE_ROW_YAML}
                   name:
                     uiType: text
                     path: spec.name
@@ -243,10 +247,7 @@ describe('a map field read by the CEL rule of another field', () => {
                 uiType: FieldType.Map,
                 path: 'labels',
                 fieldParams: { label: 'Labels' },
-                itemTemplate: {
-                  uiType: WIDGET_UI_TYPE,
-                  widgetType: TemplateWidgetType.KeyValue,
-                },
+                itemTemplate: keyValueRow(),
               },
               name: {
                 uiType: FieldType.Text,
@@ -279,10 +280,7 @@ describe('a map field read by the CEL rule of another field', () => {
       uiType: FieldType.Map,
       path: 'spec.monitoring.labels',
       fieldParams: { label: 'Labels' },
-      itemTemplate: {
-        uiType: WIDGET_UI_TYPE,
-        widgetType: TemplateWidgetType.KeyValue,
-      },
+      itemTemplate: keyValueRow(),
     };
 
     // `inGroup` sets where the map sits: inside the group, or beside it.
