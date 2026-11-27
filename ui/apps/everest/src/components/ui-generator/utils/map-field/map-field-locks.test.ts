@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 import {
   type MapComponent,
   type TopologyUISchemas,
@@ -81,6 +82,35 @@ const added = (key: string, value: string): MapRow => ({
   ...createAddedRow(),
   key,
   value,
+});
+
+describe('a map with no fieldParams', () => {
+  it('still builds its rules, since a schema may leave fieldParams out', () => {
+    // As a provider's YAML may hold it; the types ask for fieldParams.
+    const schema: TopologyUISchemas = parse(`
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                itemTemplate:
+                  uiType: group
+                  components:
+                    key: { uiType: text, path: key }
+                    value: { uiType: text, path: value }
+    `);
+    const { schema: zodSchema } = buildZodSchema(
+      preprocessSchema(schema),
+      'replicaSet'
+    );
+
+    expect(
+      zodSchema.safeParse({ spec: { labels: [{ key: 'team', value: 'db' }] } })
+        .success
+    ).toBe(true);
+  });
 });
 
 describe('a row field disabled in a map', () => {

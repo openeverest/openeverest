@@ -133,7 +133,8 @@ export const buildShapeFromComponents = (
             added: buildRowShape(toAddedMapRow(row)),
           },
           mapValidation,
-          !!component.fieldParams.disableRemove
+          // A schema comes from YAML, so a map may have no `fieldParams`.
+          !!component.fieldParams?.disableRemove
         );
       } else {
         fieldSchema = z.any().optional();
