@@ -454,3 +454,52 @@ func TestCreateDatabaseClusterSecret(t *testing.T) {
 		})
 	}
 }
+
+func TestGetDatabaseClusterCredentials(t *testing.T) {
+	t.Parallel()
+
+	db := &everestv1alpha1.DatabaseCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pxc-cluster",
+			Namespace: "test-ns",
+		},
+		Spec: everestv1alpha1.DatabaseClusterSpec{
+			Engine: everestv1alpha1.Engine{
+				Type:            everestv1alpha1.DatabaseEnginePXC,
+				UserSecretsName: "pxc-secret",
+			},
+		},
+		Status: everestv1alpha1.DatabaseClusterStatus{
+			Hostname: "pxc-host",
+			Port:     3306,
+		},
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pxc-secret",
+			Namespace: "test-ns",
+		},
+		Data: map[string][]byte{
+			"root": []byte("test-password"),
+		},
+	}
+
+	mockClient := fakeclient.NewClientBuilder().
+		WithScheme(kubernetes.CreateScheme()).
+		WithObjects(db, secret).
+		Build()
+
+	k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
+	h := &k8sHandler{kubeConnector: k}
+
+	creds, err := h.GetDatabaseClusterCredentials(context.Background(), "test-ns", "pxc-cluster")
+	require.NoError(t, err)
+	require.NotNil(t, creds)
+	require.NotNil(t, creds.Username)
+	require.Equal(t, "root", *creds.Username)
+	require.NotNil(t, creds.Password)
+	require.Equal(t, "test-password", *creds.Password)
+	require.NotNil(t, creds.ConnectionUrl)
+	require.Equal(t, "jdbc:mysql://root:test-password@pxc-host:3306", *creds.ConnectionUrl)
+}
