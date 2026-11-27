@@ -83,10 +83,10 @@ export interface paths {
          *     *Example:*
          *     Assume the following RBAC policy, and users `alice` and `bob`:
          *     ```
-         *     p, role:dev, namespaces, read, *
-         *     p, role:dev, database-engines, *, *\/*
-         *     p, role:dev, database-clusters, *, *\/*
-         *     p, bob, database-clusters, *, *\/*
+         *     p, role:dev, namespaces, read, *\/*
+         *     p, role:dev, providers, read, *\/*
+         *     p, role:dev, instances, *, *\/*\/*
+         *     p, bob, instances, *, *\/*\/*
          *     g, alice, role:dev
          *     ```
          *     The API will return the following permissions for `alice`:
@@ -97,19 +97,19 @@ export interface paths {
          *             "alice",
          *             "namespaces",
          *             "read",
-         *             "*"
-         *         ],
-         *         [
-         *             "alice",
-         *             "database-engines",
-         *             "*",
          *             "*\/*"
          *         ],
          *         [
          *             "alice",
-         *             "database-clusters",
-         *             "*",
+         *             "providers",
+         *             "read",
          *             "*\/*"
+         *         ],
+         *         [
+         *             "alice",
+         *             "instances",
+         *             "*",
+         *             "*\/*\/*"
          *         ]
          *       ]
          *     }
@@ -120,9 +120,9 @@ export interface paths {
          *       "permissions": [
          *         [
          *             "bob",
-         *             "database-clusters",
+         *             "instances",
          *             "*",
-         *             "*\/*"
+         *             "*\/*\/*"
          *         ]
          *       ]
          *     }

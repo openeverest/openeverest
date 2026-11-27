@@ -9548,7 +9548,7 @@ components:
                   requires.
                 properties:
                   resource:
-                    description: Resource is the OpenEverest API resource (e.g. "database-clusters").
+                    description: Resource is the OpenEverest API resource (e.g. "instances").
                     type: string
                   verb:
                     description: Verb is the action (e.g. "read", "create", "update",

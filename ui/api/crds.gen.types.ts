@@ -6315,7 +6315,7 @@ export interface components {
                 icon?: string;
                 /** @description Permissions declares what OpenEverest API resources this plugin needs access to. */
                 permissions?: {
-                    /** @description Resource is the OpenEverest API resource (e.g. "database-clusters"). */
+                    /** @description Resource is the OpenEverest API resource (e.g. "instances"). */
                     resource: string;
                     /** @description Verb is the action (e.g. "read", "create", "update", "delete"). */
                     verb: string;
