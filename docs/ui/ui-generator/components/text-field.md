@@ -10,7 +10,7 @@
   - [Password field](#password-field)
   - [Auto-trimming with case transform](#auto-trimming-with-case-transform)
   - [Regexp](#regexp)
-  - [CEL](#regexp)
+  - [CEL](#cel)
 
 A flexible single-line or multi-line text input field. Suitable for names, descriptions, URLs, email addresses, passwords, and any other free-form text.
 
@@ -47,8 +47,8 @@ A flexible single-line or multi-line text input field. Suitable for names, descr
   - `trim`: Strip leading/trailing whitespace before submitting (boolean: `true`)
   - `toLowerCase`: Convert the value to lower case before submitting (boolean: `true`)
   - `toUpperCase`: Convert the value to upper case before submitting (boolean: `true`)
-  - `regex`: Regular expression the value must match (see [Regex Validation](#regex-validation))
-  - `celExpressions`: Array of CEL validation expressions for cross-field validation (see [CEL Expression Validation](#cel-expression-validation))
+  - `regex`: Regular expression the value must match (see [Regex Validation](../validation.md#regex))
+  - `celExpressions`: Array of CEL validation expressions for cross-field validation (see [CEL Expression Validation](../validation.md#cel-expression-validation))
 
 > **TODO (not yet implemented):** The following Zod string methods are not yet supported in the validation schema builder and will be ignored if specified: `startsWith`, `endsWith`, `includes`, `ip`, `cidr`, `datetime`, `date`, `time`, `duration`, `base64`, `base64url`, `nanoid`, `cuid`, `cuid2`, `ulid`, `emoji`, `jwt`.
 
