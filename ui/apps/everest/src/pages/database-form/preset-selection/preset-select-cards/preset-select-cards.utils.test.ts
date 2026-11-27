@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PRESET_NAME, TEAM_A, TEAM_B, teamAPreset } from '../__mocks__/presets';
+import {
+  PRESET_NAME,
+  TEAM_A,
+  TEAM_B,
+  teamAPreset,
+  teamAPresetSpec,
+} from '../__mocks__/presets';
 import {
   getDroppedPresetMessage,
   presetToCardItem,
@@ -29,6 +35,25 @@ describe('presetToCardItem', () => {
     expect(item.badge?.label).toBe('Namespace');
     expect(item.subtitle).toBe('replicaSet · 7.0.18');
     expect(item.detail).toBe('3 nodes · 1 CPU · 4Gi RAM · 25Gi disk');
+  });
+
+  it('summarizes named components when there is no schema to describe them', () => {
+    const item = presetToCardItem({
+      ...teamAPreset,
+      spec: {
+        ...teamAPresetSpec,
+        components: {
+          primary: {
+            replicas: 3,
+            resources: { limits: { memory: '4Gi' } },
+          },
+          router: { replicas: 0 },
+          metrics: { version: '1.0.0' },
+        },
+      },
+    });
+
+    expect(item.detail).toBe('primary (3 nodes · 4Gi RAM) | router (0 nodes)');
   });
 
   it('builds searchText from the whole spec, including fields not shown', () => {

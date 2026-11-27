@@ -14,6 +14,11 @@
 
 import { fireEvent, render, screen } from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
+import {
+  FieldType,
+  TopologyUISchemas,
+} from 'components/ui-generator/ui-generator.types';
+import { DatabaseFormProvider } from 'pages/database-form/database-form-context';
 import { TestWrapper } from 'utils/test';
 import { PresetSelectCards } from './preset-select-cards';
 import {
@@ -23,17 +28,33 @@ import {
 import { TEAM_A, TEAM_B, clusterPreset } from '../__mocks__/presets';
 import { noPresetsContext } from '../__mocks__/preset-selection-context';
 
-const renderCards = (overrides: Partial<PresetSelectionContextType>) => {
+const renderCards = (
+  overrides: Partial<PresetSelectionContextType>,
+  uiSchema: TopologyUISchemas = {}
+) => {
   const value = { ...noPresetsContext, ...overrides };
+  const topologies = Object.keys(uiSchema);
   const Harness = () => {
     const methods = useForm({ defaultValues: { presetId: '' } });
     return (
       <TestWrapper>
-        <PresetSelectionContext.Provider value={value}>
-          <FormProvider {...methods}>
-            <PresetSelectCards />
-          </FormProvider>
-        </PresetSelectionContext.Provider>
+        <DatabaseFormProvider
+          value={{
+            uiSchema,
+            topologies,
+            defaultTopology: topologies[0] ?? '',
+            hasMultipleTopologies: topologies.length > 1,
+            sections: {},
+            hasBackupStep: false,
+            hasMonitoringStep: false,
+          }}
+        >
+          <PresetSelectionContext.Provider value={value}>
+            <FormProvider {...methods}>
+              <PresetSelectCards />
+            </FormProvider>
+          </PresetSelectionContext.Provider>
+        </DatabaseFormProvider>
       </TestWrapper>
     );
   };
@@ -63,6 +84,95 @@ describe('PresetSelectCards', () => {
     // which proves the preset was passed through to the picker.
     expect(
       screen.getByRole('button', { name: /Browse all 1 presets/ })
+    ).toBeInTheDocument();
+  });
+
+  it('groups resource values by component using the preset topology labels and units', () => {
+    renderCards(
+      {
+        presets: [
+          {
+            ...clusterPreset,
+            spec: {
+              ...clusterPreset.spec,
+              providerRef: { name: 'test-provider' },
+              topology: { type: 'sharded' },
+              components: {
+                primary: {
+                  replicas: 3,
+                  resources: { limits: { cpu: 1, memory: '2048Mi' } },
+                  storage: { size: '644245094400m' },
+                },
+                router: { replicas: 2, version: '1.0.0' },
+                configServer: { replicas: 3 },
+              },
+            },
+          },
+        ],
+      },
+      {
+        replicaSet: { sections: {} },
+        sharded: {
+          sectionsOrder: ['sizing'],
+          sections: {
+            storage: {
+              components: {
+                disk: {
+                  uiType: FieldType.Number,
+                  path: 'spec.components.primary.storage.size',
+                  fieldParams: {
+                    label: 'Disk',
+                    badge: 'Gi',
+                    badgeToApi: true,
+                  },
+                },
+              },
+            },
+            sizing: {
+              components: {
+                primary: {
+                  uiType: 'group',
+                  componentsOrder: ['nodes', 'memory'],
+                  components: {
+                    memory: {
+                      uiType: FieldType.Quantity,
+                      path: 'spec.components.primary.resources.limits.memory',
+                      fieldParams: {
+                        label: 'Memory',
+                        unit: 'Gi',
+                        unitLabel: 'GiB',
+                      },
+                    },
+                    nodes: {
+                      uiType: FieldType.Number,
+                      path: [
+                        'spec.components.primary.replicas',
+                        'spec.components.router.replicas',
+                      ],
+                      fieldParams: { label: 'Nodes' },
+                    },
+                  },
+                },
+                routerVersion: {
+                  uiType: FieldType.Text,
+                  path: 'spec.components.router.version',
+                  fieldParams: { label: 'Router version' },
+                },
+              },
+            },
+          },
+        },
+      }
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Browse all 1 presets/ })
+    );
+
+    expect(
+      screen.getByText(
+        'primary (Nodes: 3 · Memory: 2 GiB · Disk: 0.6 Gi · 1 CPU) | router (Nodes: 2) | configServer (3 nodes)'
+      )
     ).toBeInTheDocument();
   });
 
