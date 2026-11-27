@@ -17,7 +17,9 @@ package extension
 import (
 	"context"
 	"fmt"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/plugintoken"
 )
 
 const (
@@ -50,20 +53,31 @@ const (
 // PluginReconciler reconciles a Plugin object
 //
 // Phase 1 responsibilities:
+//
 //   - Add/remove a finalizer so we can react to deletion.
+//
 //   - Validate required fields (displayName) and surface errors as status conditions.
+//
 //   - Set Available/Ready status conditions based on spec.enabled and spec.backend.
 //
+//   - Keep the service token of a plugin with an in-cluster backend and
+//     declared permissions in the <plugin>-token Secret next to its backend.
+//
 // Phase 2+ will add: serviceRef DNS resolution, health checks, RBAC auto-provisioning.
-// Phase 3+ will add: daemon token minting, NetworkPolicy generation.
+// Phase 3+ will add: NetworkPolicy generation.
 type PluginReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	// Tokens mints plugin service tokens. When nil, no tokens are issued.
+	Tokens *plugintoken.Service
+	// Clock returns the current time. Defaults to time.Now.
+	Clock func() time.Time
 }
 
 // +kubebuilder:rbac:groups=extensions.openeverest.io,resources=plugins,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=extensions.openeverest.io,resources=plugins/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=extensions.openeverest.io,resources=plugins/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -106,13 +120,17 @@ func (r *PluginReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	patch := client.MergeFrom(plugin.DeepCopy())
 
 	r.reconcileConditions(plugin)
+	renewIn, tokenErr := r.reconcileToken(ctx, plugin)
 
 	if err := r.Client.Status().Patch(ctx, plugin, patch); err != nil && !apierrors.IsNotFound(err) {
 		return ctrl.Result{}, fmt.Errorf("failed to patch plugin status: %w", err)
 	}
+	if tokenErr != nil {
+		return ctrl.Result{}, tokenErr
+	}
 
 	logger.Info("Reconciled", "ready", isConditionTrue(plugin.Status.Conditions, ConditionTypeReady))
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: renewIn}, nil
 }
 
 // reconcileConditions sets Available and Ready conditions based on spec state.
@@ -172,6 +190,7 @@ func isConditionTrue(conditions []metav1.Condition, condType string) bool {
 func (r *PluginReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&pluginv1alpha1.Plugin{}).
+		Owns(&corev1.Secret{}).
 		Named("plugin-plugin").
 		Complete(r)
 }

@@ -25,6 +25,7 @@ import (
 
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/pkg/plugintoken"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
@@ -79,6 +80,11 @@ func (h *rbacHandler) enforce(
 	if rbac.IsPluginWriteDenied(user.Subject, resource, action) {
 		h.log.Warnf("Plugin write denied: [%s %s %s %s]", user.Subject, resource, action, object)
 		return ErrInsufficientPermissions
+	}
+
+	// A plugin service token grants the permissions its Plugin declares.
+	if plugintoken.Allows(user.Permissions, resource, action) {
+		return nil
 	}
 
 	// User is allowed to perform the operation if the user's subject or any
