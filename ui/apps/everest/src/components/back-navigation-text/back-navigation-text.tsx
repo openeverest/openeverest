@@ -14,7 +14,7 @@
 
 import { Box, IconButton, Stack, Typography } from '@mui/material';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
-import { BackNavigationTextProps } from './back-nativation-text.types';
+import { BackNavigationTextProps } from './back-navigation-text.types';
 
 const BackNavigationText = ({
   text,
