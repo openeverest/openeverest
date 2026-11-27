@@ -100,8 +100,8 @@ func lintField(f field, droppedMaps map[string]bool) []finding {
 }
 
 // ignoredMapOptions lists the options of a map field the UI ignores: `regex`
-// and `celExpressions` on the map, and what a row's field sets that a row
-// can't act on yet. Mode branches count too.
+// on the map, and what a row's field sets that a row can't act on yet. Mode
+// branches count too.
 //
 //	validation:
 //	  regex: {pattern: "^a"}                   # -> validation.regex
@@ -119,9 +119,6 @@ func ignoredMapOptions(item map[string]any) []string {
 	for _, b := range declaredBranches(item["validation"], "validation") {
 		if _, ok := b.rules["regex"]; ok {
 			ignored = append(ignored, b.at+".regex")
-		}
-		if hasCel(b.rules) {
-			ignored = append(ignored, b.at+".celExpressions")
 		}
 	}
 	itemTemplate, _ := item["itemTemplate"].(map[string]any)

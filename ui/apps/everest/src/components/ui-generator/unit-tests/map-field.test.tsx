@@ -81,9 +81,12 @@ const validatedSchema: TopologyUISchemas = {
 const FormWrapper = ({
   children,
   uiSchema = schema,
+  watchCelDependencies = true,
 }: {
   children: ReactNode;
   uiSchema?: TopologyUISchemas;
+  // The create wizard doesn't watch them.
+  watchCelDependencies?: boolean;
 }) => {
   const { schema: zodSchema, celDependencyGroups } = buildZodSchema(
     uiSchema,
@@ -95,7 +98,11 @@ const FormWrapper = ({
     defaultValues: getDefaultValues(uiSchema, 'replicaSet'),
   });
   // As the forms built on the generator do it.
-  useCelValidation(celDependencyGroups, methods.control, methods.trigger);
+  useCelValidation(
+    watchCelDependencies ? celDependencyGroups : [],
+    methods.control,
+    methods.trigger
+  );
   return <FormProvider {...methods}>{children}</FormProvider>;
 };
 
@@ -412,5 +419,61 @@ describe('UIGenerator - map field', () => {
         screen.queryByText('Add a team annotation')
       ).not.toBeInTheDocument()
     );
+  });
+
+  it("shows the map's own rule under its rows, and checks it again as a value changes", async () => {
+    const ruledSchema: TopologyUISchemas = {
+      replicaSet: {
+        sections: {
+          advanced: {
+            components: {
+              annotations: {
+                uiType: FieldType.Map,
+                path: 'spec.proxy.annotations',
+                fieldParams: {
+                  label: 'Annotations',
+                  helperText: 'Added to the Service',
+                  defaultValue: { team: 'db' },
+                },
+                validation: {
+                  celExpressions: [
+                    {
+                      celExpr:
+                        "!has(spec.proxy.annotations) || !('team' in spec.proxy.annotations) || spec.proxy.annotations['team'] != ''",
+                      message: 'Name the team',
+                    },
+                  ],
+                },
+                itemTemplate: keyValueRow(),
+              },
+            },
+          },
+        },
+      },
+    };
+
+    render(
+      <TestWrapper>
+        {/* The map checks its own rule, with nothing watching for it. */}
+        <FormWrapper uiSchema={ruledSchema} watchCelDependencies={false}>
+          <UIGenerator
+            sections={ruledSchema.replicaSet.sections}
+            sectionKey="advanced"
+          />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    await type('Value 1', '');
+
+    expect(await screen.findByText('Name the team')).toBeInTheDocument();
+    expect(screen.queryByText('Added to the Service')).not.toBeInTheDocument();
+
+    await type('Value 1', 'db');
+
+    await waitFor(() =>
+      expect(screen.queryByText('Name the team')).not.toBeInTheDocument()
+    );
+    expect(screen.getByText('Added to the Service')).toBeInTheDocument();
   });
 });

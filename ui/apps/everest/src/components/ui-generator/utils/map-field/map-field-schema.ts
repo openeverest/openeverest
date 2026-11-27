@@ -34,7 +34,7 @@ const getCountIssue = (
 
 // RHF keeps an array's own error under `root`, beside its rows' errors. An
 // issue on the map's path itself would replace them all.
-const MAP_ROOT_ERROR_PATH = ['root'];
+export const MAP_ROOT_ERROR_PATH = ['root'];
 
 // Validates the rows the form keeps, each against `rowShape`: the rules of the
 // row's own fields, built like any section's. The issues land on the row's

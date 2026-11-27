@@ -93,7 +93,7 @@ flowchart TD
   fields are told apart by `path`, so their names are the schema's own. Preprocess prepares the row
   into `_row`, and it renders through the UI Generator, so a text field's params and rules apply,
   transforms included, but for `defaultValue`, badges, CEL and `dataSource`, which the row drops.
-- **Ignored options are reported**: what a rendered map can't use (`regex` / CEL on the map, CEL,
+- **Ignored options are reported**: what a rendered map can't use (`regex` on the map, CEL,
   a `dataSource` or a default / badge on a row's field, a `defaultValue` that isn't a map of strings, limits no
   map meets) is ignored at runtime with a dev warning (`lintMapFields`), and the Go validator
   reports `map-ignored-option` / `map-invalid-default` / `map-invalid-limits`.
@@ -284,8 +284,9 @@ classDiagram
 - **`secret`** — `text` rules; the value is the Secret's name.
 - **`quantity`** — same numeric rules as `number`; bounds and CEL see the number in `unit`.
 - **`map`** — rules on the count of filled rows; `required` means at least one. A count issue
-  sits at the map's `root`, beside its rows' issues. CEL on the map waits for `self` support;
-  a rule on another field reads the map as the map it writes (unset when it has no entries).
+  sits at the map's `root`, beside its rows' issues, and so does the issue of a CEL rule set
+  on the map. A rule, on the map or on another field, reads the map by its path as the map it
+  writes (unset when it has no entries). A rule on a row's field waits for `self`.
   The limits
   are `min` / `max`, the names `text` and `number` use for their own size; OpenAPI's
   `minProperties` / `maxProperties` stay in the API schema.

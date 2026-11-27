@@ -114,10 +114,9 @@ const findIgnoredOptions = ({
   validation,
   itemTemplate,
 }: MapComponent): string[] => [
-  ...getDeclaredBranches(validation, 'validation').flatMap(([at, branch]) => [
-    ...(branch.regex !== undefined ? [`${at}.regex`] : []),
-    ...(hasCel(branch) ? [`${at}.celExpressions`] : []),
-  ]),
+  ...getDeclaredBranches(validation, 'validation').flatMap(([at, branch]) =>
+    branch.regex !== undefined ? [`${at}.regex`] : []
+  ),
   ...Object.entries(itemTemplate.components).flatMap(([name, field]) =>
     findIgnoredRowOptions(name, field)
   ),

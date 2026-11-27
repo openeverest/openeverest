@@ -18,9 +18,9 @@ documented in the main [Readme](./Readme.md).
   them.
 - **Lists:** `uiType: list` (strings or objects) is planned; until then it's an unknown `uiType`.
 - **Several paths** on a map: an edit reads only the first, so such a map isn't rendered.
-- **CEL:** `celExpressions` on the map, or on a row's key or value. `regex` on the map. The UI
-  ignores them and `provider-sdk generate` rejects them. A rule on another field can read the
-  map, see [Reading a Map Field](validation.md#reading-a-map-field).
+- **CEL on a row's key or value**, and `regex` on the map. The UI ignores them and
+  `provider-sdk generate` rejects them. A rule on the map itself or on another field can read
+  the map, see [Reading a Map Field](validation.md#reading-a-map-field).
 - **A saved value that isn't a map of strings** (possible only where the API takes free-form
   `parameters`, e.g. written with kubectl): an edit reads it as rows, so saving the section writes
   a number or boolean back as a string (`3` → `"3"`), an object as `"[object Object]"`, and

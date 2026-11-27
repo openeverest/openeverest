@@ -217,18 +217,19 @@ celExpressions:
   under a missing one fails. `spec` is there in practice. Another one, such as `config`, is
   missing in `edit` when the instance holds no value for any field under it.
 - The same goes for a path under `original`: the saved instance may not hold the field.
-  `original` itself exists only where there is a saved instance, in `edit` and `restore`, and
-  `has()` can't ask for it. So keep a rule that reads `original` under `validation.modes.edit`
-  (and `restore`), as in the example above.
+  `original` itself exists only in `edit`, where the user changes a saved instance, and `has()`
+  can't ask for it. So keep a rule that reads `original` under `validation.modes.edit`, as in the
+  example above.
 - Try the rule in a new form and when editing an instance saved without the field: a rule
   without `has()` can pass in the first and fail in the second.
 
 ### Reading a Map Field
 
-A rule on another field reads a [map field](components/map-field.md) as the map it writes,
-`{ key: value }`, at the map's `path`. A map with no entries writes nothing, so the rule finds it
-unset: ask for it with `has()` first, as for any [optional field](#optional-fields-and-has). The
-same goes for the saved map at `original.<path>`.
+A rule reads a [map field](components/map-field.md) as the map it writes, `{ key: value }`, at
+the map's `path`. The rule may sit on another field or on the map itself; its error shows under
+the field it sits on. A map with no entries writes nothing, so the rule finds it unset: ask for
+it with `has()` first, as for any [optional field](#optional-fields-and-has). The same goes for
+the saved map at `original.<path>`.
 
 | To check                              | Write                                                                                                 |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -244,7 +245,8 @@ same goes for the saved map at `original.<path>`.
   `message`, so check the key with `in` first, as in the table.
 - **Rows the user hasn't finished.** A row with no key isn't an entry, so the rule doesn't see it.
 
-The rule runs again whenever the map's rows change.
+In the section edit dialog the rule runs again whenever the map's rows change. A rule on the map
+itself does so in every form.
 
 ```yaml
 externalAccess:
@@ -265,7 +267,8 @@ externalAccess:
         message: Add the aws-load-balancer-type annotation for a LoadBalancer
 ```
 
-Rules on the map itself, or on a row's key or value, aren't supported yet.
+A rule on a row's key or value isn't supported yet: check the entries from the map with
+`.all(k, …)`, see [A CEL Rule on the Map](components/map-field.md#a-cel-rule-on-the-map).
 
 ### Full Example: Mongo Node Edit Constraints
 

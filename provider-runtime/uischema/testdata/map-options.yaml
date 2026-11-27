@@ -21,7 +21,13 @@ cases:
                   required: true
                   min: 1
                   max: 5
-                  modes: { edit: { max: 10 } }
+                  celExpressions:
+                    - { celExpr: "!has(spec.labels) || 'team' in spec.labels", message: Set a team }
+                  modes:
+                    edit:
+                      max: 10
+                      celExpressions:
+                        - { celExpr: "!has(original.spec.labels) || has(spec.labels)", message: Keep an entry }
                 itemTemplate:
                   uiType: group
                   groupType: line
@@ -41,7 +47,7 @@ cases:
                       validation: { max: 63, modes: { edit: { max: 253 } } }
     issues: []
 
-  - name: regex and CEL on the map are ignored, in a mode branch too
+  - name: regex on the map is ignored, in a mode branch too
     uiSchema:
       replicaSet:
         sections:
@@ -52,10 +58,9 @@ cases:
                 path: spec.labels
                 fieldParams: { label: Labels }
                 validation:
-                  regex: { pattern: '^a', message: A }
                   modes:
                     edit:
-                      celExpressions: [{ celExpr: 'size(spec.labels) > 0', message: Set one }]
+                      regex: { pattern: '^a', message: A }
                 itemTemplate: &keyValueRow
                   uiType: group
                   groupType: line

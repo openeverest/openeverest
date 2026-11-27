@@ -376,3 +376,191 @@ describe('a map field read by the CEL rule of another field', () => {
     }
   );
 });
+
+describe('a CEL rule on the map itself', () => {
+  // `rules` is the map's validation block, in YAML flow style.
+  const schemaWithOwnRule = (
+    rules: string,
+    mapParams = ''
+  ): TopologyUISchemas =>
+    preprocessSchema(
+      parse(`
+        replicaSet:
+          sections:
+            advanced:
+              components:
+                labels:
+                  uiType: map
+                  path: spec.labels
+                  fieldParams: { label: Labels${mapParams} }
+                  validation: ${rules}
+                  itemTemplate: ${KEY_VALUE_ROW_YAML}
+                tier:
+                  uiType: text
+                  path: spec.tier
+                  fieldParams: { label: Tier }
+      `)
+    );
+
+  const rule = (celExpr: string) =>
+    `{ celExpressions: [{ celExpr: ${JSON.stringify(celExpr)}, message: ${RULE_FAILED} }] }`;
+
+  interface OwnCheck {
+    rows?: { key: string; value: string }[];
+    tier?: string;
+    original?: Record<string, unknown>;
+    mapParams?: string;
+  }
+
+  const issuesOfOwnRule = (
+    rules: string,
+    { rows, tier = '', original, mapParams }: OwnCheck = {}
+  ) => {
+    const { schema } = buildZodSchema(
+      schemaWithOwnRule(rules, mapParams),
+      'replicaSet',
+      {
+        formMode: original ? FormMode.Edit : FormMode.New,
+        originalData: original,
+      }
+    );
+    const result = schema.safeParse({
+      spec: { tier, ...(rows && { labels: rows }) },
+    });
+    return result.success
+      ? []
+      : result.error.issues.map(({ path, message }) => ({
+          // As the form reads it: a path's segments joined.
+          path: path.join('.'),
+          message,
+        }));
+  };
+
+  const NEEDS_TEAM = rule("!has(spec.labels) || 'team' in spec.labels");
+  // Under the map, where its count errors go, not on a row.
+  const UNDER_THE_MAP = 'spec.labels.root';
+
+  it('reads the map by its path and reports under the map', () => {
+    expect(issuesOfOwnRule(NEEDS_TEAM, { rows: [TEAM] })).toEqual([]);
+    expect(
+      issuesOfOwnRule(NEEDS_TEAM, { rows: [{ key: 'tier', value: 'db' }] })
+    ).toEqual([{ path: UNDER_THE_MAP, message: RULE_FAILED }]);
+  });
+
+  it('finds the map unset while it has no entries, so the rule asks for it first', () => {
+    expect(issuesOfOwnRule(NEEDS_TEAM, { rows: [] })).toEqual([]);
+    expect(
+      issuesOfOwnRule(rule("'team' in spec.labels"), { rows: [] })
+    ).toEqual([{ path: UNDER_THE_MAP, message: CEL_ERROR }]);
+  });
+
+  it('checks every entry with a macro', () => {
+    const NO_RESERVED_KEYS = rule(
+      "!has(spec.labels) || spec.labels.all(k, !k.startsWith('kubernetes.io/'))"
+    );
+
+    expect(issuesOfOwnRule(NO_RESERVED_KEYS, { rows: [TEAM] })).toEqual([]);
+    expect(
+      issuesOfOwnRule(NO_RESERVED_KEYS, {
+        rows: [TEAM, { key: 'kubernetes.io/name', value: 'db' }],
+      })
+    ).toEqual([{ path: UNDER_THE_MAP, message: RULE_FAILED }]);
+  });
+
+  it('reads another field, and is checked again when that field changes', () => {
+    const PROD_NEEDS_OWNER = rule(
+      "spec.tier != 'prod' || (has(spec.labels) && 'owner' in spec.labels)"
+    );
+
+    expect(
+      issuesOfOwnRule(PROD_NEEDS_OWNER, { rows: [TEAM], tier: 'dev' })
+    ).toEqual([]);
+    expect(
+      issuesOfOwnRule(PROD_NEEDS_OWNER, { rows: [TEAM], tier: 'prod' })
+    ).toEqual([{ path: UNDER_THE_MAP, message: RULE_FAILED }]);
+    expect(
+      buildZodSchema(schemaWithOwnRule(PROD_NEEDS_OWNER), 'replicaSet')
+        .celDependencyGroups
+    ).toContainEqual(expect.arrayContaining(['spec.labels', 'spec.tier']));
+  });
+
+  it('compares with the saved map in the mode that has one', () => {
+    const KEEPS_SAVED_ENTRIES = `{ modes: { edit: ${rule(
+      '!has(original.spec.labels) || (has(spec.labels) && original.spec.labels.all(k, k in spec.labels))'
+    )} } }`;
+    const original = { spec: { labels: { team: 'db' } } };
+
+    expect(issuesOfOwnRule(KEEPS_SAVED_ENTRIES, { rows: [] })).toEqual([]);
+    expect(
+      issuesOfOwnRule(KEEPS_SAVED_ENTRIES, { rows: [TEAM], original })
+    ).toEqual([]);
+    expect(
+      issuesOfOwnRule(KEEPS_SAVED_ENTRIES, { rows: [], original })
+    ).toEqual([{ path: UNDER_THE_MAP, message: RULE_FAILED }]);
+  });
+
+  it('reports after the count of entries, whose error the form then shows first', () => {
+    const rules = NEEDS_TEAM.replace('{ ', '{ max: 1, ');
+
+    expect(
+      issuesOfOwnRule(rules, {
+        rows: [
+          { key: 'tier', value: 'db' },
+          { key: 'zone', value: 'a' },
+        ],
+      })
+    ).toEqual([
+      { path: UNDER_THE_MAP, message: expect.stringContaining('at most 1') },
+      { path: UNDER_THE_MAP, message: RULE_FAILED },
+    ]);
+  });
+
+  it('skips the rule while the toggleable group around the map is off', () => {
+    const SWITCH = 'advanced~monitoring';
+    const schema = preprocessSchema(
+      parse(`
+        replicaSet:
+          sections:
+            advanced:
+              components:
+                monitoring:
+                  uiType: group
+                  groupType: toggleable
+                  label: Monitoring
+                  components:
+                    labels:
+                      uiType: map
+                      path: spec.monitoring.labels
+                      fieldParams: { label: Labels }
+                      validation: ${rule("'team' in spec.monitoring.labels")}
+                      itemTemplate: ${KEY_VALUE_ROW_YAML}
+      `)
+    );
+    const issuesWhen = (on: boolean) => {
+      const result = buildZodSchema(schema, 'replicaSet').schema.safeParse({
+        spec: { monitoring: { labels: [{ key: 'tier', value: 'db' }] } },
+        [TOGGLEABLE_SWITCHES_KEY]: { [SWITCH]: on },
+      });
+      return result.success
+        ? []
+        : result.error.issues.map(({ path, message }) => ({
+            path: path.join('.'),
+            message,
+          }));
+    };
+
+    expect(issuesWhen(false)).toEqual([]);
+    expect(issuesWhen(true)).toEqual([
+      { path: 'spec.monitoring.labels.root', message: RULE_FAILED },
+    ]);
+  });
+
+  it('skips the rule of a disabled map, which the user cannot change', () => {
+    expect(
+      issuesOfOwnRule(NEEDS_TEAM, {
+        rows: [{ key: 'tier', value: 'db' }],
+        mapParams: ', disabled: true',
+      })
+    ).toEqual([]);
+  });
+});

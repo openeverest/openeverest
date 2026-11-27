@@ -14,7 +14,7 @@
 
 export { getMapFieldDisplayRows } from './map-field';
 export { getMapFieldCodec } from './map-field-codec';
-export { buildMapFieldSchema } from './map-field-schema';
+export { MAP_ROOT_ERROR_PATH, buildMapFieldSchema } from './map-field-schema';
 export { getMapRow, getRowFieldRole, toMapRow } from './map-row';
 export { type IgnoredMapField, resolveMapFields } from './resolve-map-fields';
 export { type MapLintIssue, lintMapFields } from './lint-map-fields';

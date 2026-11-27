@@ -46,7 +46,7 @@ flowchart TD
     an unknown `uiType` — not rendered or sent, and an edit keeps its saved value — so the
     toggleable rules below don't see it.
   - **`lintMapFields`** (`utils/map-field/lint-map-fields.ts`) — warns (dev-time) about what a
-    rendered map field ignores or can't use: `regex` / CEL on the map, CEL, a `dataSource` or a
+    rendered map field ignores or can't use: `regex` on the map, CEL, a `dataSource` or a
     default / badge on a row's field, a `defaultValue` that isn't a map of strings (`getSchemaDefault` ignores it),
     limits no map meets.
   - **`toMapRow`** (`utils/map-field/map-row.ts`) — prepares a map's row from its `itemTemplate`
