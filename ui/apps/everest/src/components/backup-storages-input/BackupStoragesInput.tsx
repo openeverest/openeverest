@@ -130,7 +130,7 @@ const BackupStoragesInput = ({
       isPickFixedByCaller ||
       !isSuccess ||
       !pickedName ||
-      backupStorages.some((storage) => storage.metadata?.name === pickedName)
+      storagesToShow.some((storage) => storage.metadata?.name === pickedName)
     ) {
       return;
     }

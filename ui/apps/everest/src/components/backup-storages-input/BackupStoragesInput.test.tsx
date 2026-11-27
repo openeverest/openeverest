@@ -253,6 +253,29 @@ describe('BackupStoragesInput (on-demand context)', () => {
     expect(input).toHaveValue('storage2');
   });
 
+  it('replaces an earlier autofill when the storage limit becomes known', async () => {
+    const picker = (maxStorages?: number, instanceStorageNames?: string[]) => (
+      <FormProviderWrapper>
+        <QueryClientProvider client={queryClient}>
+          <BackupStoragesInput
+            namespace="test"
+            schedules={[]}
+            maxStorages={maxStorages}
+            instanceStorageNames={instanceStorageNames}
+          />
+        </QueryClientProvider>
+      </FormProviderWrapper>
+    );
+    const { rerender } = render(picker());
+    const input = screen.getByRole('combobox');
+    await waitFor(() => expect(input).toHaveValue('storage1'));
+
+    rerender(picker(1, ['storage2']));
+
+    await waitFor(() => expect(input).toHaveValue('storage2'));
+    expect(input).toBeDisabled();
+  });
+
   it('shows all storages when active == 0 and limit == 1', () => {
     render(
       <FormProviderWrapper>
