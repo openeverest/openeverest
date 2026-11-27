@@ -31,7 +31,11 @@ import (
 )
 
 const (
-	pluginFinalizer = "plugin.core.openeverest.io/finalizer"
+	// legacyPluginFinalizer was added to every Plugin by earlier releases. It
+	// did no cleanup, but blocked deleting Plugins that share a Helm release
+	// with the controller (plugin-hub): the controller is gone before it can
+	// remove the finalizer. It is now only removed, never added.
+	legacyPluginFinalizer = "plugin.core.openeverest.io/finalizer"
 
 	// ConditionTypeAvailable is True when the Plugin CR is valid and the
 	// backend (if declared) was reachable at last check.
@@ -50,12 +54,14 @@ const (
 // PluginReconciler reconciles a Plugin object
 //
 // Phase 1 responsibilities:
-//   - Add/remove a finalizer so we can react to deletion.
+//   - Remove the legacy finalizer that earlier releases added.
 //   - Validate required fields (displayName) and surface errors as status conditions.
 //   - Set Available/Ready status conditions based on spec.enabled and spec.backend.
 //
 // Phase 2+ will add: serviceRef DNS resolution, health checks, RBAC auto-provisioning.
 // Phase 3+ will add: daemon token minting, NetworkPolicy generation.
+// Clean up what those phases create through owner references rather than a
+// finalizer, so deleting a Plugin never depends on the controller running.
 type PluginReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -78,28 +84,16 @@ func (r *PluginReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// --- Deletion path ---
-	if !plugin.GetDeletionTimestamp().IsZero() {
-		if controllerutil.ContainsFinalizer(plugin, pluginFinalizer) {
-			// Phase 2+: revoke tokens, remove auto-provisioned RBAC/NetworkPolicy here.
-			controllerutil.RemoveFinalizer(plugin, pluginFinalizer)
-			if err := r.Client.Update(ctx, plugin); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
-			}
+	if controllerutil.ContainsFinalizer(plugin, legacyPluginFinalizer) {
+		patch := client.MergeFromWithOptions(plugin.DeepCopy(), client.MergeFromWithOptimisticLock{})
+		controllerutil.RemoveFinalizer(plugin, legacyPluginFinalizer)
+		if err := r.Client.Patch(ctx, plugin, patch); client.IgnoreNotFound(err) != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to remove legacy finalizer: %w", err)
 		}
-		return ctrl.Result{}, nil
 	}
 
-	// --- Ensure finalizer ---
-	if !controllerutil.ContainsFinalizer(plugin, pluginFinalizer) {
-		controllerutil.AddFinalizer(plugin, pluginFinalizer)
-		if err := r.Client.Update(ctx, plugin); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
-		}
-		// Re-fetch after update so we work with the latest resourceVersion.
-		if err := r.Client.Get(ctx, req.NamespacedName, plugin); err != nil {
-			return ctrl.Result{}, client.IgnoreNotFound(err)
-		}
+	if !plugin.GetDeletionTimestamp().IsZero() {
+		return ctrl.Result{}, nil
 	}
 
 	// --- Reconcile status conditions ---
