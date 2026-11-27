@@ -13,8 +13,23 @@
 // limitations under the License.
 
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, act } from '@testing-library/react';
-import React from 'react';
+import {
+  render,
+  renderHook,
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import React, { useContext } from 'react';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
+import { ThemeContextProvider, everestThemeOptions } from '@percona/design';
+import { AxiosHeaders } from 'axios';
+import { api, addApiErrorInterceptor } from 'api/api';
+import ProtectedRoute from 'components/protected-route/ProtectedRoute';
+import Login from 'pages/login/Login';
+import { resizeScreenSize } from 'utils/test';
+import AuthContext from './auth.context';
 
 // Mock oidc-react
 const mockUserManager = {
@@ -30,14 +45,17 @@ const mockUserManager = {
   getUser: vi.fn(),
 };
 
+const mockOidcAuth = {
+  isLoading: false,
+  signIn: vi.fn(),
+  userManager: mockUserManager,
+};
+
 vi.mock('oidc-react', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
-  useAuth: () => ({
-    signIn: vi.fn(),
-    userManager: mockUserManager,
-  }),
+  useAuth: () => mockOidcAuth,
 }));
 
 // Mock api module
@@ -87,6 +105,408 @@ vi.mock('jwt-decode', () => ({
 }));
 
 const { default: Provider } = await import('./auth.provider');
+
+const renderSessionRoutes = (initialEntry: string, isSsoEnabled = false) => {
+  const router = createMemoryRouter(
+    [
+      { path: '/login', element: <Login /> },
+      {
+        element: <ProtectedRoute />,
+        children: [{ path: '*', element: <div>Protected instance</div> }],
+      },
+    ],
+    { initialEntries: [initialEntry] }
+  );
+  const { result } = renderHook(() => useContext(AuthContext), {
+    wrapper: ({ children }) => (
+      <ThemeContextProvider themeOptions={everestThemeOptions}>
+        <Provider
+          oidcConfig={
+            isSsoEnabled
+              ? { authority: 'https://idp', clientId: 'everest' }
+              : undefined
+          }
+        >
+          {children}
+          <RouterProvider router={router} />
+        </Provider>
+      </ThemeContextProvider>
+    ),
+  });
+  return { router, auth: result };
+};
+
+describe('AuthProvider — redirects after an initialized session', () => {
+  const destination = '/databases/default/example/overview?tab=metrics#cpu';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
+    resizeScreenSize(1200);
+    mockOidcAuth.isLoading = false;
+    mockGetAccessToken.mockReturnValue(null);
+    mockGetAccessTokenExpiry.mockReturnValue(null);
+    mockRefreshSession.mockResolvedValue(null);
+    vi.mocked(api.post).mockResolvedValue({ data: { access_token: 'token' } });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('returns to a protected route visited after logged-out bootstrap has finished', async () => {
+    const { router, auth } = renderSessionRoutes('/login');
+    await screen.findByTestId('login-button');
+    await act(() => router.navigate(destination));
+    expect(router.state.location.pathname).toBe('/login');
+    await act(() =>
+      auth.current.login('manual', { username: 'admin', password: 'secret' })
+    );
+    const { pathname, search, hash } = router.state.location;
+    expect(pathname + search + hash).toBe(destination);
+  });
+
+  it('returns to the active instance after proactive refresh fails', async () => {
+    vi.useFakeTimers();
+    mockGetAccessToken.mockReturnValue('access-token');
+    mockGetAccessTokenExpiry.mockReturnValue(Date.now() + 65_000);
+    const { router, auth } = renderSessionRoutes(destination);
+    await act(async () => {});
+    expect(auth.current.authStatus).toBe('loggedIn');
+    expect(auth.current.redirectRoute).toBeNull();
+    mockGetAccessToken.mockReturnValue(null);
+    await act(() => vi.advanceTimersByTimeAsync(5_000));
+    expect(router.state.location.pathname).toBe('/login');
+    await act(() =>
+      auth.current.login('manual', { username: 'admin', password: 'secret' })
+    );
+    const { pathname, search, hash } = router.state.location;
+    expect(pathname + search + hash).toBe(destination);
+  });
+
+  it('hands the active instance URL to SSO after silent renewal fails', async () => {
+    localStorage.setItem('everestToken', 'saved-token');
+    mockUserManager.getUser.mockResolvedValue({ id_token: 'idp-token' });
+    mockUserManager.signinSilent.mockResolvedValue(null);
+    const { router, auth } = renderSessionRoutes(destination, true);
+    await waitFor(() => expect(auth.current.authStatus).toBe('loggedIn'));
+    const expire =
+      mockUserManager.events.addAccessTokenExpiring.mock.lastCall?.[0];
+    if (typeof expire !== 'function') {
+      throw new Error('The SSO expiry listener was not registered');
+    }
+    await act(async () => {
+      expire();
+    });
+    expect(router.state.location.pathname).toBe('/login');
+    await act(() => auth.current.login('sso'));
+    expect(mockOidcAuth.signIn).toHaveBeenCalledExactlyOnceWith({
+      state: destination,
+    });
+  });
+
+  it('returns to the active instance after the API interceptor reports expired authentication', async () => {
+    mockGetAccessToken.mockReturnValue('access-token');
+    const { router, auth } = renderSessionRoutes(destination);
+    await waitFor(() => expect(auth.current.authStatus).toBe('loggedIn'));
+    const onSessionExpired = vi.mocked(addApiErrorInterceptor).mock
+      .lastCall?.[0];
+    expect(onSessionExpired).toBeTypeOf('function');
+    if (typeof onSessionExpired !== 'function') {
+      throw new Error('The API session expiry handler was not registered');
+    }
+    mockGetAccessToken.mockReturnValue(null);
+    await act(() => onSessionExpired());
+    expect(api.post).toHaveBeenCalledWith('/auth/revoke', {});
+    expect(router.state.location.pathname).toBe('/login');
+    await act(() =>
+      auth.current.login('manual', { username: 'admin', password: 'secret' })
+    );
+    const { pathname, search, hash } = router.state.location;
+    expect(pathname + search + hash).toBe(destination);
+  });
+
+  it('does not restore a destination when an in-flight renewal fails during explicit logout', async () => {
+    localStorage.setItem('everestToken', 'saved-token');
+    mockUserManager.getUser.mockResolvedValue({ id_token: 'idp-token' });
+    let finishRenewal = () => {};
+    const renewal = new Promise<void>((resolve) => {
+      finishRenewal = resolve;
+    });
+    mockUserManager.signinSilent.mockImplementationOnce(async () => {
+      await renewal;
+      return null;
+    });
+    const { router, auth } = renderSessionRoutes(destination, true);
+    await waitFor(() => expect(auth.current.authStatus).toBe('loggedIn'));
+    const expire =
+      mockUserManager.events.addAccessTokenExpiring.mock.lastCall?.[0];
+    if (typeof expire !== 'function') {
+      throw new Error('The SSO expiry listener was not registered');
+    }
+    await act(async () => {
+      expire();
+    });
+    let finishRevocation = () => {};
+    const revocation = new Promise<void>((resolve) => {
+      finishRevocation = resolve;
+    });
+    vi.mocked(api.post).mockImplementationOnce(async () => {
+      await revocation;
+      return {
+        data: {},
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: { headers: new AxiosHeaders() },
+      };
+    });
+    await act(async () => {
+      auth.current.logout();
+    });
+    expect(auth.current.authStatus).toBe('loggingOut');
+    expect(screen.queryByText('Protected instance')).not.toBeInTheDocument();
+    await act(async () => {
+      finishRenewal();
+    });
+    expect(router.state.location.pathname).toBe('/login');
+    expect(auth.current.redirectRoute).toBeNull();
+    await act(async () => {
+      finishRevocation();
+    });
+    await act(() =>
+      auth.current.login('manual', { username: 'admin', password: 'secret' })
+    );
+    expect(router.state.location.pathname).toBe('/');
+  });
+
+  it.each([
+    { mode: 'explicit', revisit: false },
+    { mode: 'storage', revisit: false },
+    { mode: 'channel', revisit: false },
+    { mode: 'explicit', revisit: true },
+    { mode: 'storage', revisit: true },
+    { mode: 'channel', revisit: true },
+  ])(
+    'clears the active destination on $mode logout and captures only a fresh visit (revisit: $revisit)',
+    async ({ mode, revisit }) => {
+      const channels: EventTarget[] = [];
+      if (mode === 'channel') {
+        vi.stubGlobal(
+          'BroadcastChannel',
+          class extends EventTarget {
+            constructor() {
+              super();
+              channels.push(this);
+            }
+            postMessage = vi.fn();
+            close = vi.fn();
+          }
+        );
+      }
+      mockGetAccessToken.mockReturnValue('access-token');
+      const { router, auth } = renderSessionRoutes(destination);
+      await waitFor(() => expect(auth.current.authStatus).toBe('loggedIn'));
+      mockGetAccessToken.mockReturnValue(null);
+      if (mode === 'explicit') {
+        await act(() => auth.current.logout());
+      } else if (mode === 'storage') {
+        await act(async () => {
+          window.dispatchEvent(
+            new StorageEvent('storage', {
+              key: 'everest-auth-sync',
+              newValue: JSON.stringify({
+                type: 'logout',
+                sender: 'another-tab',
+              }),
+            })
+          );
+        });
+      } else {
+        expect(channels).toHaveLength(1);
+        await act(async () => {
+          channels[0].dispatchEvent(
+            new MessageEvent('message', {
+              data: { type: 'logout', sender: 'another-tab' },
+            })
+          );
+        });
+      }
+      expect(router.state.location.pathname).toBe('/login');
+      expect(auth.current.redirectRoute).toBeNull();
+      if (revisit) {
+        await act(() => router.navigate(destination));
+        expect(router.state.location.pathname).toBe('/login');
+      }
+      await act(() =>
+        auth.current.login('manual', { username: 'admin', password: 'secret' })
+      );
+      const { pathname, search, hash } = router.state.location;
+      expect(pathname + search + hash).toBe(revisit ? destination : '/');
+    }
+  );
+});
+
+describe('AuthProvider — post-login navigation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
+    resizeScreenSize(1200);
+    mockGetAccessToken.mockReturnValue(null);
+    mockGetAccessTokenExpiry.mockReturnValue(null);
+    mockRefreshSession.mockResolvedValue(null);
+    mockOidcAuth.isLoading = false;
+    vi.mocked(api.post).mockResolvedValue({ data: { access_token: 'token' } });
+  });
+
+  it.each([
+    {
+      initialEntry: '/databases/default/example/overview?tab=metrics#cpu',
+      retry: false,
+    },
+    {
+      initialEntry: '/databases/default/example/overview?tab=metrics#cpu',
+      retry: true,
+    },
+    { initialEntry: '/login', retry: false },
+  ])(
+    'returns to $initialEntry after credential login (retry: $retry)',
+    async ({ initialEntry, retry }) => {
+      const destination = initialEntry === '/login' ? '/' : initialEntry;
+      const router = createMemoryRouter(
+        [
+          { path: '/login', element: <Login /> },
+          {
+            element: <ProtectedRoute />,
+            children: [{ path: '*', element: <div>Protected instance</div> }],
+          },
+        ],
+        { initialEntries: [initialEntry] }
+      );
+      render(
+        <ThemeContextProvider themeOptions={everestThemeOptions}>
+          <Provider>
+            <RouterProvider router={router} />
+          </Provider>
+        </ThemeContextProvider>
+      );
+
+      await screen.findByTestId('login-button');
+      expect(router.state.location.pathname).toBe('/login');
+      expect(screen.queryByText('Protected instance')).not.toBeInTheDocument();
+      fireEvent.change(screen.getByTestId('text-input-username'), {
+        target: { value: 'admin' },
+      });
+      fireEvent.change(screen.getByTestId('text-input-password'), {
+        target: { value: 'secret' },
+      });
+      if (retry) {
+        vi.mocked(api.post).mockRejectedValueOnce(new Error('Login failed'));
+        fireEvent.click(screen.getByTestId('login-button'));
+        await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+        await waitFor(() =>
+          expect(screen.getByTestId('login-button')).toBeEnabled()
+        );
+        expect(router.state.location.pathname).toBe('/login');
+      }
+      fireEvent.click(screen.getByTestId('login-button'));
+
+      await waitFor(() => {
+        const { pathname, search, hash } = router.state.location;
+        expect(pathname + search + hash).toBe(destination);
+      });
+      expect(screen.getByText('Protected instance')).toBeInTheDocument();
+      await act(() => router.navigate('/login'));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+    }
+  );
+
+  it.each(['explicit', 'synchronized'])(
+    'clears the saved destination on %s logout',
+    async (mode) => {
+      const { result } = renderHook(() => useContext(AuthContext), {
+        wrapper: Provider,
+      });
+      await waitFor(() => expect(result.current.authStatus).toBe('loggedOut'));
+      act(() => result.current.setRedirectRoute('/settings/namespaces'));
+      expect(result.current.redirectRoute).toBe('/settings/namespaces');
+      if (mode === 'explicit') {
+        await act(() => result.current.logout());
+        expect(api.post).toHaveBeenCalledWith('/auth/revoke', {});
+      } else {
+        await act(() =>
+          window.dispatchEvent(
+            new StorageEvent('storage', {
+              key: 'everest-auth-sync',
+              newValue: JSON.stringify({
+                type: 'logout',
+                sender: 'another-tab',
+              }),
+            })
+          )
+        );
+      }
+      expect(result.current.redirectRoute).toBeNull();
+    }
+  );
+
+  it('hands the full destination to OIDC state for the external sign-in round trip', async () => {
+    const { result } = renderHook(() => useContext(AuthContext), {
+      wrapper: Provider,
+    });
+    await waitFor(() => expect(result.current.authStatus).toBe('loggedOut'));
+    const destination = '/settings/namespaces?cluster=default#namespaces';
+    act(() => result.current.setRedirectRoute(destination));
+    await act(() => result.current.login('sso'));
+    expect(mockOidcAuth.signIn).toHaveBeenCalledExactlyOnceWith({
+      state: destination,
+    });
+  });
+
+  it('waits for OIDC callback processing before bootstrapping the session', async () => {
+    mockOidcAuth.isLoading = true;
+    const { result, rerender } = renderHook(() => useContext(AuthContext), {
+      wrapper: ({ children }) => (
+        <Provider
+          oidcConfig={{ authority: 'https://idp', clientId: 'everest' }}
+        >
+          {children}
+        </Provider>
+      ),
+    });
+    expect(result.current.authStatus).toBe('unknown');
+    expect(mockRefreshSession).not.toHaveBeenCalled();
+    expect(mockUserManager.clearStaleState).not.toHaveBeenCalled();
+    mockOidcAuth.isLoading = false;
+    rerender();
+    await waitFor(() => expect(result.current.authStatus).toBe('loggedOut'));
+    expect(mockRefreshSession).toHaveBeenCalledOnce();
+  });
+
+  it('preserves the destination while revoking a broken SSO session during bootstrap', async () => {
+    localStorage.setItem('everestToken', 'saved-token');
+    mockUserManager.getUser.mockRejectedValueOnce(
+      new Error('Session unavailable')
+    );
+    const { result } = renderHook(() => useContext(AuthContext), {
+      wrapper: ({ children }) => (
+        <Provider
+          oidcConfig={{ authority: 'https://idp', clientId: 'everest' }}
+        >
+          {children}
+        </Provider>
+      ),
+    });
+    act(() => result.current.setRedirectRoute('/settings/namespaces'));
+    await waitFor(() => expect(result.current.authStatus).toBe('loggedOut'));
+    expect(result.current.redirectRoute).toBe('/settings/namespaces');
+    expect(api.post).toHaveBeenCalledWith('/auth/revoke', {});
+    expect(localStorage.getItem('everestToken')).toBeNull();
+  });
+});
 
 describe('AuthProvider — proactive refresh timer', () => {
   beforeEach(() => {

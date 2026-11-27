@@ -14,7 +14,11 @@
 
 import { AxiosError, AxiosHeaders } from 'axios';
 import { api } from 'api/api';
-import { exchangeSsoToken, isReusableToken } from './auth.utils';
+import {
+  exchangeSsoToken,
+  getSafeRedirectPath,
+  isReusableToken,
+} from './auth.utils';
 
 const axiosError = (status: number) =>
   new AxiosError('request failed', String(status), undefined, undefined, {
@@ -32,6 +36,48 @@ const tokenExpiringIn = (seconds: number) =>
     btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + seconds })),
     '',
   ].join('.');
+
+describe('getSafeRedirectPath', () => {
+  it.each([
+    '/',
+    '/settings/namespaces?cluster=default#namespaces',
+    '/databases/default/instance%20name/overview?filter=a%2Fb#cpu',
+    '/plugins/example/details',
+  ])('preserves the internal destination %s', (path) => {
+    expect(getSafeRedirectPath(path)).toBe(path);
+  });
+
+  it.each([
+    null,
+    undefined,
+    1,
+    { pathname: '/settings/namespaces' },
+    '',
+    'settings/namespaces',
+    'https://evil.example/path',
+    `${window.location.origin}/settings/namespaces`,
+    '//evil.example/path',
+    '/\\evil.example/path',
+    'javascript:alert(1)',
+    'data:text/html,example',
+    '/%2f%2fevil.example',
+    '/%5cevil.example',
+    '/settings/..//evil.example',
+    '/settings\n/namespaces',
+    '/settings\t/namespaces',
+    '/%E0%A4%A',
+    '/%',
+    '/login',
+    '/LOGIN/?again=true#form',
+    '/%6cogin',
+    '/logout',
+    '/settings/../logout',
+    '/login-callback?code=secret&state=state',
+    '/login-callback/',
+  ])('rejects unsafe or looping destination %j', (path) => {
+    expect(getSafeRedirectPath(path)).toBeNull();
+  });
+});
 
 describe('exchangeSsoToken', () => {
   beforeEach(() => {

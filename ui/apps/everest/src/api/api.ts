@@ -25,13 +25,16 @@ const MISSING_MALFORMED_JWT_MESSAGE = 'missing or malformed jwt';
 const MAX_ERROR_MESSAGE_LENGTH = 120;
 let errorInterceptor: number | null = null;
 let authInterceptor: number | null = null;
+let sessionExpiryPromise: Promise<void> | null = null;
 
 export const api = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
 });
 
-export const addApiErrorInterceptor = () => {
+export const addApiErrorInterceptor = (
+  onSessionExpired?: () => Promise<void>
+) => {
   if (errorInterceptor === null) {
     errorInterceptor = api.interceptors.response.use(
       (response) => response,
@@ -76,7 +79,14 @@ export const addApiErrorInterceptor = () => {
             enqueueSnackbar('Your session has expired. Please sign in again.', {
               variant: 'info',
             });
-            location.href = '/logout';
+            if (onSessionExpired) {
+              sessionExpiryPromise ??= onSessionExpired().finally(() => {
+                sessionExpiryPromise = null;
+              });
+              await sessionExpiryPromise;
+            } else {
+              location.href = '/logout';
+            }
             return Promise.reject(error);
           }
 
