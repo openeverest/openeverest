@@ -26,8 +26,9 @@ export interface FieldCodec {
   // A schema `defaultValue`, as the form keeps it. Left out by a field whose
   // default is written the way the form keeps it already.
   defaultToForm?: (defaultValue: unknown) => unknown;
-  // What a CEL rule reads at the field's path. Left out by a field a rule
-  // reads the way the form keeps it, like a quantity: a number in its unit.
+  // What a CEL rule reads at the field's path; `undefined` leaves the path
+  // unset. Left out by a field a rule reads the way the form keeps it, like a
+  // quantity: a number in its unit.
   toCel?: (formValue: unknown) => unknown;
   // The value is the field's as a whole: an edit replaces the saved one
   // instead of merging into it, and nothing inside is dropped as empty.

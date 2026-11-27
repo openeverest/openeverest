@@ -21,8 +21,8 @@ import { getMapFieldCodec } from '../map-field';
 import {
   deepClone,
   deleteByPath,
+  deleteByPathBelowRoot,
   getByPath,
-  isPlainObject,
   setByPath,
 } from '../object-path';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
@@ -106,13 +106,10 @@ export const getCelValueReaders = (
   return readers;
 };
 
-const holdsPath = (values: Record<string, unknown>, path: string): boolean => {
-  const parentPath = path.split('.').slice(0, -1).join('.');
-  return parentPath === '' || isPlainObject(getByPath(values, parentPath));
-};
-
 // The values a CEL rule evaluates: a copy of the form's values, or of the
-// saved ones, with each reader's path read through it.
+// saved ones, with each reader's path read through it. A rule sees what the
+// API gets, so a value the field wouldn't write is unset, along with the
+// objects that leaves empty.
 export const readValuesForCel = (
   values: Record<string, unknown>,
   readers: CelValueReader[]
@@ -120,11 +117,16 @@ export const readValuesForCel = (
   if (readers.length === 0) return values;
   const result = deepClone(values);
   readers.forEach(({ path, read }) => {
-    // Reading adds no object around a value. A rule that asks whether one is
-    // there, like `has(spec.proxy)`, gets the same answer whether or not the
-    // schema has such a field inside it.
-    if (holdsPath(result, path)) {
-      setByPath(result, path, read(getByPath(result, path)));
+    const held = getByPath(result, path);
+    // Nothing is held, so there is nothing to read: reading adds no value.
+    if (held === undefined) return;
+    const value = read(held);
+    if (value === undefined) {
+      // A path with no parent stays as the form holds it: `has()` can't ask
+      // for it, so a rule has no way to guard against its absence.
+      deleteByPathBelowRoot(result, path);
+    } else {
+      setByPath(result, path, value);
     }
   });
   return result;

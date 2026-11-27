@@ -104,13 +104,13 @@ flowchart TD
   - **`applyCelValidation(schema, celExprs, originalData?, toggleables?, celValueReaders?)`** —
     attaches CEL (in edit mode the `original` namespace — persisted instance data — is available).
     A rule evaluates the form's values, except at the paths of fields whose codec has `toCel`
-    (`getCelValueReaders`, `readValuesForCel` in `utils/field-codecs/`): a `map` is read as the
-    map it writes, `{}` when it has no entries, so a provider writes the rule against the API.
-    Reading adds no object around the value: where the map's parent object is absent, so is the
-    map. A switched-off group's fields are removed first and its paths aren't read; in `original`
-    the paths of a group that saved nothing aren't read either.
-    `original` is read the same way. A `quantity` has no `toCel`: a rule compares the number in
-    `unit`.
+    (`getCelValueReaders`, `readValuesForCel` in `utils/field-codecs/`): a `map` is read as what
+    it writes, so a provider writes the rule against the API. That is the map, and nothing while
+    it has no entries: the path is removed along with the objects that leaves empty, as
+    postprocess does for the payload, and a rule asks for it with `has()`. Reading never adds a
+    value where the form holds none. `original` is read the same way. A path with no parent
+    (`labels`) can't be asked for with `has()`, so it stays as the form holds it. A `quantity`
+    has no `toCel`: a rule compares the number in `unit`.
   - **CEL dependencies** — `extractCelFieldPaths` collects the dotted paths of an expression
     (quoted strings left out, so a map key like `'example.com/role'` isn't one), and the form
     re-runs the rule when a field at one of them changes (`useCelValidation`).

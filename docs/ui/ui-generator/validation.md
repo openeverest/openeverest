@@ -187,33 +187,57 @@ validation:
           message: Number of shards cannot be decreased
 ```
 
+### Optional Fields and `has()`
+
+A rule may run while a field it reads has no value. Such a field is then either **unset** or
+holds its **empty value**:
+
+- an empty text field is unset or `''`. Which one depends on the field's own `validation`, on the
+  form mode and on whether the instance was saved with it, so allow both;
+- an empty number, quantity or [map](components/map-field.md) field is unset in every mode;
+- every field of a [toggleable group](groups.md#toggleable-group) that is off is unset.
+
+Reading an unset field fails with a CEL error: the form can't be submitted, and the user sees
+`CEL expression error: …` in place of your `message`. So a rule that reads a field which may have
+no value asks for it with `has()` first, and for a text field allows the empty string too:
+
+```yaml
+celExpressions:
+  - celExpr: "!has(spec.replicas) || spec.replicas % 2 == 1"
+    message: Use an odd number of nodes
+  - celExpr: "!has(spec.note) || spec.note == '' || size(spec.note) <= 80"
+    message: Keep the note under 80 characters
+```
+
+- `has()` of a nested path is false when an object above it is missing, so
+  `has(spec.components.proxy.service.type)` needs no check of `spec.components.proxy` before it.
+- The same goes for a path under `original`: the saved instance may not hold the field.
+  `original` itself exists only where there is a saved instance, in `edit` and `restore`, and
+  `has()` can't ask for it. So keep a rule that reads `original` under `validation.modes.edit`
+  (and `restore`), as in the example above.
+- Try the rule in a new form and when editing an instance saved without the field: a rule
+  without `has()` can pass in the first and fail in the second.
+
 ### Reading a Map Field
 
 A rule on another field reads a [map field](components/map-field.md) as the map it writes,
-`{ key: value }`, at the map's `path`. The same goes for `original.<path>`.
+`{ key: value }`, at the map's `path`. A map with no entries writes nothing, so the rule finds it
+unset: ask for it with `has()` first, as for any [optional field](#optional-fields-and-has). The
+same goes for the saved map at `original.<path>`.
 
-| To check                  | Write                                                           |
-| ------------------------- | --------------------------------------------------------------- |
-| a key is set              | `'team' in spec.labels`                                         |
-| the value of a key        | `'team' in spec.labels && spec.labels['team'] == 'db'`          |
-| the number of entries     | `size(spec.labels) <= 5`                                        |
-| every key                 | `spec.labels.all(k, k.startsWith('example.com/'))`              |
-| every value               | `spec.labels.all(k, spec.labels[k] != '')`                      |
-| no saved entry is removed | `original.spec.labels.all(k, k in spec.labels)` (edit mode)     |
+| To check                              | Write                                                                                                 |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| there are no entries                  | `!has(spec.labels)`                                                                                   |
+| a key is set                          | `has(spec.labels) && 'team' in spec.labels`                                                           |
+| the value of a key                    | `has(spec.labels) && 'team' in spec.labels && spec.labels['team'] == 'db'`                            |
+| the number of entries                 | `!has(spec.labels) \|\| size(spec.labels) <= 5`                                                       |
+| every key                             | `!has(spec.labels) \|\| spec.labels.all(k, k.startsWith('example.com/'))`                             |
+| every value                           | `!has(spec.labels) \|\| spec.labels.all(k, spec.labels[k] != '')`                                     |
+| no saved entry is removed (edit mode) | `!has(original.spec.labels) \|\| (has(spec.labels) && original.spec.labels.all(k, k in spec.labels))` |
 
-- **No entries.** The rule reads an empty map, `{}`: `size(spec.labels) == 0` is true and
-  `'team' in spec.labels` is false. Nothing is sent to the API for such a map, and the API reads a
-  missing map and an empty one the same way.
-- **The object that holds the map.** The rule gets `{}` where that object exists; reading the map
-  never creates it. With no `spec.components.proxy` at all, there is no
-  `spec.components.proxy.service.annotations` either, so a rule guards the object as it does for
-  its other fields: `!has(spec.components.proxy.service) || …`.
 - **A key that isn't set.** `spec.labels['team']` fails with a CEL error instead of your
   `message`, so check the key with `in` first, as in the table.
 - **Rows the user hasn't finished.** A row with no key isn't an entry, so the rule doesn't see it.
-- **Inside a toggleable group** that is off, the map is unset like the group's other fields: guard
-  the rule with `has()`, see [Toggleable Group](groups.md#toggleable-group). In `original` the
-  same holds for a group that was saved off.
 
 The rule runs again whenever the map's rows change.
 
@@ -231,7 +255,8 @@ externalAccess:
       - celExpr: >-
           !has(spec.components.proxy.service.type) ||
           spec.components.proxy.service.type != 'LoadBalancer' ||
-          'service.beta.kubernetes.io/aws-load-balancer-type' in spec.components.proxy.service.annotations
+          (has(spec.components.proxy.service.annotations) &&
+          'service.beta.kubernetes.io/aws-load-balancer-type' in spec.components.proxy.service.annotations)
         message: Add the aws-load-balancer-type annotation for a LoadBalancer
 ```
 

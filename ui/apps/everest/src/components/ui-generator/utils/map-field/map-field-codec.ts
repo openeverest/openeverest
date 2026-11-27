@@ -17,6 +17,7 @@ import type {
   FieldCodec,
   FieldCodecResolver,
 } from '../field-codecs/field-codecs.types';
+import { isPlainObject } from '../object-path/object-path';
 import { isStringMap, objectToRows, rowsToObject } from './map-field';
 
 // A map with no filled row has no map to write. A value that isn't rows, like
@@ -26,6 +27,13 @@ const toMap = (formValue: unknown): unknown =>
     ? formValue
     : rowsToObject(formValue);
 
+// `original` may be the instance as saved, and that can hold a literal `{}`.
+// A rule finds it unset, like rows with no entry.
+const toMapWithEntries = (formValue: unknown): unknown => {
+  const map = toMap(formValue);
+  return isPlainObject(map) && Object.keys(map).length === 0 ? undefined : map;
+};
+
 // The form keeps a map as rows ({ key, value }); the API takes the map.
 const MAP_FIELD_CODEC: FieldCodec = {
   toForm: objectToRows,
@@ -34,10 +42,9 @@ const MAP_FIELD_CODEC: FieldCodec = {
   // ignored rather than written back as text.
   defaultToForm: (defaultValue) =>
     isStringMap(defaultValue) ? objectToRows(defaultValue) : undefined,
-  // A rule reads the map the field writes, so it can be written against the
-  // API. With no entries that is an empty map, not a missing one: the API
-  // reads the two alike, and `in` and `size()` then need no guard of the map.
-  toCel: (formValue) => toMap(formValue) ?? {},
+  // A rule reads what the field writes, so it can be written against the
+  // API: the map, and nothing at all while it has no entries.
+  toCel: toMapWithEntries,
   ownsWholeValue: true,
 };
 

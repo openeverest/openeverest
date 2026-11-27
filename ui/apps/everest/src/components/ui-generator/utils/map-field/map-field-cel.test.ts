@@ -86,11 +86,13 @@ const issuesOf = (
 const TEAM = { key: 'team', value: 'db' };
 const LB_TYPE = 'service.beta.kubernetes.io/aws-load-balancer-type';
 
+const CEL_ERROR = expect.stringContaining('CEL expression error');
+
 describe('a map field read by the CEL rule of another field', () => {
   it.each([
+    ['has(spec.labels)'],
     ["'team' in spec.labels"],
-    ["'team' in spec.labels && spec.labels['team'] == 'db'"],
-    ["'team' in spec.labels && spec.labels.team == 'db'"],
+    ["has(spec.labels.team) && spec.labels.team == 'db'"],
     [`'${LB_TYPE}' in spec.labels && spec.labels['${LB_TYPE}'] == 'nlb'`],
     ['size(spec.labels) == 2'],
     ["spec.labels.all(k, spec.labels[k] != '')"],
@@ -103,13 +105,31 @@ describe('a map field read by the CEL rule of another field', () => {
     ).toEqual([]);
   });
 
-  it.each([[[]], [undefined], [[{ key: '', value: '' }]]])(
-    'reads a map with no entries as an empty map, so the rule fails with its own message: %j',
+  describe.each([[[]], [undefined], [[{ key: '', value: '' }]]])(
+    'with no entries, given %j',
     (rows) => {
-      expect(issuesOf("'team' in spec.labels", { rows })).toEqual([
-        RULE_FAILED,
-      ]);
-      expect(issuesOf('size(spec.labels) == 0', { rows })).toEqual([]);
+      it('leaves the map unset, as the API gets it', () => {
+        expect(issuesOf('!has(spec.labels)', { rows })).toEqual([]);
+        expect(issuesOf('has(spec.labels)', { rows })).toEqual([RULE_FAILED]);
+      });
+
+      it('fails a rule that reads the map without asking for it first', () => {
+        expect(issuesOf("'team' in spec.labels", { rows })).toEqual([
+          CEL_ERROR,
+        ]);
+        expect(issuesOf('size(spec.labels) <= 5', { rows })).toEqual([
+          CEL_ERROR,
+        ]);
+      });
+
+      it('answers a rule that asks for the map first with its own message', () => {
+        expect(
+          issuesOf("has(spec.labels) && 'team' in spec.labels", { rows })
+        ).toEqual([RULE_FAILED]);
+        expect(
+          issuesOf('!has(spec.labels) || size(spec.labels) <= 5', { rows })
+        ).toEqual([]);
+      });
     }
   );
 
@@ -123,7 +143,8 @@ describe('a map field read by the CEL rule of another field', () => {
   });
 
   describe('against the saved map in edit mode', () => {
-    const KEEPS_SAVED_ENTRIES = 'original.spec.labels.all(k, k in spec.labels)';
+    const KEEPS_SAVED_ENTRIES =
+      '!has(original.spec.labels) || (has(spec.labels) && original.spec.labels.all(k, k in spec.labels))';
 
     it.each([
       // The section edit modal lays the form's values over the instance.
@@ -139,16 +160,24 @@ describe('a map field read by the CEL rule of another field', () => {
           original,
         })
       ).toEqual([RULE_FAILED]);
+      expect(issuesOf(KEEPS_SAVED_ENTRIES, { rows: [], original })).toEqual([
+        RULE_FAILED,
+      ]);
     });
 
-    it('reads an instance saved without the map as holding an empty one', () => {
-      expect(
-        issuesOf('size(spec.labels) >= size(original.spec.labels)', {
-          rows: [],
-          original: { spec: { name: 'db' } },
-        })
-      ).toEqual([]);
-    });
+    it.each([
+      ['without the map', { spec: { name: 'db' } }],
+      ['with no row', { spec: { name: 'db', labels: [] } }],
+      // Restore passes the instance as saved, where kubectl may have left this.
+      ['with an empty map', { spec: { name: 'db', labels: {} } }],
+    ])(
+      'leaves the map unset in `original` for an instance saved %s',
+      (_, original) => {
+        expect(issuesOf(KEEPS_SAVED_ENTRIES, { rows: [], original })).toEqual(
+          []
+        );
+      }
+    );
   });
 
   describe('with the map inside an object', () => {
@@ -191,20 +220,56 @@ describe('a map field read by the CEL rule of another field', () => {
       ).toEqual([]);
     });
 
-    it('reads an empty map where the object is there', () => {
-      const proxy = { replicas: 1 };
-
+    it('leaves no empty object behind once every row is removed', () => {
       expect(
-        issuesWith('size(spec.proxy.labels) == 0', { name: 'db', proxy })
+        issuesWith('!has(spec.proxy)', { name: 'db', proxy: { labels: [] } })
       ).toEqual([]);
       expect(
-        issuesWith(
-          'size(original.spec.proxy.labels) == 0',
-          { name: 'db' },
-          { spec: { proxy } }
-        )
+        issuesWith('has(spec.proxy) && !has(spec.proxy.labels)', {
+          name: 'db',
+          proxy: { replicas: 1, labels: [] },
+        })
       ).toEqual([]);
     });
+  });
+
+  it('keeps a map with no parent as the form holds it, since has() cannot ask for it', () => {
+    const schema = preprocessSchema({
+      replicaSet: {
+        sections: {
+          advanced: {
+            components: {
+              labels: {
+                uiType: FieldType.Map,
+                path: 'labels',
+                fieldParams: { label: 'Labels' },
+                itemTemplate: {
+                  uiType: WIDGET_UI_TYPE,
+                  widgetType: TemplateWidgetType.KeyValue,
+                },
+              },
+              name: {
+                uiType: FieldType.Text,
+                path: 'name',
+                fieldParams: { label: 'Name' },
+                validation: {
+                  celExpressions: [
+                    { celExpr: 'size(labels) == 0', message: RULE_FAILED },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(
+      buildZodSchema(schema, 'replicaSet').schema.safeParse({
+        name: 'db',
+        labels: [],
+      }).success
+    ).toBe(true);
   });
 
   describe('with a toggleable group', () => {
@@ -224,8 +289,7 @@ describe('a map field read by the CEL rule of another field', () => {
     const issuesWith = (
       celExpr: string,
       inGroup: boolean,
-      values: Record<string, unknown>,
-      original?: Record<string, unknown>
+      values: Record<string, unknown>
     ) => {
       const schema = preprocessSchema({
         replicaSet: {
@@ -259,9 +323,9 @@ describe('a map field read by the CEL rule of another field', () => {
           },
         },
       });
-      const result = buildZodSchema(schema, 'replicaSet', {
-        originalData: original,
-      }).schema.safeParse(values);
+      const result = buildZodSchema(schema, 'replicaSet').schema.safeParse(
+        values
+      );
       return result.success ? [] : result.error.issues.map((i) => i.message);
     };
 
@@ -270,11 +334,13 @@ describe('a map field read by the CEL rule of another field', () => {
       [TOGGLEABLE_SWITCHES_KEY]: { [SWITCH]: on },
     });
 
-    it('leaves the map unset inside a switched-off group, like the group’s other fields', () => {
+    it('leaves the map unset inside a switched-off group, whatever its rows hold', () => {
       const guarded =
         "!has(spec.monitoring.labels) || 'team' in spec.monitoring.labels";
-      // `enabled` is no field of the group, so the object stays with it off.
-      const monitoring = { enabled: true, interval: 5, labels: [] };
+      const monitoring = {
+        interval: 5,
+        labels: [{ key: 'tier', value: 'db' }],
+      };
 
       expect(issuesWith(guarded, true, withSwitch(false, monitoring))).toEqual(
         []
@@ -284,32 +350,12 @@ describe('a map field read by the CEL rule of another field', () => {
       ]);
     });
 
-    it('reads no map into an object the form holds only for a switched-off field', () => {
+    it('leaves no object behind that the form held only for a switched-off field and an empty map', () => {
       expect(
         issuesWith(
           '!has(spec.monitoring)',
           false,
-          withSwitch(false, { interval: 5 })
-        )
-      ).toEqual([]);
-    });
-
-    it('leaves the map unset in `original` for a group saved off', () => {
-      expect(
-        issuesWith(
-          '!has(original.spec.monitoring.labels)',
-          true,
-          withSwitch(true, { interval: 5 }),
-          // Something else saved there keeps the object, with the group off.
-          { spec: { name: 'db', monitoring: {} } }
-        )
-      ).toEqual([]);
-      expect(
-        issuesWith(
-          'size(original.spec.monitoring.labels) == 0',
-          true,
-          withSwitch(true, { interval: 5 }),
-          { spec: { name: 'db', monitoring: { interval: 5 } } }
+          withSwitch(false, { interval: 5, labels: [] })
         )
       ).toEqual([]);
     });

@@ -285,8 +285,8 @@ classDiagram
 - **`quantity`** — same numeric rules as `number`; bounds and CEL see the number in `unit`.
 - **`map`** — rules on the count of filled rows; `required` means at least one. A count issue
   sits at the map's `root`, beside its rows' issues. CEL on the map waits for `self` support;
-  a rule on another field reads the map as the map it writes (`{}` when empty, where its
-  parent object exists). The limits
+  a rule on another field reads the map as the map it writes (unset when it has no entries).
+  The limits
   are `min` / `max`, the names `text` and `number` use for their own size; OpenAPI's
   `minProperties` / `maxProperties` stay in the API schema.
 
