@@ -252,6 +252,8 @@ For now, the documented and supported `fieldParams.modes` overrides are:
 - `defaultValue`
 - `autoFocus`
 
+A [map field](components/map-field.md#locking-rows) also takes `disableAdd` and `disableRemove`.
+
 ```yaml
 dbName:
   uiType: text

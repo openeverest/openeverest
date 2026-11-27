@@ -10,6 +10,13 @@
   - [Not Supported Yet](#not-supported-yet)
 - [Validation](#validation)
   - [A CEL Rule on the Map](#a-cel-rule-on-the-map)
+- [Locking Rows](#locking-rows)
+  - [Nothing Can Be Changed](#nothing-can-be-changed)
+  - [Fixed Keys](#fixed-keys)
+  - [No Removing](#no-removing)
+  - [No Adding](#no-adding)
+  - [A Fixed Set](#a-fixed-set)
+  - [Append-Only](#append-only)
 - [Examples](#examples)
   - [Key/Value Map](#keyvalue-map)
   - [Validated Keys](#validated-keys)
@@ -33,8 +40,14 @@ adds and removes. Each row is a key and a value; the field writes `{ key: value,
     strings: the UI ignores anything else and `provider-sdk generate` rejects it (rule
     `map-invalid-default`)
   - `helperText`: Help text displayed below the rows
-  - `disabled`: Whether the field is disabled (default: `false`)
-  - `modes`: Per-mode overrides, see [FieldParams-level modes](../Readme.md#fieldparams-level-modes)
+  - `disabled`: Whether the field is disabled: every input, the Add button and every Remove
+    button (default: `false`)
+  - `disableAdd`: Whether the Add button is disabled (default: `false`), see
+    [Locking Rows](#locking-rows)
+  - `disableRemove`: Whether the Remove button is disabled on the rows the form opened with
+    (default: `false`), see [Locking Rows](#locking-rows)
+  - `modes`: Per-mode overrides, see [FieldParams-level modes](../Readme.md#fieldparams-level-modes).
+    A map also takes `disableAdd` and `disableRemove` there
 - `validation` (optional): Rules for the map, see [Validation](#validation)
 
 ## The Row
@@ -66,6 +79,8 @@ itemTemplate:
   under `validation`, with `modes` too. Transforms such as `trim` or `toLowerCase` change what is
   written, and duplicate keys are found after them. With no `placeholder`, the inputs show `Key`
   and `Value`.
+- **`disabled` applies to the rows the form opened with.** A row the user adds is editable, see
+  [Locking Rows](#locking-rows).
 - **The map decides what is written.** `uiType: map` writes the rows as one object,
   `{ key: value, … }`. The row only describes the inputs.
 
@@ -159,6 +174,201 @@ These rules always apply, without being set:
   instead of one value silently replacing the other.
 - **A filled row has a key.** A row with only a value is reported.
 
+## Locking Rows
+
+A schema can fix the entries a form starts with and still let the user add new ones. For that the
+form tells two kinds of rows apart:
+
+- **Rows the form opened with**: the entries the form held when it loaded. When an instance is
+  edited or restored, these are its saved entries. In the create wizard, they are the entries of
+  the map's `defaultValue`, or of the preset the user picked.
+- **Added rows**: rows the user added with the Add button since then.
+
+**A row field's `disabled` applies to the rows the form opened with. A row added since is
+editable.** The same goes for `readOnly`. An added row's inputs are checked by the field's rules.
+In a row the form opened with, a disabled input skips its own rules, like any
+[disabled field](../validation.md#disabled-fields).
+
+| Set                         | Effect                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| `disabled` on a row's field | That input is disabled in the rows the form opened with                                     |
+| `disableAdd` on the map     | The Add button is disabled                                                                  |
+| `disableRemove` on the map  | The rows the form opened with can't be removed, or emptied. An added row can be removed     |
+| `disabled` on the map       | Everything is disabled: every input, the Add button and every Remove button, added rows too |
+
+All four go under `fieldParams`, and under `fieldParams.modes.<mode>` to apply in one form mode
+only. A disabled button stays visible.
+
+- **Every row the form opened with is locked the same way.** One entry can't be locked alone.
+- **A saved entry is no longer an added one.** After a save, the next form that opens the instance
+  starts with the entry, so the locks apply to it.
+- **The rules that always apply still check every row.** A key an added row repeats is reported on
+  the added row, also when the other row's key is disabled.
+- **What is written doesn't change.** The map is written whole from the keys and values of its
+  rows, locked or not.
+- **Only the form is locked.** The API doesn't know these params, so a change made outside the
+  form, e.g. with kubectl, isn't stopped.
+
+The snippets below lock the edit form. Without `modes`, the same params lock every form, the
+create wizard too, where they apply to the entries of `defaultValue`.
+
+### Nothing Can Be Changed
+
+`disabled` on the map: no input can be typed in, and no row added or removed.
+
+```yaml
+labels:
+  uiType: map
+  path: spec.labels
+  fieldParams:
+    label: Labels
+    modes:
+      edit:
+        disabled: true
+  itemTemplate:
+    uiType: group
+    groupType: line
+    components:
+      key: { uiType: text, path: key }
+      value: { uiType: text, path: value }
+```
+
+### Fixed Keys
+
+`disabled` on the key field: a saved key can't be changed, its value can. The user can add
+entries, and remove any.
+
+```yaml
+labels:
+  uiType: map
+  path: spec.labels
+  fieldParams:
+    label: Labels
+  itemTemplate:
+    uiType: group
+    groupType: line
+    components:
+      key:
+        uiType: text
+        path: key
+        fieldParams:
+          modes:
+            edit:
+              disabled: true
+      value:
+        uiType: text
+        path: value
+```
+
+### No Removing
+
+`disableRemove` on the map: a saved entry can't be removed. Its Remove button is disabled, and
+clearing both its inputs is reported with `Enter a key` instead of dropping the row. Its key and
+value can still be changed, so disable the key field too to keep the entry under its key.
+
+```yaml
+labels:
+  uiType: map
+  path: spec.labels
+  fieldParams:
+    label: Labels
+    modes:
+      edit:
+        disableRemove: true
+  itemTemplate:
+    uiType: group
+    groupType: line
+    components:
+      key: { uiType: text, path: key }
+      value: { uiType: text, path: value }
+```
+
+### No Adding
+
+`disableAdd` on the map: no entry can be added. The saved ones can be changed and removed.
+
+```yaml
+labels:
+  uiType: map
+  path: spec.labels
+  fieldParams:
+    label: Labels
+    modes:
+      edit:
+        disableAdd: true
+  itemTemplate:
+    uiType: group
+    groupType: line
+    components:
+      key: { uiType: text, path: key }
+      value: { uiType: text, path: value }
+```
+
+### A Fixed Set
+
+The key disabled, with `disableAdd` and `disableRemove`: the entries stay the ones saved, and only
+their values change.
+
+```yaml
+labels:
+  uiType: map
+  path: spec.labels
+  fieldParams:
+    label: Labels
+    modes:
+      edit:
+        disableAdd: true
+        disableRemove: true
+  itemTemplate:
+    uiType: group
+    groupType: line
+    components:
+      key:
+        uiType: text
+        path: key
+        fieldParams:
+          modes:
+            edit:
+              disabled: true
+      value:
+        uiType: text
+        path: value
+```
+
+### Append-Only
+
+The key and the value disabled, with `disableRemove`: a saved entry can't be changed or removed.
+The user can add entries, and change or remove one until it is saved.
+
+```yaml
+labels:
+  uiType: map
+  path: spec.labels
+  fieldParams:
+    label: Labels
+    modes:
+      edit:
+        disableRemove: true
+  itemTemplate:
+    uiType: group
+    groupType: line
+    components:
+      key:
+        uiType: text
+        path: key
+        fieldParams:
+          modes:
+            edit:
+              disabled: true
+      value:
+        uiType: text
+        path: value
+        fieldParams:
+          modes:
+            edit:
+              disabled: true
+```
+
 ## Examples:
 
 ### Key/Value Map
@@ -230,7 +440,8 @@ podMonitorLabels:
 - **Preview and overview**: an entry-count chip, e.g. *3 entries*. It opens a key/value table in a
   dialog, where each row can be copied as `key=value`. A row field with `type: password` is shown
   masked, in the table too, and such a row can't be copied.
-- **New row**: starts empty, and its first input gets the focus.
+- **New row**: starts empty and editable, also when a row field is `disabled`, and its first
+  input gets the focus. See [Locking Rows](#locking-rows).
 - **Long keys and values**: one too long for its input ends in an ellipsis, and hovering the input
   shows it in full. Not for a field with `type: password`, and not for a field with its own
   `tooltip`, which is shown instead.

@@ -27,18 +27,17 @@ export type ComponentModeOverrides = Partial<
   Record<FormMode, { uiType?: FieldType | 'hidden' }>
 >;
 
+interface FieldParamsModeOverride {
+  disabled?: boolean;
+  readOnly?: boolean;
+  label?: string;
+  helperText?: string;
+  defaultValue?: unknown;
+  autoFocus?: boolean;
+}
+
 export type FieldParamsModeOverrides = Partial<
-  Record<
-    FormMode,
-    {
-      disabled?: boolean;
-      readOnly?: boolean;
-      label?: string;
-      helperText?: string;
-      defaultValue?: unknown;
-      autoFocus?: boolean;
-    }
-  >
+  Record<FormMode, FieldParamsModeOverride>
 >;
 
 export type OpenAPIObjectProperties = {
@@ -173,10 +172,21 @@ export interface TextFieldParams extends CommonFieldParams {
   margin?: 'none' | 'dense' | 'normal';
 }
 
-export interface MapFieldParams extends CommonFieldParams {
+// What a map lets the user do with its rows, besides editing them.
+interface MapRowLocks {
+  // The Add button is disabled.
+  disableAdd?: boolean;
+  // The Remove button of a row the form opened with is disabled. A row added
+  // since can still be removed.
+  disableRemove?: boolean;
+}
+
+export interface MapFieldParams extends CommonFieldParams, MapRowLocks {
   addButtonLabel?: string;
   // In the API shape: a map of strings.
   defaultValue?: Record<string, string>;
+  // Only a map's modes take the row locks, so the other field types' don't.
+  modes?: Partial<Record<FormMode, FieldParamsModeOverride & MapRowLocks>>;
 }
 
 // Toggles are always optional booleans, so `required` is unsupported. Typing it

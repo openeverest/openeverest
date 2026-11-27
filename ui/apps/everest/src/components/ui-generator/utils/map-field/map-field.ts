@@ -22,6 +22,7 @@ import type {
 } from '../../ui-generator.types';
 import { isMaskedValue, maskPasswordValue } from '../display-value';
 import { isPlainObject } from '../object-path';
+import { ADDED_ROW_FLAG } from './map-field.constants';
 import { getMapRow, getRowField } from './map-row';
 import type { MapDisplayRow, MapRow } from './map-field.types';
 
@@ -29,6 +30,18 @@ export const isMapRow = (value: unknown): value is MapRow =>
   isPlainObject(value) &&
   typeof value.key === 'string' &&
   typeof value.value === 'string';
+
+// The row the Add button appends: empty, and marked as added.
+export const createAddedRow = (): MapRow => ({
+  key: '',
+  value: '',
+  [ADDED_ROW_FLAG]: true,
+});
+
+// Whether the user added the row since the form opened. The rows a form opens
+// with, a saved map's or a default's, are built by `objectToRows`, unmarked.
+export const isAddedRow = (row: unknown): boolean =>
+  isPlainObject(row) && row[ADDED_ROW_FLAG] === true;
 
 // The value a map field edits; anything else is left as it is.
 export const isStringMap = (value: unknown): value is Record<string, string> =>

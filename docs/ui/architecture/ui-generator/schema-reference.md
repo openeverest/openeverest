@@ -98,6 +98,15 @@ flowchart TD
   map meets) is ignored at runtime with a dev warning (`lintMapFields`), and the Go validator
   reports `map-ignored-option` / `map-invalid-default` / `map-invalid-limits`.
 - **Unique keys** are implied by the map and can't be switched off.
+- **Row locks** — the form tells the rows it opened with (a saved map's, a default's) from the
+  rows the user added since: `MapField` marks an appended row in the form data
+  (`ADDED_ROW_FLAG`), and a form `reset()` with loaded values replaces the rows, mark included.
+  A row field's `fieldParams.disabled` / `readOnly` applies to the first kind only: an added row
+  is drawn and validated from `toAddedMapRow`, the row with them cleared. With `disableRemove`
+  an emptied row of the first kind is an error rather than dropped. The map's `fieldParams.disableAdd`
+  disables the Add button and `disableRemove` the Remove button of the rows the form opened with;
+  both can be set per mode in the map's `fieldParams.modes`. The map's own `disabled` disables
+  everything. The mark never leaves the form: the codec reads a row's `key` and `value` only.
 - **Other shapes are ignored**: preprocess drops a map whose item template it doesn't implement,
   with several paths, or that doesn't own its path, like an unknown `uiType`; the Go validator
   reports `map-unsupported` / `map-multi-path` / `map-overlap`.
@@ -199,6 +208,8 @@ classDiagram
   class MapFieldParams {
     addButtonLabel?
     defaultValue? map
+    disableAdd?
+    disableRemove?
   }
   CommonFieldParams <|-- NumberFieldParams
   CommonFieldParams <|-- QuantityFieldParams

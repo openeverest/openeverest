@@ -98,6 +98,11 @@ flowchart TD
     `root`, where RHF keeps an array's own error, so it sits beside the rows' issues instead of
     replacing them. Its output is each filled row as its fields parse it (e.g. a trimmed key), and
     duplicates are found on that key.
+    The row's shape is built twice. A row the form opened with is checked against the row as it
+    is, so a disabled field of it skips its rules like any disabled field. A row the user added
+    (marked in the form data, see [Render](#4-render)) is checked against `toAddedMapRow(row)`,
+    the row with its fields' `disabled` cleared, so the field's rules apply to it. A disabled map
+    skips validation whole, added rows too.
   - **`convertToNestedSchema`** — flat fields → nested `z.object`. A parent object is optional when
     all of its fields are, so edit mode accepts an instance that lacks it (e.g. no
     `spec.components.engine.parameters` when Engine configuration is unset).
@@ -138,7 +143,9 @@ flowchart TD
   `ownsWholeValue`. `getFieldCodec(component)` returns it, and the
   stages below call it instead of branching on the field type. Two fields have one today:
   - **map** (`utils/map-field/map-field-codec.ts`) — rows (`[{ key, value }]`) in the form, a map
-    in the API and in the schema's `defaultValue`; owns its whole value.
+    in the API and in the schema's `defaultValue`; owns its whole value. It reads a row's `key`
+    and `value` only, so the mark of an added row (`ADDED_ROW_FLAG`) stays in the form: it reaches
+    neither the API, nor CEL, nor a read-only view.
   - **quantity** (`utils/quantity/quantity-codec.ts`) — a number in `unit` in the form and in
     the schema's `defaultValue`, a Kubernetes quantity string in the API.
 
@@ -181,7 +188,14 @@ flowchart TD
       off shown on hover, see `TruncatedValueTooltip`), with add / remove buttons, the
       map's own error (`root`), and re-validation of the whole map (`useRevalidateMap`) when a key
       changes or a row fills or empties, since a duplicate, the count and a value without a key
-      span rows;
+      span rows. The Add button appends a row marked as added (`createAddedRow`, the
+      `ADDED_ROW_FLAG` key of the row in the form data). The rows a form is initialised with, or
+      `reset()` with loaded values (an instance, a restore source, a preset, defaults), come from
+      the codec, unmarked, so they are rows the form opened with. The topology switch resets the
+      form with its current values and keeps the marks. For a marked row `toRowAtIndex` clears a
+      row field's own `disabled` and `readOnly` (`toAddedMapRow`), and `fieldParams.disableRemove` leaves its Remove button enabled;
+      `fieldParams.disableAdd` disables Add. The map's own `disabled` disables all of it, marked
+      rows too;
     - has `dataSource` → `<ComponentErrorBoundary><DataSourceField><UIComponent/></DataSourceField></ComponentErrorBoundary>`
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.
@@ -412,6 +426,9 @@ Each `modes` object overrides only the properties of the object it belongs to.
 | `fieldParams.modes` | `disabled`, `readOnly`, `label`, `helperText`, `defaultValue`, `autoFocus` | implemented     |
 | `validation.modes`  | any validation field + `inheritShared`                                     | implemented     |
 | `group.modes`       | `hidden` / `disabled` at the group level                                   | planned (#3080) |
+
+A `map` field's `fieldParams.modes` also take `disableAdd` and `disableRemove`
+(`MapFieldParams`), which no other field type has.
 
 ```yaml
 components:

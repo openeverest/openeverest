@@ -13,7 +13,10 @@
 // limitations under the License.
 
 import { orderComponents } from 'components/ui-generator/utils/component-renderer/order-components';
-import { getRowFieldRole } from 'components/ui-generator/utils/map-field';
+import {
+  getRowFieldRole,
+  toAddedMapRow,
+} from 'components/ui-generator/utils/map-field';
 import type { ComponentGroup, MapComponent } from '../ui-generator.types';
 import { Messages } from './map-field.messages';
 import type { RowState } from './map-field.types';
@@ -27,12 +30,14 @@ export const hasOwnCelRule = ({ validation }: MapComponent): boolean =>
 
 // One row's fields: each named for the row ("Key 2"), disabled with the map,
 // showing a cut-off value on hover, and the first one focused when the row was
-// just added.
+// just added. A field's own `disabled` holds for a row the form opened with
+// only: an added row's fields are enabled, so the focused one can be typed in.
 export const toRowAtIndex = (
-  row: ComponentGroup,
+  mapRow: ComponentGroup,
   index: number,
-  { disabled, focus }: RowState
+  { disabled, added, focus }: RowState
 ): ComponentGroup => {
+  const row = added ? toAddedMapRow(mapRow) : mapRow;
   // The first as the row draws them, which `componentsOrder` may change.
   const [firstDrawn] = orderComponents(row.components, row.componentsOrder);
   return {
