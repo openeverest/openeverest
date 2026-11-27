@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { schema } from './schedule-form-schema';
+import { scheduleModalDefaultValues } from '../schedule-form-dialog.utils';
 import { FlattenedSchedule } from '../schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { WizardMode } from 'shared-types/wizard.types';
 import { Messages } from './schedule-form.messages';
@@ -279,6 +280,51 @@ describe('schedule-form-schema', () => {
   });
 
   describe('duplicate cron (same time) validation', () => {
+    it('checks for duplicate cron only when the edit changes the stored cron', () => {
+      const weekday = makeSchedule({ name: 'weekday', cron: '0 3 * * 1-5' });
+      const daily = makeSchedule({ name: 'daily', cron: '0 3 * * *' });
+      const formData = scheduleModalDefaultValues(
+        WizardMode.Edit,
+        weekday,
+        validFormData.backupClassName
+      );
+
+      const retentionEdit = { ...formData, retentionCopies: '8' };
+      expect(
+        schema([weekday, daily], WizardMode.Edit).safeParse(retentionEdit)
+          .success
+      ).toBe(true);
+
+      const otherWeekday = { ...weekday, name: 'other-weekday' };
+      const duplicateScheduleSchema = schema(
+        [weekday, otherWeekday],
+        WizardMode.Edit
+      );
+      expect(duplicateScheduleSchema.safeParse(retentionEdit).success).toBe(
+        true
+      );
+
+      const invalidRetention = duplicateScheduleSchema.safeParse({
+        ...retentionEdit,
+        retentionCopies: '0',
+      });
+      expect(invalidRetention.error?.issues).toContainEqual(
+        expect.objectContaining({
+          message: Messages.retentionCopies.invalidNumber,
+        })
+      );
+
+      const timeEdit = { ...formData, hour: 4 };
+      const otherDaily = { ...daily, cron: '0 4 * * *' };
+      const changedTime = schema(
+        [weekday, otherDaily],
+        WizardMode.Edit
+      ).safeParse(timeEdit);
+      expect(changedTime.error?.issues).toContainEqual(
+        expect.objectContaining({ message: Messages.sameTimeSchedule })
+      );
+    });
+
     it('rejects when another schedule has same cron expression', () => {
       // Create a schedule whose cron matches what the form values would generate
       // For TimeValue.days at hour=1, minute=0, AM → cron is "0 1 * * *"

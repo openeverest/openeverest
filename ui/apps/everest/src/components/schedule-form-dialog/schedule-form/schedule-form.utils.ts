@@ -14,9 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ScheduleFormData } from './schedule-form-schema';
+import type { ScheduleFormData } from './schedule-form-schema';
 import { FlattenedSchedule } from '../schedule-form-dialog-context/schedule-form-dialog-context.types';
-import { getCronExpressionFromFormValues } from '../../time-selection/time-selection.utils';
+import {
+  getCronExpressionFromFormValues,
+  getFormValuesFromCronExpression,
+} from 'components/time-selection/time-selection.utils';
+import {
+  TimeValue,
+  type TimeProps,
+} from 'components/time-selection/time-selection.types';
 import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types';
 import { removeEmptyFieldValues } from 'components/ui-generator/utils/postprocess/postprocess-schema';
 import { ScheduleRetention } from 'shared-types/backups.types';
@@ -138,29 +145,40 @@ export const retentionToApi = (
   return undefined;
 };
 
+export const getScheduleCron = (time: TimeProps, originalCron?: string) => {
+  if (originalCron !== undefined) {
+    const originalTime = getFormValuesFromCronExpression(originalCron);
+    // Switching cadence leaves hidden controls in the form state.
+    if (
+      time.selectedTime === originalTime.selectedTime &&
+      time.minute === originalTime.minute &&
+      (time.selectedTime === TimeValue.hours ||
+        (time.hour === originalTime.hour && time.amPm === originalTime.amPm)) &&
+      (time.selectedTime !== TimeValue.weeks ||
+        time.weekDay === originalTime.weekDay) &&
+      (time.selectedTime !== TimeValue.months ||
+        time.onDay === originalTime.onDay)
+    ) {
+      return originalCron;
+    }
+  }
+  return getCronExpressionFromFormValues(time);
+};
+
 export const getSchedulesPayload = ({
   formData,
   mode,
   schedules,
 }: UpdateScheduleArrayProps): FlattenedSchedule[] => {
-  const {
-    selectedTime,
-    minute,
-    hour,
-    amPm,
-    onDay,
-    weekDay,
-    scheduleName,
-    storageLocation,
-  } = formData;
-  const cron = getCronExpressionFromFormValues({
-    selectedTime,
-    minute,
-    hour,
-    amPm,
-    onDay,
-    weekDay,
-  });
+  const { scheduleName, storageLocation } = formData;
+  const editedScheduleIndex =
+    mode === WizardMode.Edit
+      ? (schedules?.findIndex((item) => item.name === scheduleName) ?? -1)
+      : -1;
+  const cron = getScheduleCron(
+    formData,
+    schedules?.[editedScheduleIndex]?.cron
+  );
 
   const storageName =
     typeof storageLocation === 'string'
@@ -205,9 +223,6 @@ export const getSchedulesPayload = ({
 
   if (mode === WizardMode.Edit) {
     const newSchedulesArray = [...(schedules || [])];
-    const editedScheduleIndex = newSchedulesArray.findIndex(
-      (item) => item.name === scheduleName
-    );
     if (editedScheduleIndex !== -1) {
       newSchedulesArray[editedScheduleIndex] = newSchedule;
     }
