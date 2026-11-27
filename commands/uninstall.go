@@ -47,6 +47,7 @@ func init() {
 	uninstallCmd.Flags().BoolVarP(&uninstallCfg.AssumeYes, "assume-yes", "y", false, "Assume yes to all questions")
 	uninstallCmd.Flags().BoolVarP(&uninstallCfg.Force, "force", "f", false, "Force removal in case there are database clusters running")
 	uninstallCmd.Flags().BoolVar(&uninstallCfg.SkipEnvDetection, cli.FlagSkipEnvDetection, false, "Skip detecting Kubernetes environment where Everest is installed")
+	_ = uninstallCmd.Flags().MarkDeprecated(cli.FlagSkipEnvDetection, "no longer has any effect")
 }
 
 func uninstallPreRun(_ *cobra.Command, _ []string) {
