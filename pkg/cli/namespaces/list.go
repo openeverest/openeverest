@@ -151,17 +151,26 @@ func (nsL *NamespaceLister) getNamespaceOperators(ctx context.Context, ns *corev
 	if isManagedByEverest(ns) {
 		// no need to look for installed operators from namespaces not managed by Everest.
 		subList, err := nsL.kubeClient.ListInstalledOperators(ctx, client.InNamespace(ns.GetName()))
-		if err != nil && client.IgnoreNotFound(err) != nil {
-			return []string{}, fmt.Errorf("cannot list installed operators in namespace='%s': %w", ns.GetName(), err)
+		if err != nil {
+			if client.IgnoreNotFound(err) != nil {
+				return []string{}, fmt.Errorf("cannot list installed operators in namespace='%s': %w", ns.GetName(), err)
+			}
+			return toReturn, nil
 		}
 
 		for _, sub := range subList.Items {
+			if sub.Status.InstalledCSV == "" {
+				continue
+			}
 			csv, csvErr := nsL.kubeClient.GetClusterServiceVersion(ctx, types.NamespacedName{
 				Namespace: ns.GetName(),
 				Name:      sub.Status.InstalledCSV,
 			})
-			if csvErr != nil && client.IgnoreNotFound(csvErr) != nil {
-				return []string{}, fmt.Errorf("cannot list installed operators in namespace='%s': %w", ns.GetName(), csvErr)
+			if csvErr != nil {
+				if client.IgnoreNotFound(csvErr) != nil {
+					return []string{}, fmt.Errorf("cannot list installed operators in namespace='%s': %w", ns.GetName(), csvErr)
+				}
+				continue
 			}
 			v, err := goversion.NewVersion(csv.Spec.Version.FinalizeVersion())
 			if err != nil {
