@@ -405,6 +405,30 @@ func TestValidateBackupSpec(t *testing.T) {
 			err: errDuplicatedSchedules,
 		},
 		{
+			name: "errDuplicatedScheduleNames",
+			cluster: &everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Backup: everestv1alpha1.Backup{
+						Schedules: []everestv1alpha1.BackupSchedule{
+							{
+								Enabled:           true,
+								Name:              "daily",
+								Schedule:          "0 0 * * *",
+								BackupStorageName: "some",
+							},
+							{
+								Enabled:           true,
+								Name:              "daily",
+								Schedule:          "0 6 * * *",
+								BackupStorageName: "some",
+							},
+						},
+					},
+				},
+			},
+			err: errDuplicatedScheduleNames,
+		},
+		{
 			name: "valid spec",
 			cluster: &everestv1alpha1.DatabaseCluster{
 				Spec: everestv1alpha1.DatabaseClusterSpec{

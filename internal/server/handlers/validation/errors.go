@@ -61,6 +61,7 @@ var (
 	errDBEngineMajorUpgradeNotSeq    = errors.New("database engine major version upgrade is not supported for non-sequential versions")
 	errDBEngineDowngrade             = errors.New("database engine version cannot be downgraded")
 	errDuplicatedSchedules           = errors.New("duplicated backup schedules are not allowed")
+	errDuplicatedScheduleNames       = errors.New("duplicated backup schedule names are not allowed")
 	errDuplicatedStoragePG           = errors.New("postgres clusters can't use the same storage for the different schedules")
 	errStorageChangePG               = errors.New("the existing postgres schedules can't change their storage")
 	errShardingIsNotSupported        = errors.New("sharding is not supported")
