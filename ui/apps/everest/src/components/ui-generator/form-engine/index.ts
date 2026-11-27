@@ -15,6 +15,7 @@
 export { useFormEngine } from './use-form-engine';
 export { useStepNavigation } from './use-step-navigation';
 export { useErrorRouting, flattenErrorPaths } from './use-error-routing';
+export { mergeStepOrder } from './merge-step-order';
 export type {
   StepDefinition,
   StepProps,
@@ -22,3 +23,4 @@ export type {
   FormEngineResult,
 } from './types';
 export type { StepNavigationResult } from './use-step-navigation';
+export type { OrderableStep } from './merge-step-order';

@@ -30,6 +30,7 @@ import {
   MONITORING_STEP_ID,
 } from '../database-form-body/steps/constants.ts';
 import { getSectionStepId } from 'components/ui-generator/utils/section-step-id.ts';
+import { mergeStepOrder } from 'components/ui-generator/form-engine/merge-step-order.ts';
 
 export const DatabasePreview = ({
   activeStepId,
@@ -48,14 +49,14 @@ export const DatabasePreview = ({
 
   const values = getValues();
 
-  const orderedSectionKeys = sectionsOrder || Object.keys(sections);
-
-  const previewSections: {
+  const staticPreviewSteps: {
+    id: string;
     stepId: string;
     title: string;
     content: React.ReactNode;
   }[] = [
     {
+      id: BASE_STEP_ID,
       stepId: BASE_STEP_ID,
       title: 'Basic Information',
       content: <PreviewSectionOne {...values} />,
@@ -63,6 +64,7 @@ export const DatabasePreview = ({
     ...(hasBackupStep
       ? [
           {
+            id: BACKUP_STEP_ID,
             stepId: BACKUP_STEP_ID,
             title: 'Backups',
             content: <PreviewBackupSection {...values} />,
@@ -72,20 +74,36 @@ export const DatabasePreview = ({
     ...(hasMonitoringStep
       ? [
           {
+            id: MONITORING_STEP_ID,
             stepId: MONITORING_STEP_ID,
             title: Messages.monitoring,
             content: <PreviewMonitoringSection {...values} />,
           },
         ]
       : []),
-    ...orderedSectionKeys.map((key) => ({
-      stepId: getSectionStepId(key),
-      title: sections[key]?.label || key,
-      content: (
-        <DynamicSectionPreview section={sections[key]} formValues={values} />
-      ),
-    })),
   ];
+
+  const generatedPreviewSteps: {
+    id: string;
+    sectionKey: string;
+    stepId: string;
+    title: string;
+    content: React.ReactNode;
+  }[] = Object.keys(sections).map((key) => ({
+    id: getSectionStepId(key),
+    sectionKey: key,
+    stepId: getSectionStepId(key),
+    title: sections[key]?.label || key,
+    content: (
+      <DynamicSectionPreview section={sections[key]} formValues={values} />
+    ),
+  }));
+
+  const previewSections = mergeStepOrder(
+    staticPreviewSteps,
+    generatedPreviewSteps,
+    sectionsOrder
+  );
 
   return (
     <Stack
