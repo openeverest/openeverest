@@ -35,6 +35,7 @@ var restoreCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(restoreCmd)
 	restoreCmd.AddCommand(restore.GetListCmd())
+	restoreCmd.AddCommand(restore.GetGetCmd())
 	restoreCmd.AddCommand(restore.GetCreateCmd())
 	restoreCmd.AddCommand(restore.GetDeleteCmd())
 }

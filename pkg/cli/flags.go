@@ -131,6 +131,36 @@ const (
 	// FlagInstanceDryRun previews create or update: "client" prints the request, "server" sends it with dryRun=All.
 	FlagInstanceDryRun = "dry-run"
 
+	// `preset` flags (namespace-scoped InstancePreset).
+
+	// FlagPresetName is the name of the instance preset name flag.
+	FlagPresetName = "name"
+	// FlagPresetNamespace is the name of the namespace flag.
+	FlagPresetNamespace = "namespace"
+	// FlagPresetAllNamespaces lists instance presets across all namespaces.
+	FlagPresetAllNamespaces = "all-namespaces"
+	// FlagPresetCluster is the name of the cluster flag.
+	FlagPresetCluster = "cluster"
+	// FlagPresetContext overrides the active context for this command.
+	FlagPresetContext = "context"
+	// FlagPresetProvider filters list to presets of that provider.
+	FlagPresetProvider = "provider"
+	// FlagPresetFile is the path to an InstancePreset YAML/JSON manifest.
+	FlagPresetFile = "file"
+	// FlagPresetIgnoreNotFound treats an already-deleted preset as success.
+	FlagPresetIgnoreNotFound = "ignore-not-found"
+
+	// `cluster-preset` flags (cluster-scoped ClusterInstancePreset).
+
+	// FlagClusterPresetName is the name of the cluster instance preset name flag.
+	FlagClusterPresetName = "name"
+	// FlagClusterPresetCluster is the name of the cluster flag.
+	FlagClusterPresetCluster = "cluster"
+	// FlagClusterPresetContext overrides the active context for this command.
+	FlagClusterPresetContext = "context"
+	// FlagClusterPresetProvider filters list to presets of that provider.
+	FlagClusterPresetProvider = "provider"
+
 	// shared flags.
 
 	// FlagYes skips the confirmation prompt. Used by instance delete and uninstall.
@@ -138,6 +168,8 @@ const (
 
 	// `provider` flags.
 
+	// FlagProviderName is the name of the provider name flag.
+	FlagProviderName = "name"
 	// FlagProviderCluster is the name of the cluster flag.
 	FlagProviderCluster = "cluster"
 	// FlagProviderContext overrides the active context for this command.
@@ -251,6 +283,8 @@ const (
 
 	// `backup-class` flags.
 
+	// FlagBackupClassName is the name of the backup class name flag.
+	FlagBackupClassName = "name"
 	// FlagBackupClassCluster is the name of the cluster flag.
 	FlagBackupClassCluster = "cluster"
 	// FlagBackupClassContext overrides the active context for this command.
