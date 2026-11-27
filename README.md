@@ -17,11 +17,9 @@ OpenEverest - Run Data Workloads on Kubernetes
 [![Join Slack](https://img.shields.io/badge/Join_Slack-blue)](https://cloud-native.slack.com/archives/C09RRGZL2UX)
 
 > [!IMPORTANT]
-> **This branch carries OpenEverest v2, which is a [Developer Preview](https://openeverest.io/blog/v2-developer-preview-release/) — not feature-complete and not for production.**
+> This branch (`main`) carries OpenEverest v2, progressing toward GA — not yet for production. The architecture is in place; APIs may still change before GA, though less often than during the Developer Previews.
 >
-> OpenEverest **v1 is the current released version** and is unchanged by this. It lives on [`v1.x`](https://github.com/openeverest/openeverest/tree/v1.x) and continues to receive releases. On 18 August 2026 the two lines swapped branches: v2 moved from `release-2.0` to `main`, and v1 moved to `v1.x`. **Both lines are still developed** — only the branch names changed, and this is not a statement about what to run. The [v1 lifecycle](https://openeverest.io/blog/v2-developer-preview-release/#timeline) is unchanged.
->
-> Cloned or forked before that date? Your `main` still holds v1 code — see [Which branch to target](CONTRIBUTING.md#which-branch-to-target) before you branch.
+> OpenEverest v1 remains the current GA release on [`v1.x`](https://github.com/openeverest/openeverest/tree/v1.x). After v2 GA it receives bug and security fixes for 6 months — see [RELEASE.md](RELEASE.md).
 
 [OpenEverest](https://openeverest.io/) is an open source cloud-native database platform that helps developers deploy code faster, scale deployments rapidly, and reduce database administration overhead while regaining control over their data, database configuration, and DBaaS costs.
 
