@@ -32,12 +32,13 @@ const (
 
 //nolint:gochecknoglobals
 var (
-	// TelemetryURL Everest telemetry endpoint. The variable is set for the release builds via ldflags
-	// to have the correct default telemetry url.
+	// TelemetryURL is the default telemetry endpoint. Only release and RC
+	// builds set it, through ldflags, so no other build sends telemetry
+	// unless TELEMETRY_URL is set.
 	TelemetryURL string
-	// TelemetryInterval Everest telemetry sending frequency. The variable is set for the release builds via ldflags
-	// to have the correct default telemetry interval.
-	TelemetryInterval string
+	// BuildChannel is "release", "rc" or "feature" for those builds, set
+	// through ldflags, and empty otherwise.
+	BuildChannel string
 )
 
 // EverestConfig stores the configuration for the application.
@@ -47,12 +48,16 @@ type EverestConfig struct {
 	HTTPPort   int  `envconfig:"HTTP_PORT"`
 	ListenPort int  `default:"8080" envconfig:"PORT"`
 	Verbose    bool `default:"false" envconfig:"VERBOSE"`
-	// TelemetryURL Everest telemetry endpoint.
+	// TelemetryURL is where the telemetry report is sent. It overrides the endpoint the build sets.
 	TelemetryURL string `envconfig:"TELEMETRY_URL"`
-	// TelemetryInterval Everest telemetry sending frequency.
+	// TelemetryInterval is how often the telemetry report is sent: 24h when empty, at least 1h.
 	TelemetryInterval string `envconfig:"TELEMETRY_INTERVAL"`
-	// DisableTelemetry disable Everest and the upstream operators telemetry
+	// TelemetryDryRun logs the telemetry report instead of sending it.
+	TelemetryDryRun bool `default:"false" envconfig:"TELEMETRY_DRY_RUN"`
+	// DisableTelemetry turns telemetry off.
 	DisableTelemetry bool `default:"false" envconfig:"DISABLE_TELEMETRY"`
+	// DoNotTrack is the cross-tool opt-out of telemetry (https://consoledonottrack.com).
+	DoNotTrack string `envconfig:"DO_NOT_TRACK"`
 	// APIRequestsRateLimit allowed amount of API requests per second
 	APIRequestsRateLimit int `default:"100" envconfig:"API_REQUESTS_RATE_LIMIT"`
 	// LoginRateLimit is the maximum number of login (password grant) requests per second per IP.
@@ -89,9 +94,6 @@ func ParseConfig() (*EverestConfig, error) {
 
 	if c.TelemetryURL == "" {
 		c.TelemetryURL = TelemetryURL
-	}
-	if c.TelemetryInterval == "" {
-		c.TelemetryInterval = TelemetryInterval
 	}
 
 	if c.TLSCertsPath != "" {
