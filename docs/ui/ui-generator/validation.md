@@ -117,7 +117,7 @@ tier:
 
 In this example, the `self` keyword refers to the current field's value. The validation passes when the tier is 'pro' or 'enterprise', or when the number of users is less than 10.
 
-**Note:** All validation rules only apply when a value is entered. Empty fields will pass validation by default since fields are optional unless explicitly marked as `required: true`.
+**Note:** The rules other than `celExpressions` only apply when a value is entered: an empty field passes them unless it is marked `required: true`. A CEL rule runs for an empty field too, see [Optional Fields and `has()`](#optional-fields-and-has).
 
 More CEL examples can be found in the documentation for a specific field in the **examples => CEL section**
 
@@ -192,14 +192,16 @@ validation:
 A rule may run while a field it reads has no value. Such a field is then either **unset** or
 holds its **empty value**:
 
-- an empty text field is unset or `''`. Which one depends on the field's own `validation`, on the
-  form mode and on whether the instance was saved with it, so allow both;
+- an empty text or select field is unset or `''`, and a toggle that is off is unset or `false`.
+  Which one depends on the field's own `validation`, on the form mode and on whether the instance
+  was saved with it, so allow both;
 - an empty number, quantity or [map](components/map-field.md) field is unset in every mode;
 - every field of a [toggleable group](groups.md#toggleable-group) that is off is unset.
 
 Reading an unset field fails with a CEL error: the form can't be submitted, and the user sees
 `CEL expression error: …` in place of your `message`. So a rule that reads a field which may have
-no value asks for it with `has()` first, and for a text field allows the empty string too:
+no value asks for it with `has()` first, and for a text or select field allows the empty string
+too:
 
 ```yaml
 celExpressions:
@@ -211,6 +213,9 @@ celExpressions:
 
 - `has()` of a nested path is false when an object above it is missing, so
   `has(spec.components.proxy.service.type)` needs no check of `spec.components.proxy` before it.
+  The first segment is the exception: `has()` can't ask for it, and a rule that reads a path
+  under a missing one fails. `spec` is there in practice. Another one, such as `config`, is
+  missing in `edit` when the instance holds no value for any field under it.
 - The same goes for a path under `original`: the saved instance may not hold the field.
   `original` itself exists only where there is a saved instance, in `edit` and `restore`, and
   `has()` can't ask for it. So keep a rule that reads `original` under `validation.modes.edit`
