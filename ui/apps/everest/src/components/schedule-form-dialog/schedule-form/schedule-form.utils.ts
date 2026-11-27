@@ -188,8 +188,7 @@ export const getSchedulesPayload = ({
 
   const retention = retentionToApi(formData);
 
-  const newSchedule: FlattenedSchedule = {
-    enabled: true,
+  const scheduleFields = {
     name: scheduleName,
     storageName,
     cron,
@@ -200,7 +199,7 @@ export const getSchedulesPayload = ({
   };
 
   if (mode === WizardMode.New) {
-    return [...(schedules ?? []), newSchedule];
+    return [...(schedules ?? []), { ...scheduleFields, enabled: true }];
   }
 
   if (mode === WizardMode.Edit) {
@@ -209,7 +208,10 @@ export const getSchedulesPayload = ({
       (item) => item.name === scheduleName
     );
     if (editedScheduleIndex !== -1) {
-      newSchedulesArray[editedScheduleIndex] = newSchedule;
+      newSchedulesArray[editedScheduleIndex] = {
+        ...scheduleFields,
+        enabled: newSchedulesArray[editedScheduleIndex].enabled,
+      };
     }
     return newSchedulesArray;
   }
