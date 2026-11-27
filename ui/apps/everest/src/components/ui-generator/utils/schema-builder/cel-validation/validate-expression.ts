@@ -14,10 +14,14 @@
 
 import { evaluate } from '@marcbachmann/cel-js';
 import { CelExpression } from 'components/ui-generator/ui-generator.types';
+import { Messages } from './cel-validation.messages';
 
 export type CelValidationResult = {
   isValid: boolean;
   message?: string;
+  // Set when the rule threw instead of returning a verdict (bad syntax, a
+  // missing key, mismatched types): the rule is at fault, not the value.
+  evaluationError?: string;
 };
 
 export const validateCelExpression = (
@@ -45,7 +49,8 @@ export const validateCelExpression = (
   } catch (error) {
     return {
       isValid: false,
-      message: `CEL expression error: ${celExpression.celExpr}`,
+      message: Messages.ruleNotEvaluable,
+      evaluationError: error instanceof Error ? error.message : String(error),
     };
   }
 };
