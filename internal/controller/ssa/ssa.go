@@ -38,17 +38,31 @@ import (
 // MUST be sent in the same apply, since a later apply under the same owner
 // prunes whatever it omits.
 func ApplyCondition(ctx context.Context, c client.Client, obj client.Object, existing []metav1.Condition, fieldOwner string, cond metav1.Condition, extra ...map[string]any) error {
-	if cond.LastTransitionTime.IsZero() {
-		cond.LastTransitionTime = metav1.Now()
+	return ApplyConditions(ctx, c, obj, existing, fieldOwner, []metav1.Condition{cond}, extra...)
+}
+
+// ApplyConditions server-side-applies conds on obj's status subresource
+// under fieldOwner, leaving every other condition to its own writer. conds
+// MUST hold every condition the owner writes on obj, and extra every other
+// status field it writes, since a later apply under the same owner prunes
+// whatever it omits. The LastTransitionTime of each condition is preserved
+// from existing when its status did not change.
+func ApplyConditions(ctx context.Context, c client.Client, obj client.Object, existing []metav1.Condition, fieldOwner string, conds []metav1.Condition, extra ...map[string]any) error {
+	conditions := make([]any, 0, len(conds))
+	for _, cond := range conds {
+		if cond.LastTransitionTime.IsZero() {
+			cond.LastTransitionTime = metav1.Now()
+		}
+		if prev := meta.FindStatusCondition(existing, cond.Type); prev != nil && prev.Status == cond.Status {
+			cond.LastTransitionTime = prev.LastTransitionTime
+		}
+		raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&cond)
+		if err != nil {
+			return fmt.Errorf("convert condition: %w", err)
+		}
+		conditions = append(conditions, raw)
 	}
-	if prev := meta.FindStatusCondition(existing, cond.Type); prev != nil && prev.Status == cond.Status {
-		cond.LastTransitionTime = prev.LastTransitionTime
-	}
-	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&cond)
-	if err != nil {
-		return fmt.Errorf("convert condition: %w", err)
-	}
-	status := map[string]any{"conditions": []any{raw}}
+	status := map[string]any{"conditions": conditions}
 	for _, e := range extra {
 		maps.Copy(status, e)
 	}
