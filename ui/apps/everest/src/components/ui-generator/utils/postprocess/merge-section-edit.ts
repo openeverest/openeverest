@@ -39,6 +39,28 @@ const collectWidgetPaths = (section: Section | undefined): string[] => {
   });
   return paths;
 };
+// Postprocessing strips a cleared field, so the merge would keep its saved
+// value. Only submitted fields count: one the form never had keeps what is stored.
+const collectClearedFieldPaths = (
+  section: Section | undefined,
+  formData: Record<string, unknown>,
+  processed: Record<string, unknown>
+): string[] => {
+  const paths: string[] = [];
+  if (!section?.components) return paths;
+  walkLeafComponents(section.components, ({ component }) => {
+    if (isWidgetComponent(component)) return;
+    const path = getComponentSourcePath(component);
+    if (
+      path &&
+      getByPath(formData, path) !== undefined &&
+      getByPath(processed, path) === undefined
+    ) {
+      paths.push(path);
+    }
+  });
+  return paths;
+};
 
 export interface MergeSectionEditParams {
   spec: Record<string, unknown>;
@@ -90,6 +112,12 @@ export const mergeSectionEdit = ({
       setByPath(root, path, value);
     }
   });
+
+  collectClearedFieldPaths(sections[sectionKey], formData, processed).forEach(
+    (path) => {
+      deleteByPathAndEmptyParents(root, path);
+    }
+  );
 
   return isPlainObject(root.spec) ? root.spec : {};
 };
