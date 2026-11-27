@@ -115,13 +115,13 @@ func validateCreateBackupStorageRequest(
 	params *api.CreateBackupStorageParams,
 	existingStorages *everestv1alpha1.BackupStorageList,
 ) error {
-	if slices.ContainsFunc(existingStorages.Items, func(storage everestv1alpha1.BackupStorage) bool {
+	if idx := slices.IndexFunc(existingStorages.Items, func(storage everestv1alpha1.BackupStorage) bool {
 		// Check if the storage already exists with the same region, endpoint URL, and bucket name
 		return storage.Spec.Region == params.Region &&
 			storage.Spec.EndpointURL == pointer.GetString(params.Url) &&
 			storage.Spec.Bucket == params.BucketName
-	}) {
-		return errDuplicatedBackupStorage(existingStorages.Items[0].GetNamespace())
+	}); idx >= 0 {
+		return errDuplicatedBackupStorage(existingStorages.Items[idx].GetNamespace())
 	}
 
 	if err := operatorUtils.ValidateEverestResourceName(params.Name, "name"); err != nil {
