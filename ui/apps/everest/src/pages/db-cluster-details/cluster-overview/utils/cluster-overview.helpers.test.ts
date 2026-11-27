@@ -23,9 +23,8 @@ import type {
 import {
   FieldType,
   GroupType,
-  TemplateWidgetType,
-  WIDGET_UI_TYPE,
 } from 'components/ui-generator/ui-generator.types';
+import { keyValueRow } from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 
 const numberField = (
@@ -236,20 +235,15 @@ describe('collectSectionFields', () => {
                 uiType: FieldType.Map,
                 path: 'spec.tags',
                 fieldParams: { label: 'Tags' },
-                itemTemplate: {
-                  uiType: WIDGET_UI_TYPE,
-                  widgetType: TemplateWidgetType.KeyValue,
-                },
+                itemTemplate: keyValueRow(),
               },
               env: {
                 uiType: FieldType.Map,
                 path: 'spec.env',
                 fieldParams: { label: 'Environment' },
-                itemTemplate: {
-                  uiType: WIDGET_UI_TYPE,
-                  widgetType: TemplateWidgetType.KeyValue,
-                  fieldParams: { value: { type: 'password' } },
-                },
+                itemTemplate: keyValueRow({
+                  value: { fieldParams: { type: 'password' } },
+                }),
               },
               token: {
                 uiType: FieldType.Text,

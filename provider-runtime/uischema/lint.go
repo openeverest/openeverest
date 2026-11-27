@@ -21,16 +21,17 @@ import (
 	"strings"
 )
 
-// isTemplateWidget reports whether a widget stands for a piece of schema
-// (`itemTemplate`) rather than render anything itself.
-func isTemplateWidget(widgetType string) bool {
-	return widgetType == widgetTypeKeyValue
-}
-
-// ignoredRowFieldParams returns the params of a map row's key or value that
-// have nothing to act on: a row starts empty and writes only its key and value.
+// ignoredRowFieldParams returns the params of a map row's field that a row
+// can't act on yet: it starts empty and writes only its key and value.
 func ignoredRowFieldParams() []string {
 	return []string{"defaultValue", "badge", "badgeToApi"}
+}
+
+// ignoredRowFieldOptions returns the options of a map row's field that a row
+// can't act on yet: it takes no options from an API, and is the same field in
+// every form mode.
+func ignoredRowFieldOptions() []string {
+	return []string{"dataSource", "modes"}
 }
 
 // branch is a `validation` block, or one of its mode branches, with where it
@@ -43,16 +44,13 @@ type branch struct {
 // lintFields mirrors lintMapFields in the UI: it reports what the UI renders
 // anyway while ignoring part of it. For every map field the UI renders (not
 // in droppedMaps): options it ignores, a default it can't use and limits no
-// map meets; for every field: a template widget used outside an itemTemplate.
+// map meets.
 //
 //	labels:                          # map-ignored-option: regex is ignored
 //	  uiType: map
 //	  path: spec.labels
 //	  validation: {regex: {pattern: "^a"}}
-//	  itemTemplate: {uiType: widget, widgetType: keyValue}
-//	row:                             # template-widget-misplaced
-//	  uiType: widget
-//	  widgetType: keyValue
+//	  itemTemplate: {...}
 func lintFields(topology string, sections map[string]any, droppedMaps map[string]bool) []Issue {
 	var issues []Issue
 	for _, key := range sortedKeys(sections) {
@@ -79,14 +77,6 @@ type finding struct {
 
 // lintField returns a field's findings in the order the UI reports them.
 func lintField(f field, droppedMaps map[string]bool) []finding {
-	if widgetType, _ := f.item["widgetType"].(string); f.item["uiType"] == uiTypeWidget && isTemplateWidget(widgetType) {
-		return []finding{{
-			rule: RuleTemplateWidgetMisplaced,
-			message: fmt.Sprintf("is the %q template widget, which stands only for a map's row in itemTemplate; anywhere else it renders nothing",
-				widgetType,
-			),
-		}}
-	}
 	if f.item["uiType"] != uiTypeMap || droppedMaps[f.key] {
 		return nil
 	}
@@ -94,7 +84,7 @@ func lintField(f field, droppedMaps map[string]bool) []finding {
 	if ignored := ignoredMapOptions(f.item); len(ignored) > 0 {
 		findings = append(findings, finding{
 			rule:    RuleMapIgnoredOption,
-			message: fmt.Sprintf("sets %s, which a map field ignores", strings.Join(ignored, ", ")),
+			message: fmt.Sprintf("sets %s, which a map field doesn't support yet and ignores", strings.Join(ignored, ", ")),
 		})
 	}
 	if defaults := invalidMapDefaults(f.item); len(defaults) > 0 {
@@ -110,19 +100,20 @@ func lintField(f field, droppedMaps map[string]bool) []finding {
 }
 
 // ignoredMapOptions lists the options of a map field the UI ignores: `regex`
-// and `celExpressions` on the map, CEL on a row's key or value, and the row
-// params from ignoredRowFieldParams. Mode branches count too.
+// and `celExpressions` on the map, and what a row's field sets that a row
+// can't act on yet. Mode branches count too.
 //
 //	validation:
-//	  regex: {pattern: "^a"}                 # -> validation.regex
+//	  regex: {pattern: "^a"}                   # -> validation.regex
 //	itemTemplate:
-//	  uiType: widget
-//	  widgetType: keyValue
-//	  fieldParams:
-//	    value: {defaultValue: x}             # -> itemTemplate.fieldParams.value.defaultValue
-//	  validation:
-//	    key:
-//	      celExpressions: [{celExpr: "..."}] # -> itemTemplate.validation.key.celExpressions
+//	  uiType: group
+//	  components:
+//	    value:
+//	      uiType: text
+//	      path: value
+//	      fieldParams: {defaultValue: x}       # -> itemTemplate.components.value.fieldParams.defaultValue
+//	      validation:
+//	        celExpressions: [{celExpr: "..."}] # -> itemTemplate.components.value.validation.celExpressions
 func ignoredMapOptions(item map[string]any) []string {
 	var ignored []string
 	for _, b := range declaredBranches(item["validation"], "validation") {
@@ -134,19 +125,39 @@ func ignoredMapOptions(item map[string]any) []string {
 		}
 	}
 	itemTemplate, _ := item["itemTemplate"].(map[string]any)
-	fieldParams, _ := itemTemplate["fieldParams"].(map[string]any)
-	validation, _ := itemTemplate["validation"].(map[string]any)
-	for _, rowField := range []string{"key", "value"} {
-		params, _ := fieldParams[rowField].(map[string]any)
-		for _, param := range ignoredRowFieldParams() {
-			if _, ok := params[param]; ok {
-				ignored = append(ignored, fmt.Sprintf("itemTemplate.fieldParams.%s.%s", rowField, param))
-			}
+	components, _ := itemTemplate["components"].(map[string]any)
+	for _, name := range sortedKeys(components) {
+		rowField, _ := components[name].(map[string]any)
+		ignored = append(ignored, ignoredRowFieldSettings("itemTemplate.components."+name, rowField)...)
+	}
+	return ignored
+}
+
+// ignoredRowFieldSettings lists what one row field, sitting at `at`, sets
+// that a row can't act on yet. A default counts in a mode too.
+func ignoredRowFieldSettings(at string, rowField map[string]any) []string {
+	var ignored []string
+	for _, option := range ignoredRowFieldOptions() {
+		if _, ok := rowField[option]; ok {
+			ignored = append(ignored, at+"."+option)
 		}
-		for _, b := range declaredBranches(validation[rowField], "itemTemplate.validation."+rowField) {
-			if hasCel(b.rules) {
-				ignored = append(ignored, b.at+".celExpressions")
-			}
+	}
+	fieldParams, _ := rowField["fieldParams"].(map[string]any)
+	for _, param := range ignoredRowFieldParams() {
+		if _, ok := fieldParams[param]; ok {
+			ignored = append(ignored, fmt.Sprintf("%s.fieldParams.%s", at, param))
+		}
+	}
+	modes, _ := fieldParams["modes"].(map[string]any)
+	for _, mode := range sortedKeys(modes) {
+		params, _ := modes[mode].(map[string]any)
+		if _, ok := params["defaultValue"]; ok {
+			ignored = append(ignored, fmt.Sprintf("%s.fieldParams.modes.%s.defaultValue", at, mode))
+		}
+	}
+	for _, b := range declaredBranches(rowField["validation"], at+".validation") {
+		if hasCel(b.rules) {
+			ignored = append(ignored, b.at+".celExpressions")
 		}
 	}
 	return ignored

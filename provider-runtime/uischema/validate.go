@@ -37,19 +37,18 @@ type Rule string
 
 // Rules checked by Validate; see README.md for their exact conditions.
 const (
-	RuleMapUnsupported          Rule = "map-unsupported"
-	RuleMapMultiPath            Rule = "map-multi-path"
-	RuleMapOverlap              Rule = "map-overlap"
-	RuleMapIgnoredOption        Rule = "map-ignored-option"
-	RuleMapInvalidDefault       Rule = "map-invalid-default"
-	RuleMapInvalidLimits        Rule = "map-invalid-limits"
-	RuleTemplateWidgetMisplaced Rule = "template-widget-misplaced"
-	RuleReservedKey             Rule = "reserved-key"
-	RuleToggleableUnsafeKey     Rule = "toggleable-unsafe-key"
-	RuleToggleableNoFields      Rule = "toggleable-no-fields"
-	RuleToggleableNested        Rule = "toggleable-nested"
-	RuleToggleableOverlap       Rule = "toggleable-overlap"
-	RuleToggleableCELUnguarded  Rule = "toggleable-cel-unguarded"
+	RuleMapUnsupported         Rule = "map-unsupported"
+	RuleMapMultiPath           Rule = "map-multi-path"
+	RuleMapOverlap             Rule = "map-overlap"
+	RuleMapIgnoredOption       Rule = "map-ignored-option"
+	RuleMapInvalidDefault      Rule = "map-invalid-default"
+	RuleMapInvalidLimits       Rule = "map-invalid-limits"
+	RuleReservedKey            Rule = "reserved-key"
+	RuleToggleableUnsafeKey    Rule = "toggleable-unsafe-key"
+	RuleToggleableNoFields     Rule = "toggleable-no-fields"
+	RuleToggleableNested       Rule = "toggleable-nested"
+	RuleToggleableOverlap      Rule = "toggleable-overlap"
+	RuleToggleableCELUnguarded Rule = "toggleable-cel-unguarded"
 )
 
 // Issue is a single problem found in a UI schema.
@@ -127,11 +126,12 @@ const (
 
 const (
 	uiTypeMap               = "map"
-	uiTypeWidget            = "widget"
-	widgetTypeKeyValue      = "keyValue"
+	uiTypeText              = "text"
+	groupTypeLine           = "line"
 	droppedMapSuffix        = "; the UI does not render it"
 	mapOwnsValueSentence    = "a map field must own its value alone"
 	mapReadsOnePathSentence = "an edit reads only the first one, so the others would drift from it"
+	unsupportedMapMessage   = `has an itemTemplate other than a group, with groupType "line" or none, of exactly a text field with path "key" and a text field with path "value", which is the only row supported yet`
 )
 
 // field is a field found by collectFields: its dotted key path, the item and
@@ -156,11 +156,16 @@ type field struct {
 //	    labels:                  # rendered: a key/value map owning spec.labels
 //	      uiType: map
 //	      path: spec.labels
-//	      itemTemplate: {uiType: widget, widgetType: keyValue}
-//	    users:                   # map-unsupported: rows from a custom group
+//	      itemTemplate:
+//	        uiType: group
+//	        groupType: line
+//	        components:
+//	          key: {uiType: text, path: key}
+//	          value: {uiType: text, path: value}
+//	    users:                   # map-unsupported: a row that isn't a key and a value
 //	      uiType: map
 //	      path: spec.users
-//	      itemTemplate: {uiType: group, components: {...}}
+//	      itemTemplate: {uiType: group, components: {role: {uiType: text, path: role}}}
 func validateMaps(topology string, sections map[string]any) ([]Issue, map[string]bool) {
 	var issues []Issue
 	dropped := make(map[string]bool)
@@ -209,8 +214,8 @@ func mapDropRule(f field) (Rule, string) {
 	if f.item["uiType"] != uiTypeMap {
 		return "", ""
 	}
-	if !isKeyValueTemplate(f.item) {
-		return RuleMapUnsupported, describeUnsupportedMap(f.item)
+	if !isKeyValueRow(f.item["itemTemplate"]) {
+		return RuleMapUnsupported, unsupportedMapMessage
 	}
 	if len(f.paths) > 1 {
 		return RuleMapMultiPath, fmt.Sprintf("has %d paths, while %s", len(f.paths), mapReadsOnePathSentence)
@@ -218,22 +223,54 @@ func mapDropRule(f field) (Rule, string) {
 	return "", ""
 }
 
-// isKeyValueTemplate reports whether a map field's rows come from the one
-// item template the UI implements:
-//
-//	itemTemplate: {uiType: widget, widgetType: keyValue}
-func isKeyValueTemplate(item map[string]any) bool {
-	itemTemplate, _ := item["itemTemplate"].(map[string]any)
-	return itemTemplate["uiType"] == uiTypeWidget && itemTemplate["widgetType"] == widgetTypeKeyValue
+// mapRowRoles returns the paths a map row's two fields write in the row.
+func mapRowRoles() []string {
+	return []string{"key", "value"}
 }
 
-func describeUnsupportedMap(item map[string]any) string {
-	itemTemplate, _ := item["itemTemplate"].(map[string]any)
-	uiType, _ := itemTemplate["uiType"].(string)
-	widgetType, _ := itemTemplate["widgetType"].(string)
-	return fmt.Sprintf("has an itemTemplate with uiType %q and widgetType %q, while only uiType %q with widgetType %q is supported",
-		uiType, widgetType, uiTypeWidget, widgetTypeKeyValue,
-	)
+// isKeyValueRow reports whether an item template is the one row the UI
+// implements: a group, in a line or stacked, of exactly a text field at `key`
+// and a text field at `value`. The fields are told apart by path, so their
+// names are the schema's own:
+//
+//	itemTemplate:
+//	  uiType: group
+//	  groupType: line          # or none: the fields are stacked
+//	  components:
+//	    name: {uiType: text, path: key}
+//	    setting: {uiType: text, path: value}
+func isKeyValueRow(itemTemplate any) bool {
+	row, _ := itemTemplate.(map[string]any)
+	if row["uiType"] != uiTypeGroup {
+		return false
+	}
+	if groupType, ok := row["groupType"]; ok && groupType != groupTypeLine {
+		return false
+	}
+	components, _ := row["components"].(map[string]any)
+	if len(components) != len(mapRowRoles()) {
+		return false
+	}
+	for _, role := range mapRowRoles() {
+		if rowFieldName(components, role) == "" {
+			return false
+		}
+	}
+	return true
+}
+
+// rowFieldName returns the name of the row's text field writing role, or "".
+func rowFieldName(components map[string]any, role string) string {
+	for _, name := range sortedKeys(components) {
+		component, _ := components[name].(map[string]any)
+		if _, isGroup := component["components"]; isGroup {
+			continue
+		}
+		if component["uiType"] == uiTypeText && component["path"] == role {
+			return name
+		}
+	}
+	return ""
 }
 
 // findOverlap returns the first other field writing a path that overlaps one

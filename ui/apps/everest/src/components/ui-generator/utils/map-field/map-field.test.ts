@@ -15,15 +15,16 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 import {
-  type KeyValueWidget,
   type MapComponent,
   type Section,
   type TopologyUISchemas,
   FieldType,
   FormMode,
-  TemplateWidgetType,
-  WIDGET_UI_TYPE,
 } from 'components/ui-generator/ui-generator.types';
+import {
+  KEY_VALUE_ROW_YAML,
+  keyValueRow,
+} from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import { getDefaultValues } from '../default-values';
 import { extractInstanceValues } from '../default-values/extract-instance-values';
 import { deepMerge, getByPath } from '../object-path';
@@ -31,14 +32,11 @@ import { postprocessSchemaData } from '../postprocess/postprocess-schema';
 import { mergeSectionEdit } from '../postprocess/merge-section-edit';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
 import { buildShapeFromComponents } from '../schema-builder/build-shape-from-components';
+import { getMapFieldDisplayRows } from './map-field';
 import { Messages } from './map-field.messages';
+import { getMapRow } from './map-row';
 
 const PATH = 'spec.proxy.annotations';
-
-const KEY_VALUE: KeyValueWidget = {
-  uiType: WIDGET_UI_TYPE,
-  widgetType: TemplateWidgetType.KeyValue,
-};
 
 const annotations = (
   overrides: Partial<
@@ -48,7 +46,7 @@ const annotations = (
   uiType: FieldType.Map,
   path: PATH,
   fieldParams: { label: 'Annotations' },
-  itemTemplate: KEY_VALUE,
+  itemTemplate: keyValueRow(),
   ...overrides,
 });
 
@@ -90,13 +88,14 @@ describe('map field rows validation', () => {
 
   it('applies text validation to the key and value', () => {
     const component = annotations({
-      itemTemplate: {
-        ...KEY_VALUE,
-        validation: {
-          key: { regex: { pattern: '^[a-z.]+$', message: 'Lowercase only' } },
-          value: { max: 3 },
+      itemTemplate: keyValueRow({
+        key: {
+          validation: {
+            regex: { pattern: '^[a-z.]+$', message: 'Lowercase only' },
+          },
         },
-      },
+        value: { validation: { max: 3 } },
+      }),
     });
 
     expect(issuesOf(component, [{ key: 'Team', value: 'long' }])).toEqual([
@@ -107,10 +106,9 @@ describe('map field rows validation', () => {
 
   it('writes rows as their fields transform them, finding duplicates after it', () => {
     const component = annotations({
-      itemTemplate: {
-        ...KEY_VALUE,
-        validation: { key: { trim: true, toLowerCase: true } },
-      },
+      itemTemplate: keyValueRow({
+        key: { validation: { trim: true, toLowerCase: true } },
+      }),
     });
     const schema = buildShapeFromComponents({ annotations: component })
       .schemaShape[PATH];
@@ -124,6 +122,61 @@ describe('map field rows validation', () => {
         { key: ' Team', value: 'b' },
       ])
     ).toEqual([{ path: [1, 'key'], message: Messages.duplicateKey('team') }]);
+  });
+
+  describe('with a row whose fields the schema names itself', () => {
+    // The key and the value are told apart by the path each writes in the row.
+    const component: MapComponent = parse(`
+      uiType: map
+      path: ${PATH}
+      fieldParams: { label: Annotations }
+      itemTemplate:
+        uiType: group
+        groupType: line
+        components:
+          secretValue:
+            uiType: text
+            path: value
+            fieldParams: { type: password, defaultValue: s3, badge: Gi, badgeToApi: true }
+            dataSource: { provider: secrets }
+            modes: { edit: { uiType: hidden } }
+            validation:
+              max: 3
+              celExpressions: [{ celExpr: "1 == 2", message: Never }]
+          secretName:
+            uiType: text
+            path: key
+            validation: { regex: { pattern: '^[a-z]+$', message: Lowercase only } }
+    `);
+
+    it('checks each field by the path it writes', () => {
+      expect(issuesOf(component, [{ key: 'Team', value: 'long' }])).toEqual([
+        { path: [0, 'value'], message: expect.any(String) },
+        { path: [0, 'key'], message: 'Lowercase only' },
+      ]);
+    });
+
+    it('masks the field that holds the value in a read-only view', () => {
+      expect(getMapFieldDisplayRows({ token: 's3' }, component)).toEqual([
+        {
+          key: 'token',
+          value: expect.not.stringContaining('s3'),
+          masked: true,
+        },
+      ]);
+    });
+
+    it('names the inputs Key and Value, and drops what a row cannot act on yet', () => {
+      const { secretName, secretValue } = getMapRow(component).components;
+
+      expect(secretName).toMatchObject({ fieldParams: { placeholder: 'Key' } });
+      expect(secretValue).toEqual({
+        uiType: 'text',
+        path: 'value',
+        fieldParams: { placeholder: 'Value', type: 'password' },
+        validation: { max: 3 },
+      });
+    });
   });
 
   it('counts only filled rows against required, min and max', () => {
@@ -187,7 +240,7 @@ describe('map field through the pipeline', () => {
                 uiType: map
                 path: ${PATH}
                 fieldParams: { label: Annotations, defaultValue: { replicas: 3 } }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: ${KEY_VALUE_ROW_YAML}
     `);
 
     expect(

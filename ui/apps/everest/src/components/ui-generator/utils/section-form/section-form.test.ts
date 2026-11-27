@@ -17,9 +17,8 @@ import {
   FormMode,
   GroupType,
   Section,
-  TemplateWidgetType,
-  WIDGET_UI_TYPE,
 } from 'components/ui-generator/ui-generator.types';
+import { keyValueRow } from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import { setByPath } from '../object-path';
 import { Messages } from '../openapi-constraints/openapi-constraints.messages';
 import { getToggleableMeta } from '../toggleable/toggleable';
@@ -252,10 +251,7 @@ describe('section form with a map field', () => {
         uiType: FieldType.Map,
         path: 'parameters.podMonitorLabels',
         fieldParams: { label: 'PodMonitor labels' },
-        itemTemplate: {
-          uiType: WIDGET_UI_TYPE,
-          widgetType: TemplateWidgetType.KeyValue,
-        },
+        itemTemplate: keyValueRow(),
       },
     },
   };

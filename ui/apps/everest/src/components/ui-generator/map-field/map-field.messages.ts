@@ -20,6 +20,6 @@ const FIELD_NAMES: Partial<Record<string, string>> = {
 export const Messages = {
   add: 'Add',
   remove: (row: number) => `Remove ${row}`,
-  // A row field without a label is named after its key in the row.
+  // A row field without a label is named after what it holds in the row.
   fieldName: (key: string) => FIELD_NAMES[key] ?? key,
 };

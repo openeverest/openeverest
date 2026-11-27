@@ -24,7 +24,8 @@ flowchart TD
 
 - **`preprocessSchema(schema, provider, formMode?)`** — for each component:
   - **`stripEngineKeys`** (`strip-engine-keys.ts`) — runs before anything reads the schema and
-    drops (dev warning) every key starting with `_` from a component: those are the engine's own
+    drops (dev warning) every key starting with `_` from a component, a map's `itemTemplate` and
+    its fields included: those are the engine's own
     (`_normalized`, `_row`, `_toggleable`, `_widgetTargets`, `_renderOverrides`), and a later stage
     would take a schema-set one for the engine's, e.g. a widget's `_widgetTargets`, which no
     resolver overwrites when the widget has none.
@@ -45,15 +46,15 @@ flowchart TD
     an unknown `uiType` — not rendered or sent, and an edit keeps its saved value — so the
     toggleable rules below don't see it.
   - **`lintMapFields`** (`utils/map-field/lint-map-fields.ts`) — warns (dev-time) about what a
-    rendered map field ignores or can't use: `regex` / CEL on the map, CEL or a default / badge on
-    a row's field, a `defaultValue` that isn't a map of strings (`getSchemaDefault` ignores it),
-    limits no map meets; and about a template widget used outside an `itemTemplate`, which renders
-    nothing.
-  - **`expandKeyValueWidget`** (`utils/map-field/key-value-widget.ts`) — expands a map's
-    `keyValue` item template into `_row`: a `line` group of a text `key` and a text `value`, with the
-    widget's params and rules over theirs, minus what a row can't act on (`defaultValue`, `badge`,
-    `badgeToApi`, `celExpressions`). `applyModeOverrides` reaches into `_row` too. A form that
-    skips preprocess gets the same row from `getMapRow`.
+    rendered map field ignores or can't use: `regex` / CEL on the map, CEL, a `dataSource` or a
+    default / badge on a row's field, a `defaultValue` that isn't a map of strings (`getSchemaDefault` ignores it),
+    limits no map meets.
+  - **`toMapRow`** (`utils/map-field/map-row.ts`) — prepares a map's row from its `itemTemplate`
+    into `_row`: the group as the schema writes it, each field named `Key` or `Value` until the
+    schema says otherwise, minus what a row can't act on yet (`defaultValue`, `badge`,
+    `badgeToApi`, `celExpressions`, `dataSource`, component-level `modes`). A row field is the key or the value by its
+    `path` (`getRowFieldRole`), not by its name. `applyModeOverrides` reaches into `_row` too. A
+    form that skips preprocess gets the same row from `getMapRow`.
   - **`resolveToggleable`** (`utils/toggleable/toggleable.ts`) — sets
     `_toggleable: { switchName, childPaths }` on a `toggleable` group. The switch is
     named after the group's key path (`toggleable-switches.advanced~monitoring`), so form modes
@@ -444,4 +445,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-25
+- Last updated: 2026-11-27

@@ -72,7 +72,7 @@ export const MapField = ({
     >
       <Stack gap={1}>
         {fields.map((field, index) => (
-          <Stack key={field.id} direction="row" alignItems="flex-start" gap={1}>
+          <Stack key={field.id} direction="row" alignItems="center" gap={1}>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               {renderRow(
                 toRowAtIndex(row, index, {

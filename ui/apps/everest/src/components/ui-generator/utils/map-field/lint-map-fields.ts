@@ -15,22 +15,22 @@
 import {
   type MapComponent,
   type Section,
-  TemplateWidgetType,
   isMapComponent,
-  isWidgetComponent,
 } from '../../ui-generator.types';
 import { isPlainObject } from '../object-path';
 import { walkLeafComponents } from '../schema-walker';
 import { isStringMap } from './map-field';
-import { IGNORED_ROW_FIELD_PARAMS } from './map-field.constants';
+import {
+  IGNORED_ROW_FIELD_OPTIONS,
+  IGNORED_ROW_FIELD_PARAMS,
+} from './map-field.constants';
 
 // Named like the Go validator's rules (provider-runtime/uischema), which
 // reports the same mistakes when a provider is built.
 export type MapLintRule =
   | 'map-ignored-option'
   | 'map-invalid-default'
-  | 'map-invalid-limits'
-  | 'template-widget-misplaced';
+  | 'map-invalid-limits';
 
 export interface MapLintIssue {
   // Section key followed by group keys and the field key, e.g. `advanced.labels`.
@@ -41,10 +41,6 @@ export interface MapLintIssue {
 
 type Branch = [at: string, validation: Record<string, unknown>];
 
-const TEMPLATE_WIDGET_TYPES: ReadonlySet<string> = new Set(
-  Object.values(TemplateWidgetType)
-);
-const ROW_FIELDS: ReadonlyArray<'key' | 'value'> = ['key', 'value'];
 const LIMITS: ReadonlyArray<'min' | 'max'> = ['min', 'max'];
 
 const hasCel = (validation: Record<string, unknown>): boolean =>
@@ -85,6 +81,35 @@ const getEffectiveBranches = (validation: unknown): Branch[] => {
   ];
 };
 
+const has = (options: unknown, option: string): boolean =>
+  isPlainObject(options) && options[option] !== undefined;
+
+// What a row's field sets that a row can't act on yet, as the schema writes
+// it: `itemTemplate.components.<name>.…`. A default counts in a mode too.
+const findIgnoredRowOptions = (name: string, field: unknown): string[] => {
+  if (!isPlainObject(field)) return [];
+  const at = `itemTemplate.components.${name}`;
+  const { fieldParams, validation } = field;
+  const modes =
+    isPlainObject(fieldParams) && isPlainObject(fieldParams.modes)
+      ? fieldParams.modes
+      : {};
+  return [
+    ...IGNORED_ROW_FIELD_OPTIONS.filter((option) => has(field, option)).map(
+      (option) => `${at}.${option}`
+    ),
+    ...IGNORED_ROW_FIELD_PARAMS.filter((param) => has(fieldParams, param)).map(
+      (param) => `${at}.fieldParams.${param}`
+    ),
+    ...Object.entries(modes)
+      .filter(([, params]) => has(params, 'defaultValue'))
+      .map(([mode]) => `${at}.fieldParams.modes.${mode}.defaultValue`),
+    ...getDeclaredBranches(validation, `${at}.validation`)
+      .filter(([, branch]) => hasCel(branch))
+      .map(([branchAt]) => `${branchAt}.celExpressions`),
+  ];
+};
+
 const findIgnoredOptions = ({
   validation,
   itemTemplate,
@@ -93,21 +118,14 @@ const findIgnoredOptions = ({
     ...(branch.regex !== undefined ? [`${at}.regex`] : []),
     ...(hasCel(branch) ? [`${at}.celExpressions`] : []),
   ]),
-  ...ROW_FIELDS.flatMap((field) => {
-    const params: unknown = itemTemplate.fieldParams?.[field];
-    const rules: unknown = itemTemplate.validation?.[field];
-    return [
-      ...IGNORED_ROW_FIELD_PARAMS.filter(
-        (param) => isPlainObject(params) && params[param] !== undefined
-      ).map((param) => `itemTemplate.fieldParams.${field}.${param}`),
-      ...getDeclaredBranches(rules, `itemTemplate.validation.${field}`)
-        .filter(([, branch]) => hasCel(branch))
-        .map(([at]) => `${at}.celExpressions`),
-    ];
-  }),
+  ...Object.entries(itemTemplate.components).flatMap(([name, field]) =>
+    findIgnoredRowOptions(name, field)
+  ),
 ];
 
 const findInvalidDefaults = ({ fieldParams }: MapComponent): string[] => {
+  // A schema comes from YAML, so a map may have no `fieldParams` at all.
+  if (!isPlainObject(fieldParams)) return [];
   const modes = isPlainObject(fieldParams.modes) ? fieldParams.modes : {};
   const defaults: [string, unknown][] = [
     ['fieldParams.defaultValue', fieldParams.defaultValue],
@@ -149,24 +167,13 @@ export const lintMapFields = (
     walkLeafComponents(
       section.components,
       ({ component, generatedName: keyPath }) => {
-        if (
-          isWidgetComponent(component) &&
-          TEMPLATE_WIDGET_TYPES.has(component.widgetType)
-        ) {
-          issues.push({
-            keyPath,
-            rule: 'template-widget-misplaced',
-            message: `is the "${component.widgetType}" template widget, which stands only for a map's row in itemTemplate; anywhere else it renders nothing`,
-          });
-          return;
-        }
         if (!isMapComponent(component)) return;
         const ignored = findIgnoredOptions(component);
         if (ignored.length > 0) {
           issues.push({
             keyPath,
             rule: 'map-ignored-option',
-            message: `sets ${ignored.join(', ')}, which a map field ignores`,
+            message: `sets ${ignored.join(', ')}, which a map field doesn't support yet and ignores`,
           });
         }
         const defaults = findInvalidDefaults(component);

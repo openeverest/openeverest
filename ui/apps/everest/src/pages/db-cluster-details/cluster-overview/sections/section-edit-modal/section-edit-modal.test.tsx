@@ -22,9 +22,8 @@ import {
   FieldType,
   FormMode,
   GroupType,
-  TemplateWidgetType,
-  WIDGET_UI_TYPE,
 } from 'components/ui-generator/ui-generator.types';
+import { keyValueRow } from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import type { Instance, Provider } from 'shared-types/api.types';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import { Messages } from 'components/ui-generator/api-providers/data-source-field/data-source-field.messages';
@@ -328,10 +327,7 @@ describe('SectionEditModal map field', () => {
                 uiType: FieldType.Map,
                 path: 'spec.labels',
                 fieldParams: { label: 'Labels' },
-                itemTemplate: {
-                  uiType: WIDGET_UI_TYPE,
-                  widgetType: TemplateWidgetType.KeyValue,
-                },
+                itemTemplate: keyValueRow(),
                 // Set on create only.
                 modes: { [FormMode.Edit]: { uiType: FieldType.Hidden } },
               },

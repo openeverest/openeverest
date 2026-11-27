@@ -30,14 +30,14 @@ They run first, on every field `m` with `uiType = map`:
 
 | # | Rule | Condition |
 |---|------|-----------|
-| 1 | `map-unsupported` | `m.itemTemplate` is not `{uiType: widget, widgetType: keyValue}` |
+| 1 | `map-unsupported` | `m.itemTemplate` is not a key/value row: an item with `uiType = group`, with `groupType = line` or no `groupType` key, whose `components` hold exactly two items, one with `uiType = text` and `path = key` and one with `uiType = text` and `path = value`, neither having a `components` key |
 | 2 | `map-multi-path` | `paths(m)` has more than one path |
 | 3 | `map-overlap` | another field `f` (any field but `m` that rules 1–2 didn't match, in any section of `T`) has a path in `paths(f)` that overlaps a path in `paths(m)` |
 | — | *(rendered)* | none of the above |
 
 **Effect.** The UI drops every map field that matched a rule, like an unknown `uiType`: it is neither rendered nor sent, and an edit keeps its saved value.
 
-**Why.** Only rows from the `keyValue` template widget are implemented (rule 1). An edit reads a map from its first path and would leave the others drifting (rule 2). A map field writes its whole value, so a field writing its path, a path inside it or a path it sits in would clash with it (rule 3).
+**Why.** Only a row of a text key and a text value is implemented; a typed value, more fields, nested groups and other layouts are planned (rule 1). The two fields are told apart by `path`, so their names are free. An edit reads a map from its first path and would leave the others drifting (rule 2). A map field writes its whole value, so a field writing its path, a path inside it or a path it sits in would clash with it (rule 3).
 
 **Consequences:**
 
@@ -82,21 +82,17 @@ They run on every map field `m` the UI renders (no [map rule](#map-rules) matche
 
 | Rule | Condition |
 |------|-----------|
-| `map-ignored-option` | `m` sets an option the UI ignores: `regex` or a non-empty `celExpressions` in `m.validation` or in one of its `modes.<mode>` branches; a non-empty `celExpressions` in `m.itemTemplate.validation.<f>` or its mode branches; or `defaultValue`, `badge` or `badgeToApi` in `m.itemTemplate.fieldParams.<f>`, for `f ∈ {key, value}`. An option counts as set when its key is present. |
+| `map-ignored-option` | `m` sets an option the UI ignores: `regex` or a non-empty `celExpressions` in `m.validation` or in one of its `modes.<mode>` branches; or, for a row field `r = m.itemTemplate.components.<name>`: a non-empty `celExpressions` in `r.validation` or its mode branches; `defaultValue`, `badge` or `badgeToApi` in `r.fieldParams`; `defaultValue` in `r.fieldParams.modes.<mode>`; or `dataSource` or `modes` on `r`. An option counts as set when its key is present. |
 | `map-invalid-default` | `m.fieldParams.defaultValue`, or `m.fieldParams.modes.<mode>.defaultValue`, is present and is not a map whose values are all strings |
 | `map-invalid-limits` | in a form mode's validation, `min` or `max` is present and is not a whole number of 0 or more, or both are and `min > max`. A mode's validation is `m.validation` without `modes`, with `modes.<mode>` over it unless that branch sets `inheritShared: false`; `m.validation` itself is checked too. |
 
 **Effect.** The UI renders the field and ignores the option (`map-ignored-option`), starts the field empty (`map-invalid-default`), or applies limits no map meets (`map-invalid-limits`).
 
-**Why.** A row starts empty and writes only its key and value, and CEL can't read a map or a row yet. A default that isn't a map of strings would be written back as text. Limits that clash block every save.
-
-## Template widget rule: `template-widget-misplaced`
-
-A field with `uiType = widget` and a template `widgetType` (`keyValue`) stands for a piece of schema and is only read as a map field's `itemTemplate`. Anywhere else the UI renders nothing for it.
+**Why.** None of these is supported yet: a row starts empty and writes only its key and value, takes no options from an API, is the same field in every form mode, and CEL can't read a map or a row. A default that isn't a map of strings would be written back as text. Limits that clash block every save.
 
 ## Reserved key rule: `reserved-key`
 
-A key starting with `_` on any item under `components` (a field, a container or an item without `uiType`), at any depth, is reserved: the UI derives such keys itself (`_normalized`, `_row`, `_toggleable`, `_widgetTargets`, `_renderOverrides`) and drops any a schema sets before reading it. One issue per item that sets at least one; `Field` is the item's key path, a group's included.
+A key starting with `_` on any item under `components` (a field, a container or an item without `uiType`), at any depth, or on a map field's `itemTemplate` and the items under its `components`, is reserved: the UI derives such keys itself (`_normalized`, `_row`, `_toggleable`, `_widgetTargets`, `_renderOverrides`) and drops any a schema sets before reading it. One issue per item that sets at least one; `Field` is the item's key path, a group's included. An item template's key path is its map's followed by `itemTemplate`, e.g. `advanced.labels.itemTemplate.key`.
 
 ## CEL rule: `toggleable-cel-unguarded`
 
@@ -121,7 +117,7 @@ Notes:
 
 ## Output
 
-- One `Issue{Rule, Topology, Group, Field, Message}` per map field that matched a map rule or a map option rule, per misplaced template widget and per item with a reserved key (`Group` is empty, `Field` is the key path), per group that matched a group rule (`Field` is empty), and per (field, group) pair for `toggleable-cel-unguarded` (`Field` is the key path of the field carrying the CEL rule).
+- One `Issue{Rule, Topology, Group, Field, Message}` per map field that matched a map rule or a map option rule and per item with a reserved key (`Group` is empty, `Field` is the key path), per group that matched a group rule (`Field` is empty), and per (field, group) pair for `toggleable-cel-unguarded` (`Field` is the key path of the field carrying the CEL rule).
 - Issues with the same topology, group and field keep the order the rules are listed in here.
 - Issues are sorted by topology, then group key path, then field key path.
 - `Message` is informational. Tests compare only `rule`, `topology`, `group` and `field`.
@@ -134,4 +130,4 @@ Add an entry to `cases` in the file of the rule's family, e.g. `testdata/map.yam
 - `uiSchema`: the input schema;
 - `issues`: the expected list of `{rule, topology}` plus `group` for a group rule, `field` for a map rule, and both for `toggleable-cel-unguarded`, in the order above. Use `[]` when the schema is valid.
 
-Both suites run every file in `testdata/`. A new rule family needs its UI outcome in `toUiOutcome` of `preprocess-shared-cases.test.ts`: for most rules the UI only shows what a rule does to the schema, not which rule it was. The map option, template widget and reserved key rules are the exception: the UI reports them by name (`lintMapFields`, `stripEngineKeys`), so they are compared by name.
+Both suites run every file in `testdata/`. A new rule family needs its UI outcome in `toUiOutcome` of `preprocess-shared-cases.test.ts`: for most rules the UI only shows what a rule does to the schema, not which rule it was. The map option and reserved key rules are the exception: the UI reports them by name (`lintMapFields`, `stripEngineKeys`), so they are compared by name.

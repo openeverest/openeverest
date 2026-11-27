@@ -8,8 +8,12 @@ documented in the main [Readme](./Readme.md).
 `uiType: map` (**Tech Preview**) edits a string map as key/value rows, see
 [Map Field](components/map-field.md). Not supported yet:
 
-- **Other rows:** an `itemTemplate` other than the `keyValue` widget, e.g. a custom group or a map
-  of objects. Such a map isn't rendered or sent, and an edit keeps its saved value.
+- **Other rows:** an `itemTemplate` other than a group of a text key and a text value, e.g. a
+  typed value, a third field or a map of objects. Such a map isn't rendered or sent, and an edit
+  keeps its saved value. See [Not Supported Yet](components/map-field.md#not-supported-yet) for
+  the whole list.
+- **On a row's field:** `defaultValue`, `celExpressions`, `dataSource` and component-level `modes`.
+  The UI ignores them.
 - **Lists:** `uiType: list` (strings or objects) is planned; until then it's an unknown `uiType`.
 - **Several paths** on a map: an edit reads only the first, so such a map isn't rendered.
 - **CEL:** `celExpressions` on the map, or on a row's key or value. `regex` on the map. The UI

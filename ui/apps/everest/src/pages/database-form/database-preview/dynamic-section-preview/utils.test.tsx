@@ -20,10 +20,10 @@ import {
   ComponentGroup,
   FieldType,
   GroupType,
-  TemplateWidgetType,
   WIDGET_UI_TYPE,
   WidgetType,
 } from 'components/ui-generator/ui-generator.types';
+import { keyValueRow } from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import { TOGGLEABLE_SWITCHES_KEY } from 'components/ui-generator/utils/toggleable/toggleable';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import { TestWrapper } from 'utils/test';
@@ -220,11 +220,9 @@ describe('renderComponent - map field', () => {
     uiType: FieldType.Map,
     path: 'spec.env',
     fieldParams: { label: 'Environment' },
-    itemTemplate: {
-      uiType: WIDGET_UI_TYPE,
-      widgetType: TemplateWidgetType.KeyValue,
-      fieldParams: { value: { type: 'password' } },
-    },
+    itemTemplate: keyValueRow({
+      value: { fieldParams: { type: 'password' } },
+    }),
   };
 
   it('sums the rows up in a chip; the dialog masks values like their inputs', () => {

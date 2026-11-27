@@ -74,13 +74,6 @@ export enum WidgetType {
   Affinity = 'affinity',
 }
 
-// Widgets that stand for a piece of schema: preprocess expands them into
-// ordinary components, so no host renders them.
-export enum TemplateWidgetType {
-  // A map row: a text `key` and a text `value` side by side.
-  KeyValue = 'keyValue',
-}
-
 // Host-rendered component; `widgetType` picks the renderer, like `groupType`
 // picks a group's layout.
 export const WIDGET_UI_TYPE = 'widget' as const;
@@ -306,29 +299,14 @@ type FieldComponent = {
   [K in ScalarFieldType]: FieldComponentOf<K>;
 }[ScalarFieldType];
 
-// A row field takes a text field's params, but no default (the map's own sets
-// the entries; a new row starts empty) and no badges, which a row doesn't write.
-export type MapRowFieldParams = Omit<
-  TextFieldParams,
-  'defaultValue' | 'badge' | 'badgeToApi'
->;
-
-// Stands for a map row: preprocess expands it into a `line` group of a text
-// `key` and a text `value`, with these params and rules over theirs. CEL is
-// left out: a row can't evaluate it yet.
-export interface KeyValueWidget {
-  uiType: typeof WIDGET_UI_TYPE;
-  widgetType: TemplateWidgetType.KeyValue;
-  fieldParams?: { key?: MapRowFieldParams; value?: MapRowFieldParams };
-  validation?: {
-    key?: Omit<TextValidation, 'celExpressions'>;
-    value?: Omit<TextValidation, 'celExpressions'>;
-  };
-}
+// The two fields of a map's row, named by the `path` each writes in the row.
+export const MAP_ROW_ROLES = ['key', 'value'] as const;
+export type MapRowRole = (typeof MAP_ROW_ROLES)[number];
 
 export type MapComponent = FieldComponentOf<FieldType.Map> & {
-  itemTemplate: KeyValueWidget;
-  // The row the item template stands for, expanded by preprocess.
+  // One row: a group of a text field at `key` and a text field at `value`.
+  itemTemplate: ComponentGroup;
+  // The row as the form draws it, prepared by preprocess.
   _row?: ComponentGroup;
 };
 
@@ -354,13 +332,43 @@ export type Component = FieldComponent | MapComponent | WidgetComponent;
 export const isWidgetComponent = (item: Component): item is WidgetComponent =>
   item.uiType === WIDGET_UI_TYPE;
 
-// Only the map shape this version implements: rows from a keyValue widget.
-// Preprocess drops any other `uiType: map`, so the stages leave it alone like
-// an unknown uiType.
+const isMapRowField = (item: unknown, role: MapRowRole): boolean =>
+  typeof item === 'object' &&
+  item !== null &&
+  !('components' in item) &&
+  'uiType' in item &&
+  item.uiType === FieldType.Text &&
+  'path' in item &&
+  item.path === role;
+
+// A row this version implements: a group, in a line or stacked, of exactly a
+// text field at `key` and a text field at `value`. A schema comes from YAML, so
+// the template may be anything.
+const isKeyValueRow = (template: ComponentGroup | undefined): boolean => {
+  if (typeof template !== 'object' || template === null) return false;
+  const { uiType, groupType, components } = template;
+  if (
+    uiType !== 'group' ||
+    typeof components !== 'object' ||
+    !components ||
+    Array.isArray(components)
+  ) {
+    return false;
+  }
+  if (groupType !== undefined && groupType !== GroupType.Line) return false;
+  const fields = Object.values(components);
+  return (
+    fields.length === MAP_ROW_ROLES.length &&
+    MAP_ROW_ROLES.every((role) =>
+      fields.some((field) => isMapRowField(field, role))
+    )
+  );
+};
+
+// Only the map shape this version implements. Preprocess drops any other
+// `uiType: map`, so the stages leave it alone like an unknown uiType.
 export const isMapComponent = (item: Component): item is MapComponent =>
-  item.uiType === FieldType.Map &&
-  item.itemTemplate?.uiType === WIDGET_UI_TYPE &&
-  item.itemTemplate.widgetType === TemplateWidgetType.KeyValue;
+  item.uiType === FieldType.Map && isKeyValueRow(item.itemTemplate);
 
 // Narrows an opaque API payload (e.g. a CRD's uiSchema) to a section.
 export const isSection = (value: unknown): value is Section =>

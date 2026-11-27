@@ -74,9 +74,10 @@ flowchart TD
   M["Map"] --> MU["uiType: map"]
   M --> MP["path<br/>(one)"]
   M --> MI["itemTemplate"]
-  MI --> MIU["uiType: widget<br/>widgetType: keyValue<br/>(custom group 🛠️)"]
-  MI --> MIP["fieldParams? { key?, value? }<br/>(TextFieldParams)"]
-  MI --> MIV["validation? { key?, value? }<br/>(TextValidation without CEL)"]
+  MI --> MIU["uiType: group<br/>groupType: line | none"]
+  MI --> MIC["components"]
+  MIC --> MIK["text field, path: key"]
+  MIC --> MIVA["text field, path: value"]
   M --> MR["_row<br/>(set by preprocess)"]
 ```
 
@@ -85,13 +86,15 @@ flowchart TD
 - **One field, one `path`** — the map writes its whole value to `path`; paths inside a row are the
   row's own (`key`, `value`), never schema paths. A map with several paths is dropped: an edit reads
   only the first.
-- **`itemTemplate`** is what a row is. Today the `keyValue` template widget, which preprocess
-  expands into `_row`: a `line` group of a text `key` and a text `value`, with the widget's
-  `fieldParams` / `validation` for each over theirs. The row renders through the UI Generator, so
-  a text field's params and rules apply, transforms included, but for `defaultValue`, badges and
-  CEL, which expansion drops.
-- **Ignored options are reported**: what a rendered map can't use (`regex` / CEL on the map, CEL
-  or a default / badge on a row's field, a `defaultValue` that isn't a map of strings, limits no
+- **`itemTemplate`** describes one row, written as a group like anywhere else: a mini-section
+  whose fields' paths are relative to the row. The container decides what is written: `map` takes
+  rows of a field at `key` and a field at `value` and writes an object. Today both are text fields,
+  in a `line` group or stacked; a typed value, more fields and nested groups are planned (🛠️). The
+  fields are told apart by `path`, so their names are the schema's own. Preprocess prepares the row
+  into `_row`, and it renders through the UI Generator, so a text field's params and rules apply,
+  transforms included, but for `defaultValue`, badges, CEL and `dataSource`, which the row drops.
+- **Ignored options are reported**: what a rendered map can't use (`regex` / CEL on the map, CEL,
+  a `dataSource` or a default / badge on a row's field, a `defaultValue` that isn't a map of strings, limits no
   map meets) is ignored at runtime with a dev warning (`lintMapFields`), and the Go validator
   reports `map-ignored-option` / `map-invalid-default` / `map-invalid-limits`.
 - **Unique keys** are implied by the map and can't be switched off.
@@ -99,7 +102,7 @@ flowchart TD
   with several paths, or that doesn't own its path, like an unknown `uiType`; the Go validator
   reports `map-unsupported` / `map-multi-path` / `map-overlap`.
 
-## Level 2 — Widget (host-rendered leaf or template)
+## Level 2 — Widget (host-rendered leaf)
 
 ```mermaid
 flowchart TD
@@ -112,8 +115,6 @@ flowchart TD
 - **`widgetType`** selects the renderer from the consumer's `WidgetRegistry` (edit) and
   `WidgetSummaryRegistry` (`label` + `View` + `digest` for the overview and wizard preview).
   Unknown types render nothing.
-- **Template widgets** (`TemplateWidgetType`) stand for a piece of schema and are expanded by
-  preprocess instead of rendered: `keyValue`, a map row (see Map above). No registry renders them.
 - **Location is defined per widget type** — a widget is unique, so there is no shared rule
   for where its data lives:
   - `affinity` (internal) binds one `path`, like a field.
@@ -316,4 +317,4 @@ validator reports it (`reserved-key`).
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-25
+- Last updated: 2026-11-27

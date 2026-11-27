@@ -18,20 +18,10 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TestWrapper } from 'utils/test';
 import { UIGenerator } from '../ui-generator';
-import {
-  FieldType,
-  type KeyValueWidget,
-  TemplateWidgetType,
-  TopologyUISchemas,
-  WIDGET_UI_TYPE,
-} from '../ui-generator.types';
+import { FieldType, GroupType, TopologyUISchemas } from '../ui-generator.types';
+import { keyValueRow } from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import { buildZodSchema } from '../utils/schema-builder';
 import { getDefaultValues } from '../utils/default-values';
-
-const KEY_VALUE: KeyValueWidget = {
-  uiType: WIDGET_UI_TYPE,
-  widgetType: TemplateWidgetType.KeyValue,
-};
 
 const schema: TopologyUISchemas = {
   replicaSet: {
@@ -46,7 +36,7 @@ const schema: TopologyUISchemas = {
               addButtonLabel: 'Add annotation',
               defaultValue: { team: 'db' },
             },
-            itemTemplate: KEY_VALUE,
+            itemTemplate: keyValueRow(),
           },
         },
       },
@@ -68,7 +58,7 @@ const validatedSchema: TopologyUISchemas = {
               helperText: 'Added to the Service',
             },
             validation: { required: true, max: 1 },
-            itemTemplate: KEY_VALUE,
+            itemTemplate: keyValueRow(),
           },
         },
       },
@@ -211,6 +201,7 @@ describe('UIGenerator - map field', () => {
   });
 
   it('renders a row as text fields that take any text param', () => {
+    // The row's fields are the schema's own; `path` says which is the key.
     const envSchema: TopologyUISchemas = {
       replicaSet: {
         sections: {
@@ -221,8 +212,20 @@ describe('UIGenerator - map field', () => {
                 path: 'spec.env',
                 fieldParams: { label: 'Env', defaultValue: { TOKEN: 's3' } },
                 itemTemplate: {
-                  ...KEY_VALUE,
-                  fieldParams: { value: { type: 'password' } },
+                  uiType: 'group',
+                  groupType: GroupType.Line,
+                  components: {
+                    secret: {
+                      uiType: FieldType.Text,
+                      path: 'value',
+                      fieldParams: { type: 'password' },
+                    },
+                    variable: {
+                      uiType: FieldType.Text,
+                      path: 'key',
+                      fieldParams: { placeholder: 'NAME' },
+                    },
+                  },
                 },
               },
             },
@@ -246,6 +249,10 @@ describe('UIGenerator - map field', () => {
       'type',
       'password'
     );
+    expect(screen.getByRole('textbox', { name: 'Key 1' })).toHaveAttribute(
+      'placeholder',
+      'NAME'
+    );
   });
 
   it('disables the rows and buttons of a disabled map', () => {
@@ -262,7 +269,7 @@ describe('UIGenerator - map field', () => {
                   defaultValue: { team: 'db' },
                   disabled: true,
                 },
-                itemTemplate: KEY_VALUE,
+                itemTemplate: keyValueRow(),
               },
             },
           },

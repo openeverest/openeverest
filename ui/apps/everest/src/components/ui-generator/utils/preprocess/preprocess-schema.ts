@@ -39,9 +39,9 @@ import { withWidgetTargets } from '../widget-targets';
 import { widgetTargetResolvers } from '../../widget-target-resolvers';
 import {
   type IgnoredMapField,
-  expandKeyValueWidget,
   lintMapFields,
   resolveMapFields,
+  toMapRow,
 } from '../map-field';
 import { stripEngineKeys } from './strip-engine-keys';
 
@@ -55,7 +55,7 @@ const describeIgnoredMap = ({
     case 'multi-path':
       return 'has several paths, while an edit reads only the first one';
     default:
-      return 'has an itemTemplate this version does not support (only uiType "widget" with widgetType "keyValue")';
+      return 'has an itemTemplate this version does not support (only a group, in a line or stacked, of a text field with path "key" and a text field with path "value")';
   }
 };
 
@@ -160,11 +160,11 @@ const preprocessComponent = (
   }
   const normalizedComponent = withNormalizedPathMeta(component);
 
-  // A keyValue item template stands for its row; expand it once here.
+  // Prepare the row a map's item template declares once here.
   if (isMapComponent(normalizedComponent)) {
     return {
       ...normalizedComponent,
-      _row: expandKeyValueWidget(normalizedComponent.itemTemplate),
+      _row: toMapRow(normalizedComponent.itemTemplate),
     };
   }
 

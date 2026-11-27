@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { orderComponents } from 'components/ui-generator/utils/component-renderer/order-components';
+import { getRowFieldRole } from 'components/ui-generator/utils/map-field';
 import type { ComponentGroup } from '../ui-generator.types';
 import { Messages } from './map-field.messages';
 import type { RowState } from './map-field.types';
@@ -23,22 +25,26 @@ export const toRowAtIndex = (
   row: ComponentGroup,
   index: number,
   { disabled, focus }: RowState
-): ComponentGroup => ({
-  ...row,
-  components: Object.fromEntries(
-    Object.entries(row.components).map(([key, item], position) => [
-      key,
-      'components' in item
-        ? item
-        : {
-            ...item,
-            _renderOverrides: {
-              accessibleName: `${item.fieldParams?.label || Messages.fieldName(key)} ${index + 1}`,
-              disabled,
-              autoFocus: focus && position === 0,
-              showFullValueOnHover: true,
+): ComponentGroup => {
+  // The first as the row draws them, which `componentsOrder` may change.
+  const [firstDrawn] = orderComponents(row.components, row.componentsOrder);
+  return {
+    ...row,
+    components: Object.fromEntries(
+      Object.entries(row.components).map(([key, item]) => [
+        key,
+        'components' in item
+          ? item
+          : {
+              ...item,
+              _renderOverrides: {
+                accessibleName: `${item.fieldParams?.label || Messages.fieldName(getRowFieldRole(item) ?? key)} ${index + 1}`,
+                disabled,
+                autoFocus: focus && key === firstDrawn?.[0],
+                showFullValueOnHover: true,
+              },
             },
-          },
-    ])
-  ),
-});
+      ])
+    ),
+  };
+};

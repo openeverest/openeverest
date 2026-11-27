@@ -22,7 +22,7 @@ export {
   writeMapFieldsInApiShape,
 } from './map-field';
 export { buildMapFieldSchema } from './map-field-schema';
-export { expandKeyValueWidget, getMapRow } from './key-value-widget';
+export { getMapRow, getRowFieldRole, toMapRow } from './map-row';
 export { type IgnoredMapField, resolveMapFields } from './resolve-map-fields';
 export { type MapLintIssue, lintMapFields } from './lint-map-fields';
 export type { MapDisplayRow, MapRow } from './map-field.types';

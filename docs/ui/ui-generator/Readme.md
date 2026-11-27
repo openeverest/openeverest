@@ -208,9 +208,8 @@ resources:
 
 #### Widget (Host-Rendered Component)
 
-A **Widget** (`uiType: widget` + `widgetType`) is a component the application renders itself, for
-UI that plain fields can't describe, or a template that stands for a piece of schema (`keyValue`, a
-map row). See [Widgets](widgets.md) for the supported widget types.
+A **Widget** is a component the application renders itself (`uiType: widget` + `widgetType`),
+for UI that plain fields can't describe. See [Widgets](widgets.md) for the supported widget types.
 
 ## Mode-Aware Overrides
 

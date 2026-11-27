@@ -1,4 +1,5 @@
 # Shared contract for map field rules.
+# `*keyValueRow` repeats the row the first case declares.
 # Go: provider-runtime/uischema (Validate) reports `issues`.
 # UI: preprocessSchema drops every map field with an issue, so it is neither
 #     rendered nor sent and an edit keeps its saved value. The toggleable rules
@@ -14,11 +15,168 @@ cases:
                 uiType: map
                 path: spec.labels
                 fieldParams: { label: Labels }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: &keyValueRow
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key }
+                    value: { uiType: text, path: value }
               replicas: { uiType: number, path: spec.replicas, fieldParams: { label: Replicas } }
     issues: []
 
-  - name: a map whose rows are a custom group is not supported yet
+  - name: the row's fields are told apart by path, so their names are the schema's own
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              annotations:
+                uiType: map
+                path: spec.annotations
+                fieldParams: { label: Annotations }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    setting: { uiType: text, path: value, fieldParams: { label: Setting } }
+                    name: { uiType: text, path: key, fieldParams: { label: Name } }
+    issues: []
+
+  - name: a row with no groupType stacks its fields
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate:
+                  uiType: group
+                  components:
+                    key: { uiType: text, path: key }
+                    value: { uiType: text, path: value }
+    issues: []
+
+  - name: a row in another layout is not supported yet
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate:
+                  uiType: group
+                  groupType: bordered
+                  components:
+                    key: { uiType: text, path: key }
+                    value: { uiType: text, path: value }
+    issues:
+      - { rule: map-unsupported, topology: replicaSet, field: advanced.labels }
+
+  - name: a row's fields are declared by name, so a list of them is not a row
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    - { uiType: text, path: key }
+                    - { uiType: text, path: value }
+    issues:
+      - { rule: map-unsupported, topology: replicaSet, field: advanced.labels }
+
+  - name: a row needs both a key and a value
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              tags:
+                uiType: map
+                path: spec.tags
+                fieldParams: { label: Tags }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key }
+    issues:
+      - { rule: map-unsupported, topology: replicaSet, field: advanced.tags }
+
+  - name: a row with a third field is not supported yet, since a map entry holds one value
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key }
+                    value: { uiType: text, path: value }
+                    note: { uiType: text, path: note }
+    issues:
+      - { rule: map-unsupported, topology: replicaSet, field: advanced.labels }
+
+  - name: a value that is not text is not supported yet
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              weights:
+                uiType: map
+                path: spec.weights
+                fieldParams: { label: Weights }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key }
+                    value: { uiType: number, path: value }
+    issues:
+      - { rule: map-unsupported, topology: replicaSet, field: advanced.weights }
+
+  - name: a group inside the row is not supported yet
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key }
+                    more:
+                      uiType: group
+                      components:
+                        value: { uiType: text, path: value }
+    issues:
+      - { rule: map-unsupported, topology: replicaSet, field: advanced.labels }
+
+  - name: a map of objects, whose row is not a key and a value, is not supported yet
     uiSchema:
       replicaSet:
         sections:
@@ -35,7 +193,7 @@ cases:
     issues:
       - { rule: map-unsupported, topology: replicaSet, field: advanced.users }
 
-  - name: a map whose item template is another widget is not supported
+  - name: a map whose item template is a widget is not supported
     uiSchema:
       replicaSet:
         sections:
@@ -69,7 +227,7 @@ cases:
                 uiType: map
                 path: [spec.engine.podLabels, spec.proxy.podLabels]
                 fieldParams: { label: Pod labels }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
     issues:
       - { rule: map-multi-path, topology: replicaSet, field: advanced.podLabels }
 
@@ -83,7 +241,7 @@ cases:
                 uiType: map
                 path: spec.labels
                 fieldParams: { label: Labels }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
               team: { uiType: text, path: spec.labels.team, fieldParams: { label: Team } }
     issues:
       - { rule: map-overlap, topology: replicaSet, field: advanced.labels }
@@ -98,7 +256,7 @@ cases:
                 uiType: map
                 path: spec.proxy.annotations
                 fieldParams: { label: Annotations }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
               proxy: { uiType: text, path: spec.proxy, fieldParams: { label: Proxy } }
     issues:
       - { rule: map-overlap, topology: replicaSet, field: advanced.annotations }
@@ -116,7 +274,7 @@ cases:
                 uiType: map
                 path: spec.labels
                 fieldParams: { label: Labels }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
     issues:
       - { rule: map-overlap, topology: replicaSet, field: advanced.labels }
 
@@ -130,7 +288,7 @@ cases:
                 uiType: map
                 path: spec.labels
                 fieldParams: { label: Labels }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
               labelsMode: { uiType: text, path: spec.labelsMode, fieldParams: { label: Mode } }
     issues: []
 
@@ -144,12 +302,12 @@ cases:
                 uiType: map
                 path: spec.labels
                 fieldParams: { label: Labels }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
               moreLabels:
                 uiType: map
                 path: spec.labels
                 fieldParams: { label: More labels }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
     issues:
       - { rule: map-overlap, topology: replicaSet, field: advanced.labels }
       - { rule: map-overlap, topology: replicaSet, field: advanced.moreLabels }
@@ -172,7 +330,7 @@ cases:
                 uiType: map
                 path: spec.labels
                 fieldParams: { label: Labels }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
     issues:
       - { rule: map-unsupported, topology: replicaSet, field: advanced.customLabels }
 
@@ -186,12 +344,12 @@ cases:
                 uiType: map
                 path: [spec.engine.podLabels, spec.proxy.podLabels]
                 fieldParams: { label: Pod labels }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
               proxyLabels:
                 uiType: map
                 path: spec.proxy.podLabels
                 fieldParams: { label: Proxy pod labels }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
     issues:
       - { rule: map-multi-path, topology: replicaSet, field: advanced.podLabels }
 

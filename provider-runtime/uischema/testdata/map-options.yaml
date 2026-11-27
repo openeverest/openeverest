@@ -1,4 +1,5 @@
 # Shared contract for what a rendered map field ignores or can't use.
+# `*keyValueRow` repeats the row the second case declares.
 # Go: provider-runtime/uischema (Validate) reports `issues`.
 # UI: preprocessSchema renders the field anyway and ignores the part it can't
 #     use; lintMapFields reports the same rules, as a dev-time warning.
@@ -22,14 +23,22 @@ cases:
                   max: 5
                   modes: { edit: { max: 10 } }
                 itemTemplate:
-                  uiType: widget
-                  widgetType: keyValue
-                  fieldParams:
-                    key: { placeholder: team }
-                    value: { type: password }
-                  validation:
-                    key: { regex: { pattern: '^[a-z]+$', message: Lowercase } }
-                    value: { max: 63 }
+                  uiType: group
+                  groupType: line
+                  components:
+                    key:
+                      uiType: text
+                      path: key
+                      fieldParams:
+                        placeholder: team
+                        modes: { edit: { disabled: true } }
+                      validation:
+                        regex: { pattern: '^[a-z]+$', message: Lowercase }
+                    value:
+                      uiType: text
+                      path: value
+                      fieldParams: { type: password }
+                      validation: { max: 63, modes: { edit: { max: 253 } } }
     issues: []
 
   - name: regex and CEL on the map are ignored, in a mode branch too
@@ -47,11 +56,16 @@ cases:
                   modes:
                     edit:
                       celExpressions: [{ celExpr: 'size(spec.labels) > 0', message: Set one }]
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: &keyValueRow
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key }
+                    value: { uiType: text, path: value }
     issues:
       - { rule: map-ignored-option, topology: replicaSet, field: advanced.labels }
 
-  - name: CEL, a default and a badge on a row's field are ignored
+  - name: CEL, a default and a badge on a row's field are not supported yet
     uiSchema:
       replicaSet:
         sections:
@@ -62,15 +76,134 @@ cases:
                 path: spec.labels
                 fieldParams: { label: Labels }
                 itemTemplate:
-                  uiType: widget
-                  widgetType: keyValue
-                  fieldParams:
-                    value: { defaultValue: db, badge: Gi }
-                  validation:
+                  uiType: group
+                  groupType: line
+                  components:
                     key:
-                      celExpressions: [{ celExpr: "self != ''", message: Set }]
+                      uiType: text
+                      path: key
+                      validation:
+                        celExpressions: [{ celExpr: "self != ''", message: Set }]
+                    value:
+                      uiType: text
+                      path: value
+                      fieldParams: { defaultValue: db, badge: Gi }
     issues:
       - { rule: map-ignored-option, topology: replicaSet, field: advanced.labels }
+
+  - name: a row field's default or CEL in a mode is not supported yet either
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key }
+                    value:
+                      uiType: text
+                      path: value
+                      fieldParams:
+                        modes: { new: { defaultValue: db } }
+              tags:
+                uiType: map
+                path: spec.tags
+                fieldParams: { label: Tags }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    key:
+                      uiType: text
+                      path: key
+                      validation:
+                        modes:
+                          edit:
+                            celExpressions: [{ celExpr: "self != ''", message: Set }]
+                    value: { uiType: text, path: value }
+    issues:
+      - { rule: map-ignored-option, topology: replicaSet, field: advanced.labels }
+      - { rule: map-ignored-option, topology: replicaSet, field: advanced.tags }
+
+  - name: a badge on a row's field is not supported, nor is sending it
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              sizes:
+                uiType: map
+                path: spec.sizes
+                fieldParams: { label: Sizes }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key }
+                    value: { uiType: text, path: value, fieldParams: { badge: Gi } }
+              limits:
+                uiType: map
+                path: spec.limits
+                fieldParams: { label: Limits }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key }
+                    value: { uiType: text, path: value, fieldParams: { badgeToApi: true } }
+    issues:
+      - { rule: map-ignored-option, topology: replicaSet, field: advanced.limits }
+      - { rule: map-ignored-option, topology: replicaSet, field: advanced.sizes }
+
+  - name: a row's field is the same in every form mode, so it can't be hidden in one
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key }
+                    value:
+                      uiType: text
+                      path: value
+                      modes: { edit: { uiType: hidden } }
+    issues:
+      - { rule: map-ignored-option, topology: replicaSet, field: advanced.labels }
+
+  - name: a row field takes no options from an API yet
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              secrets:
+                uiType: map
+                path: spec.secrets
+                fieldParams: { label: Secrets }
+                itemTemplate:
+                  uiType: group
+                  groupType: line
+                  components:
+                    key: { uiType: text, path: key }
+                    value:
+                      uiType: text
+                      path: value
+                      dataSource: { provider: secrets }
+    issues:
+      - { rule: map-ignored-option, topology: replicaSet, field: advanced.secrets }
 
   - name: a default that is not a map of strings is ignored
     uiSchema:
@@ -84,7 +217,7 @@ cases:
                 fieldParams:
                   label: Weights
                   defaultValue: { primary: 3 }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
     issues:
       - { rule: map-invalid-default, topology: replicaSet, field: advanced.weights }
 
@@ -100,7 +233,7 @@ cases:
                 fieldParams:
                   label: Labels
                   modes: { new: { defaultValue: [team] } }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
     issues:
       - { rule: map-invalid-default, topology: replicaSet, field: advanced.labels }
 
@@ -115,7 +248,7 @@ cases:
                 path: spec.labels
                 fieldParams: { label: Labels }
                 validation: { min: 3, max: 2 }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
     issues:
       - { rule: map-invalid-limits, topology: replicaSet, field: advanced.labels }
 
@@ -130,13 +263,13 @@ cases:
                 path: spec.labels
                 fieldParams: { label: Labels }
                 validation: { max: 1.5 }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
               tags:
                 uiType: map
                 path: spec.tags
                 fieldParams: { label: Tags }
                 validation: { min: -1 }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
     issues:
       - { rule: map-invalid-limits, topology: replicaSet, field: advanced.labels }
       - { rule: map-invalid-limits, topology: replicaSet, field: advanced.tags }
@@ -154,7 +287,7 @@ cases:
                 validation:
                   max: 1
                   modes: { edit: { min: 2 } }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
     issues:
       - { rule: map-invalid-limits, topology: replicaSet, field: advanced.labels }
 
@@ -171,7 +304,7 @@ cases:
                 validation:
                   max: 1
                   modes: { edit: { inheritShared: false, min: 2 } }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
     issues: []
 
   - name: every finding on one map is reported, in a fixed order
@@ -187,7 +320,7 @@ cases:
                   label: Labels
                   defaultValue: team
                 validation: { regex: { pattern: '^a' }, min: 2, max: 1 }
-                itemTemplate: { uiType: widget, widgetType: keyValue }
+                itemTemplate: *keyValueRow
     issues:
       - { rule: map-ignored-option, topology: replicaSet, field: advanced.labels }
       - { rule: map-invalid-default, topology: replicaSet, field: advanced.labels }
@@ -207,19 +340,3 @@ cases:
                 itemTemplate: { uiType: group, components: {} }
     issues:
       - { rule: map-unsupported, topology: replicaSet, field: advanced.users }
-
-  - name: a template widget outside an itemTemplate renders nothing
-    uiSchema:
-      replicaSet:
-        sections:
-          advanced:
-            components:
-              settings:
-                uiType: group
-                components:
-                  row:
-                    uiType: widget
-                    widgetType: keyValue
-                    path: spec.labels
-    issues:
-      - { rule: template-widget-misplaced, topology: replicaSet, field: advanced.settings.row }

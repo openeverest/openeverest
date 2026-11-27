@@ -33,7 +33,7 @@ import {
   getComponentTargetPaths,
 } from '../preprocess/normalized-component';
 import { walkLeafComponents } from '../schema-walker';
-import { getMapRow } from './key-value-widget';
+import { getMapRow, getRowField } from './map-row';
 import type { MapDisplayRow, MapRow } from './map-field.types';
 
 export const isMapRow = (value: unknown): value is MapRow =>
@@ -84,7 +84,9 @@ export const getMapFieldDisplayRows = (
 ): MapDisplayRow[] => {
   const map = Array.isArray(value) ? rowsToObject(value) : value;
   if (!isPlainObject(map)) return [];
-  const { key: keyField, value: valueField } = getMapRow(component).components;
+  const row = getMapRow(component);
+  const keyField = getRowField(row, 'key');
+  const valueField = getRowField(row, 'value');
   const show = (field: Component | ComponentGroup | undefined, text: string) =>
     field ? maskPasswordValue(field, text) : text;
   const masks = (field: Component | ComponentGroup | undefined, text: string) =>

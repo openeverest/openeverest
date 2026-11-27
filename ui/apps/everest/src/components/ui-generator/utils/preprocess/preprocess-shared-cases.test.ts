@@ -66,7 +66,6 @@ const LINT_RULES = new Set([
   'map-ignored-option',
   'map-invalid-default',
   'map-invalid-limits',
-  'template-widget-misplaced',
   'reserved-key',
 ]);
 

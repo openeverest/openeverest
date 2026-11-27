@@ -45,26 +45,43 @@ const withoutEngineKeys = <T extends object>(
   return copy;
 };
 
+// A component, with the components it holds: a group's, and the row a map
+// declares in `itemTemplate`, which the schema writes like any group.
+const stripComponent = <T extends Component | ComponentGroup>(
+  item: T,
+  keyPath: string,
+  stripped: StrippedEngineKey[]
+): T => {
+  const kept = withoutEngineKeys(item, keyPath, stripped);
+  return {
+    ...kept,
+    ...('components' in kept &&
+      isPlainObject(kept.components) && {
+        components: stripComponents(kept.components, keyPath, stripped),
+      }),
+    ...('itemTemplate' in kept &&
+      isPlainObject(kept.itemTemplate) && {
+        itemTemplate: stripComponent(
+          kept.itemTemplate,
+          `${keyPath}.itemTemplate`,
+          stripped
+        ),
+      }),
+  };
+};
+
 const stripComponents = (
   components: Record<string, Component | ComponentGroup>,
   parentKeyPath: string,
   stripped: StrippedEngineKey[]
 ): Record<string, Component | ComponentGroup> =>
   Object.fromEntries(
-    Object.entries(components).map(([key, item]) => {
-      if (!isPlainObject(item)) return [key, item];
-      const keyPath = `${parentKeyPath}.${key}`;
-      const kept = withoutEngineKeys(item, keyPath, stripped);
-      return [
-        key,
-        'components' in kept && kept.components
-          ? {
-              ...kept,
-              components: stripComponents(kept.components, keyPath, stripped),
-            }
-          : kept,
-      ];
-    })
+    Object.entries(components).map(([key, item]) => [
+      key,
+      isPlainObject(item)
+        ? stripComponent(item, `${parentKeyPath}.${key}`, stripped)
+        : item,
+    ])
   );
 
 // A schema can't set the engine's keys: one would pass for the engine's own,

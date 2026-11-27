@@ -17,20 +17,15 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { TestWrapper } from 'utils/test';
 import { UIGenerator } from '../ui-generator';
-import {
-  FieldType,
-  type KeyValueWidget,
-  TemplateWidgetType,
-  TopologyUISchemas,
-  WIDGET_UI_TYPE,
-} from '../ui-generator.types';
+import { FieldType, TopologyUISchemas } from '../ui-generator.types';
+import { keyValueRow } from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import { getDefaultValues } from '../utils/default-values';
 
 const INPUT_WIDTH = 100;
 const LONG_KEY = 'service.beta.kubernetes.io/aws-load-balancer-internal';
 
 const schemaWith = (
-  fieldParams: KeyValueWidget['fieldParams'] = {}
+  row: Parameters<typeof keyValueRow>[0] = {}
 ): TopologyUISchemas => ({
   replicaSet: {
     sections: {
@@ -43,11 +38,7 @@ const schemaWith = (
               label: 'Annotations',
               defaultValue: { [LONG_KEY]: 'true' },
             },
-            itemTemplate: {
-              uiType: WIDGET_UI_TYPE,
-              widgetType: TemplateWidgetType.KeyValue,
-              fieldParams,
-            },
+            itemTemplate: keyValueRow(row),
           },
         },
       },
@@ -163,7 +154,7 @@ describe('UIGenerator - a map value its input cuts off', () => {
   });
 
   it('never shows a masked value', () => {
-    renderMap(schemaWith({ value: { type: 'password' } }));
+    renderMap(schemaWith({ value: { fieldParams: { type: 'password' } } }));
 
     hover(screen.getByLabelText('Value 1'));
 
@@ -171,7 +162,11 @@ describe('UIGenerator - a map value its input cuts off', () => {
   });
 
   it('leaves the hover to a tooltip the schema sets', () => {
-    renderMap(schemaWith({ key: { tooltip: 'A DNS prefix, then a name' } }));
+    renderMap(
+      schemaWith({
+        key: { fieldParams: { tooltip: 'A DNS prefix, then a name' } },
+      })
+    );
 
     hover(screen.getByRole('textbox', { name: 'Key 1' }));
 
