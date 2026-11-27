@@ -173,6 +173,25 @@ describe('renderComponent - string values are shown correctly in preview', () =>
     expect(screen.getByText('Memory: 10 Gi')).toBeInTheDocument();
   });
 
+  it('shows an amount typed into a quantity field in the field unit', () => {
+    const disk: Component = {
+      uiType: FieldType.Quantity,
+      path: 'spec.storage.size',
+      fieldParams: { label: 'Disk', unit: 'Gi' },
+    };
+
+    // A typed value is held by the form as a string until it is submitted.
+    render(
+      <TestWrapper>
+        <>
+          {renderComponent('disk', disk, { spec: { storage: { size: '30' } } })}
+        </>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Disk: 30 Gi')).toBeInTheDocument();
+  });
+
   it('uses first path from multipath field for preview lookup', () => {
     const component: Component = {
       uiType: FieldType.Text,

@@ -139,6 +139,28 @@ export const formatQuantity = (
 };
 
 /**
+ * Display of a value held by the form. The form holds the amount in `unit`,
+ * and while the user types the input holds it as a string: `"30"` in a `Gi`
+ * field is 30 Gi, where a stored `"30"` would be 30 bytes.
+ */
+export const formatFormQuantity = (
+  formValue: unknown,
+  unit?: kubernetesUnit,
+  unitLabel?: string
+): string | undefined => {
+  const typedAmount =
+    typeof formValue === 'string' && formValue.trim() !== ''
+      ? Number(formValue)
+      : NaN;
+
+  return formatQuantity(
+    Number.isFinite(typedAmount) ? typedAmount : formValue,
+    unit,
+    unitLabel
+  );
+};
+
+/**
  * True when the form number represents the same quantity as the stored API value,
  * so an untouched field can be written back as stored (e.g. `"10240Mi"` stays).
  */
