@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"maps"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -79,47 +80,48 @@ func newRSAKeyPair() ([]byte, []byte, error) {
 	return encodeRSAPublicKey(publicKey), encodeRSAPrivateKey(privateKey), nil
 }
 
+// NewJWTSecret returns the everest-jwt Secret for namespace, holding a new
+// key pair the API server signs its tokens with.
+func NewJWTSecret(namespace string) (*corev1.Secret, error) {
+	publicKey, privateKey, err := newRSAKeyPair()
+	if err != nil {
+		return nil, err
+	}
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.EverestJWTSecretName,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			publicKeyFile:  publicKey,
+			privateKeyFile: privateKey,
+		},
+	}, nil
+}
+
 // CreateRSAKeyPair creates a new RSA key pair and stores it in a secret.
 func (k *Kubernetes) CreateRSAKeyPair(ctx context.Context) error {
-	// Create a new key pair.
-	publicKey, privateKey, err := newRSAKeyPair()
+	fresh, err := NewJWTSecret(k.Namespace())
 	if err != nil {
 		return err
 	}
 
-	// Check if the secret exists?
-	exists := false
 	secret, err := k.GetSecret(ctx, types.NamespacedName{Namespace: k.Namespace(), Name: common.EverestJWTSecretName})
-	if err == nil {
-		exists = true
-	} else if !k8serrors.IsNotFound(err) {
-		return err
-	}
-
-	// Create secret if it doesn't exists.
-	if !exists {
-		secret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      common.EverestJWTSecretName,
-				Namespace: k.Namespace(),
-			},
-			Data: map[string][]byte{
-				publicKeyFile:  publicKey,
-				privateKeyFile: privateKey,
-			},
-		}
-		if _, err := k.CreateSecret(ctx, secret); err != nil {
+	switch {
+	case k8serrors.IsNotFound(err):
+		if _, err := k.CreateSecret(ctx, fresh); err != nil {
 			return err
 		}
-		// Restart the deployment to pick up the new secret.
-		return k.RestartDeployment(ctx, types.NamespacedName{Namespace: k.Namespace(), Name: common.PerconaEverestDeploymentName})
-	}
-
-	// Otherwise, update the secret.
-	secret.Data[publicKeyFile] = publicKey
-	secret.Data[privateKeyFile] = privateKey
-	if _, err := k.UpdateSecret(ctx, secret); err != nil {
+	case err != nil:
 		return err
+	default:
+		if secret.Data == nil {
+			secret.Data = make(map[string][]byte)
+		}
+		maps.Copy(secret.Data, fresh.Data)
+		if _, err := k.UpdateSecret(ctx, secret); err != nil {
+			return err
+		}
 	}
 	// Restart the deployment to pick up the new secret.
 	return k.RestartDeployment(ctx, types.NamespacedName{Namespace: k.Namespace(), Name: common.PerconaEverestDeploymentName})

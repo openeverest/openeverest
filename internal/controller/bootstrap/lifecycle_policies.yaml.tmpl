@@ -1,0 +1,77 @@
+# The admission policies on lifecycle provenance, rendered for the namespace
+# OpenEverest runs in: they name its API server's and controller's
+# ServiceAccounts. Keep in sync with
+# templates/everest-controller/admission-policies.yaml in the helm-charts
+# repo, which renders the same policies for Helm installs.
+#
+# Only Everest's API and controller may write lifecycle-labeled Events. Other
+# Kubernetes Events remain unaffected.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: lifecycle-event-authoring.openeverest.io
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["events.k8s.io"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["events"]
+  validations:
+  - expression: >-
+      !object.metadata.?labels[?'openeverest.io/lifecycle-event'].hasValue() ||
+      request.userInfo.username in [
+        "system:serviceaccount:{{ .Namespace }}:everest-admin",
+        "system:serviceaccount:{{ .Namespace }}:everest-controller-manager"
+      ]
+    message: only Everest services may write lifecycle events
+    reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: lifecycle-event-authoring.openeverest.io
+spec:
+  policyName: lifecycle-event-authoring.openeverest.io
+  validationActions: ["Deny"]
+---
+# Actor annotations are API-authored provenance. Preserve them on unrelated
+# writes, but do not allow clients to add or change them.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: lifecycle-actor-authoring.openeverest.io
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["core.openeverest.io"]
+      apiVersions: ["*"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["instances"]
+    - apiGroups: ["backup.openeverest.io"]
+      apiVersions: ["*"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["backups", "backupimports", "restores"]
+    - apiGroups: ["monitoring.openeverest.io"]
+      apiVersions: ["*"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["monitoringdestinations"]
+  validations:
+  - expression: >-
+      (object.metadata.?annotations[?'openeverest.io/last-actor-type'].orValue('') ==
+       oldObject.?metadata.?annotations[?'openeverest.io/last-actor-type'].orValue('') &&
+       object.metadata.?annotations[?'openeverest.io/last-actor-id'].orValue('') ==
+       oldObject.?metadata.?annotations[?'openeverest.io/last-actor-id'].orValue('')) ||
+      request.userInfo.username == "system:serviceaccount:{{ .Namespace }}:everest-admin"
+    message: only the Everest API may set or change actor annotations
+    reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: lifecycle-actor-authoring.openeverest.io
+spec:
+  policyName: lifecycle-actor-authoring.openeverest.io
+  validationActions: ["Deny"]

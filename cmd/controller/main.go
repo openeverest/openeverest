@@ -301,6 +301,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := setupBootstrap(mgr); err != nil {
+		setupLog.Error(err, "Failed to set up bootstrap")
+		os.Exit(1)
+	}
+
 	enableWebhooks := os.Getenv("ENABLE_WEBHOOKS") != "false"
 	if enableWebhooks {
 		if err := webhookbackupv1alpha1.SetupBackupWebhookWithManager(mgr); err != nil {
