@@ -18,6 +18,7 @@ import {
   GroupType,
   Section,
 } from 'components/ui-generator/ui-generator.types';
+import { keyValueRow } from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import { setByPath } from '../object-path';
 import { Messages } from '../openapi-constraints/openapi-constraints.messages';
 import { getToggleableMeta } from '../toggleable/toggleable';
@@ -239,6 +240,57 @@ describe('section form edit', () => {
 
     expect('fieldParams' in region && region.fieldParams).toMatchObject({
       disabled: true,
+    });
+  });
+});
+
+describe('section form with a map field', () => {
+  const mapSection: Section = {
+    components: {
+      labels: {
+        uiType: FieldType.Map,
+        path: 'parameters.podMonitorLabels',
+        fieldParams: { label: 'PodMonitor labels' },
+        itemTemplate: keyValueRow(),
+      },
+    },
+  };
+  const form = toSectionForm(SECTION_KEY, mapSection, {
+    formMode: FormMode.Edit,
+  });
+  const saved = {
+    parameters: {
+      podMonitorLabels: { release: 'prometheus', infra: '' },
+      // Not in the schema: an edit must not drop it.
+      scrapeTimeout: '10s',
+    },
+  };
+
+  it('reads a saved map as rows and sends it back unchanged', () => {
+    const values = getSectionFormValues(form, saved);
+
+    expect(values).toEqual({
+      parameters: {
+        podMonitorLabels: [
+          { key: 'release', value: 'prometheus' },
+          { key: 'infra', value: '' },
+        ],
+      },
+    });
+    expect(getSectionFormUpdate(form, values, saved)).toEqual(saved);
+  });
+
+  it('removes an entry whose row was removed, and the map with its last one', () => {
+    const oneRow = {
+      parameters: { podMonitorLabels: [{ key: 'infra', value: '' }] },
+    };
+    const noRows = { parameters: { podMonitorLabels: [] } };
+
+    expect(getSectionFormUpdate(form, oneRow, saved)).toEqual({
+      parameters: { podMonitorLabels: { infra: '' }, scrapeTimeout: '10s' },
+    });
+    expect(getSectionFormUpdate(form, noRows, saved)).toEqual({
+      parameters: { scrapeTimeout: '10s' },
     });
   });
 });

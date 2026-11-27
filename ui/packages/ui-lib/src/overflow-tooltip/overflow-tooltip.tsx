@@ -21,9 +21,14 @@ const isOverflowing = (el: HTMLElement | null) =>
 
 export const OverflowTooltip = ({
   measureRef,
+  title,
   ...tooltipProps
 }: OverflowTooltipProps) => {
   const [open, setOpen] = useState(false);
+
+  // MUI hides a tooltip whose title was emptied but reports no close for it,
+  // so without this the next title would show with nothing hovered.
+  if (open && !title) setOpen(false);
 
   // Measured on open rather than on render so the result reflects the
   // current width, e.g. after a drawer finished expanding.
@@ -32,6 +37,7 @@ export const OverflowTooltip = ({
   return (
     <Tooltip
       {...tooltipProps}
+      title={title}
       open={open}
       onOpen={handleOpen}
       onClose={() => setOpen(false)}

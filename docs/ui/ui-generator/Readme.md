@@ -17,6 +17,7 @@
   - [FieldParams-level modes](#fieldparams-level-modes)
   - [Validation-level modes](#validation-level-modes)
 - Field Types
+  - [Map Field](components/map-field.md) (Tech Preview)
   - [Number Field](components/number-field.md)
   - [Quantity Field](components/quantity-field.md)
   - [Secret Field](components/secret-field.md)
@@ -130,6 +131,10 @@ basicInfo:
 
 - **Key**: A unique identifier for the component (used for internal references)
 - **Value**: Either a single field or a group of nested fields or groups.
+
+Keys starting with `_` (e.g. `_row`, `_toggleable`) are reserved for the engine, which derives
+them while reading the schema. A component that sets one has it ignored, and
+`provider-sdk generate` rejects the schema (rule `reserved-key`).
 
 ### Component vs ComponentGroup
 
@@ -303,7 +308,8 @@ Settings shows a destination's address only when the `destination` form writes `
 
 No absolute paths and no array segments (`[]`): an empty `[]` has no index to bind to, and
 an absolute path hard-codes the resource shape so the section can't be reused elsewhere.
-Array binding is not supported yet — see [Known Limitations](known-limitations.md).
+To edit a map, use a [map field](components/map-field.md); binding into an array is not
+supported yet — see [Known Limitations](known-limitations.md#maps-and-lists).
 
 ### Components Order
 

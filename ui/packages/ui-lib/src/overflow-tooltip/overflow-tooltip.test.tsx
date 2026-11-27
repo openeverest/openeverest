@@ -19,11 +19,11 @@ import { OverflowTooltip } from './overflow-tooltip';
 const CLIENT_WIDTH = 100;
 let scrollWidth = CLIENT_WIDTH;
 
-const Row = ({ text }: { text: string }) => {
+const Row = ({ text, title = text }: { text: string; title?: string }) => {
   const labelRef = useRef<HTMLSpanElement>(null);
 
   return (
-    <OverflowTooltip title={text} measureRef={labelRef}>
+    <OverflowTooltip title={title} measureRef={labelRef}>
       <a href="/plugin">
         <span ref={labelRef}>{text}</span>
       </a>
@@ -108,4 +108,20 @@ it('should show the full text when the anchor receives keyboard focus and the la
   expect(screen.getByRole('tooltip')).toHaveTextContent(
     'A very long plugin name'
   );
+});
+
+it('should stay closed when a title emptied while open is set again', () => {
+  scrollWidth = CLIENT_WIDTH + 50;
+  const { rerender } = render(<Row text="A very long plugin name" />);
+  const link = screen.getByRole('link');
+
+  fireEvent.mouseOver(link);
+  flushTooltipDelay();
+  rerender(<Row text="A very long plugin name" title="" />);
+  fireEvent.mouseLeave(link);
+  flushTooltipDelay();
+  rerender(<Row text="A very long plugin name" />);
+  flushTooltipDelay();
+
+  expect(screen.queryByRole('tooltip')).toBeNull();
 });

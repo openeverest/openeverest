@@ -20,6 +20,7 @@ import {
   GroupType,
   SelectFieldParams,
   TopologyUISchemas,
+  isMapComponent,
 } from '../../ui-generator.types';
 import { Provider } from 'shared-types/api.types';
 import { resolveSelectOptions } from '../../ui-component/utils/select-component-handler';
@@ -36,6 +37,27 @@ import {
 import { findUnguardedCelReferences } from '../toggleable/find-unguarded-cel-references';
 import { withWidgetTargets } from '../widget-targets';
 import { widgetTargetResolvers } from '../../widget-target-resolvers';
+import {
+  type IgnoredMapField,
+  lintMapFields,
+  resolveMapFields,
+  toMapRow,
+} from '../map-field';
+import { stripEngineKeys } from './strip-engine-keys';
+
+const describeIgnoredMap = ({
+  reason,
+  overlappingPath,
+}: IgnoredMapField): string => {
+  switch (reason) {
+    case 'overlap':
+      return `overlaps the path "${overlappingPath}" of another field, while a map must own its value alone`;
+    case 'multi-path':
+      return 'has several paths, while an edit reads only the first one';
+    default:
+      return 'has an itemTemplate this version does not support (only a group, in a line or stacked, of a text field with path "key" and a text field with path "value")';
+  }
+};
 
 const describeDegrade = (
   resolution: ToggleableResolution
@@ -138,6 +160,14 @@ const preprocessComponent = (
   }
   const normalizedComponent = withNormalizedPathMeta(component);
 
+  // Prepare the row a map's item template declares once here.
+  if (isMapComponent(normalizedComponent)) {
+    return {
+      ...normalizedComponent,
+      _row: toMapRow(normalizedComponent.itemTemplate),
+    };
+  }
+
   if (
     !!providerObject &&
     normalizedComponent.uiType === FieldType.Select &&
@@ -233,15 +263,37 @@ export const preprocessSchema = (
         return [topologyKey, topology];
       }
 
-      const withTargets = withWidgetTargets(topology.sections, (widget) =>
+      const { sections: declared, stripped } = stripEngineKeys(
+        topology.sections
+      );
+      const withTargets = withWidgetTargets(declared, (widget) =>
         widgetTargetResolvers[widget.widgetType]?.({
           providerObject,
           topology: topologyKey,
         })
       );
-      const scope = createToggleableScope(withTargets);
+      const { sections: withMaps, ignored } = resolveMapFields(withTargets);
+      if (import.meta.env.DEV) {
+        stripped.forEach(({ keyPath, key }) =>
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[UISchema] "${keyPath}" sets "${key}", a key reserved for the engine; it is ignored.`
+          )
+        );
+        ignored.forEach((field) =>
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[UISchema] Map field "${field.keyPath}" ${describeIgnoredMap(field)}; it is not rendered.`
+          )
+        );
+        lintMapFields(withMaps).forEach(({ keyPath, message }) =>
+          // eslint-disable-next-line no-console
+          console.warn(`[UISchema] Field "${keyPath}" ${message}.`)
+        );
+      }
+      const scope = createToggleableScope(withMaps);
       const sections = Object.fromEntries(
-        Object.entries(withTargets).map(([sectionKey, section]) => [
+        Object.entries(withMaps).map(([sectionKey, section]) => [
           sectionKey,
           {
             ...section,

@@ -20,6 +20,8 @@ import {
   FormMode,
   SelectFieldParams,
   TopologyUISchemas,
+  WIDGET_UI_TYPE,
+  WidgetType,
 } from '../../ui-generator.types';
 import { Provider } from 'shared-types/api.types';
 import { isSelectComponent } from '../../ui-component/utils/select-component-handler';
@@ -251,5 +253,37 @@ describe('preprocessSchema', () => {
       expect(defaultOf(versionPicker(), provider, FormMode.Edit)).toBe('8.0');
       expect(defaultOf(versionPicker(), provider, FormMode.Import)).toBe('8.0');
     });
+  });
+
+  it("drops the engine's keys a schema sets, which no stage would overwrite", () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          advanced: {
+            components: {
+              affinity: {
+                // No resolver sets this widget's targets, so the schema's
+                // would stand: the widget would write the Secret reference.
+                uiType: WIDGET_UI_TYPE,
+                widgetType: WidgetType.Affinity,
+                _widgetTargets: [{ key: 'engine', path: 'spec.secret' }],
+              },
+              url: {
+                uiType: FieldType.Text,
+                path: 'spec.monitoring.url',
+                fieldParams: { label: 'URL' },
+                _renderOverrides: { disabled: true },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const { affinity, url } =
+      preprocessSchema(schema).single.sections.advanced.components;
+
+    expect(affinity).not.toHaveProperty('_widgetTargets');
+    expect(url).not.toHaveProperty('_renderOverrides');
   });
 });

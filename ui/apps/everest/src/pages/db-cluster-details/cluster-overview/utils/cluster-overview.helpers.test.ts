@@ -13,15 +13,18 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 import { collectSectionFields } from './cluster-overview.helpers';
 import type {
   Component,
   ComponentGroup,
+  TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
 import {
   FieldType,
   GroupType,
 } from 'components/ui-generator/ui-generator.types';
+import { keyValueRow } from 'components/ui-generator/test-fixtures/key-value-row.fixture';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 
 const numberField = (
@@ -219,6 +222,80 @@ describe('collectSectionFields', () => {
           spec: { monitoring: { url: 'http://pmm' } },
         }).map(({ label, value }) => ({ label, value }))
       ).toEqual([{ label: 'URL', value: 'http://pmm' }]);
+    });
+  });
+
+  describe('values a read-only view must not show as typed', () => {
+    const { advanced } = preprocessSchema({
+      replicaSet: {
+        sections: {
+          advanced: {
+            components: {
+              tags: {
+                uiType: FieldType.Map,
+                path: 'spec.tags',
+                fieldParams: { label: 'Tags' },
+                itemTemplate: keyValueRow(),
+              },
+              env: {
+                uiType: FieldType.Map,
+                path: 'spec.env',
+                fieldParams: { label: 'Environment' },
+                itemTemplate: keyValueRow({
+                  value: { fieldParams: { type: 'password' } },
+                }),
+              },
+              token: {
+                uiType: FieldType.Text,
+                path: 'spec.token',
+                fieldParams: { label: 'Token', type: 'password' },
+              },
+            },
+          },
+        },
+      },
+    }).replicaSet.sections;
+
+    it('hands a map over as entry pairs, since a value may hold commas', () => {
+      const [tags] = collectSectionFields(advanced.components, {
+        spec: { tags: { 'aws-tags': 'Env=dev,Team=db', team: 'db' } },
+      });
+
+      expect(tags).toMatchObject({
+        value: '',
+        mapEntries: [
+          { key: 'aws-tags', value: 'Env=dev,Team=db' },
+          { key: 'team', value: 'db' },
+        ],
+      });
+    });
+
+    it('masks password values, in a text field or a map row', () => {
+      const [, env, token] = collectSectionFields(advanced.components, {
+        spec: { env: { API_KEY: 'secret' }, token: 's3cr3t' },
+      });
+
+      // The row is flagged, so the view offers no copy of the mask.
+      expect(env.mapEntries).toEqual([
+        { key: 'API_KEY', value: '***************', masked: true },
+      ]);
+      expect(token.value).toBe('***************');
+    });
+
+    it('shows a field the schema gives no fieldParams', () => {
+      const schema: TopologyUISchemas = parse(`
+        replicaSet:
+          sections:
+            advanced:
+              components:
+                region: { uiType: text, path: spec.region }
+      `);
+
+      expect(
+        collectSectionFields(schema.replicaSet.sections.advanced.components, {
+          spec: { region: 'eu' },
+        }).map(({ label, value }) => ({ label, value }))
+      ).toEqual([{ label: 'region', value: 'eu' }]);
     });
   });
 });

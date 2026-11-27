@@ -108,10 +108,12 @@ const SectionEditModal = ({
     setSubmitting(true);
 
     const updatedInstance = deepClone(instance) as Instance;
+    // Written with the sections the form was read and rendered with: a field
+    // this mode hides isn't in the form, so it must not be rewritten.
     updatedInstance.spec = mergeSectionEdit({
       spec: updatedInstance.spec as unknown as Record<string, unknown>,
       formData,
-      sections,
+      sections: editSections,
       sectionKey,
       topology: instance?.spec?.topology?.type,
     }) as Instance['spec'];

@@ -39,9 +39,20 @@ func testSpec() *corev1alpha1.ProviderSpec {
 			},
 		}
 	}
+	engineSchema := stringSchema("configuration")
+	engineSchema.OpenAPIV3Schema.Properties["labels"] = apiextensionsv1.JSONSchemaProps{
+		Type: "object",
+		AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
+			Schema: &apiextensionsv1.JSONSchemaProps{Type: "string"},
+		},
+	}
+	engineSchema.OpenAPIV3Schema.Properties["tuning"] = apiextensionsv1.JSONSchemaProps{
+		Type:       "object",
+		Properties: map[string]apiextensionsv1.JSONSchemaProps{"level": {Type: "string"}},
+	}
 	return &corev1alpha1.ProviderSpec{
 		Components: map[string]corev1alpha1.Component{
-			"engine":     {Type: "db", ParametersSchema: stringSchema("configuration")},
+			"engine":     {Type: "db", ParametersSchema: engineSchema},
 			"monitoring": {Type: "pmm"},
 		},
 		Topologies: map[string]corev1alpha1.Topology{
@@ -77,6 +88,18 @@ func TestCollectPaths(t *testing.T) {
 				},
 			},
 		},
+		"annotations": map[string]any{
+			"uiType": "map",
+			"path":   "spec.components.engine.service.annotations",
+			// The row's fields write inside the row, not to the Instance.
+			"itemTemplate": map[string]any{
+				"uiType": "group",
+				"components": map[string]any{
+					"key":   map[string]any{"uiType": "text", "path": "key"},
+					"value": map[string]any{"uiType": "text", "path": "value"},
+				},
+			},
+		},
 		// Addresses the options payload, not an Instance field.
 		"labelPath": "name",
 	}, &paths)
@@ -84,6 +107,7 @@ func TestCollectPaths(t *testing.T) {
 	assert.ElementsMatch(t, []string{
 		"spec.components.engine.resources.limits.cpu",
 		"spec.components.engine.replicas",
+		"spec.components.engine.service.annotations",
 	}, paths)
 }
 
@@ -99,6 +123,8 @@ func TestResolveLeaf(t *testing.T) {
 		"quantity":                        {"spec.components.engine.storage.size", leafQuantity},
 		"quantity behind a resource name": {"spec.components.engine.resources.limits.cpu", leafQuantity},
 		"declared parameters schema":      {"spec.components.engine.parameters.configuration", leafString},
+		"string map on the instance":      {"spec.components.engine.service.annotations", leafStringMap},
+		"string map in a declared schema": {"spec.components.engine.parameters.labels", leafStringMap},
 	}
 
 	for name, tt := range tests {
@@ -130,6 +156,14 @@ func TestResolveLeafErrors(t *testing.T) {
 		"component with no declared schema": {
 			"spec.components.monitoring.parameters.monitoringConfigName",
 			`no parametersSchema declared for "components.monitoring.parameters"`,
+		},
+		"map of something other than strings": {
+			"spec.components",
+			"cannot generate a value for map",
+		},
+		"object with fixed properties in the declared schema": {
+			"spec.components.engine.parameters.tuning",
+			`cannot generate a value for schema type "object"`,
 		},
 	}
 
@@ -254,6 +288,58 @@ func TestProbeBoolComparesRendersRatherThanSearchingForTrue(t *testing.T) {
 			got := probeBool(
 				Config{Provider: &boolProbeProvider{readsBackupEnabled: tt.reads}},
 				testSpec(), "simple", "spec.backup.enabled",
+			)
+			assert.Equal(t, tt.want, got.outcome, got.detail)
+		})
+	}
+}
+
+// annotationsProvider hands the engine's Service annotations to what it
+// applies, the way a provider passes them on to its operator.
+type annotationsProvider struct {
+	readsAnnotations bool
+}
+
+func (p *annotationsProvider) Name() string                       { return "annotations-probe" }
+func (p *annotationsProvider) Types() func(*runtime.Scheme) error { return nil }
+func (p *annotationsProvider) Cleanup(*controller.Context) error  { return nil }
+
+func (p *annotationsProvider) Validate(controller.ValidationInput) controller.ValidationResult {
+	return controller.ValidationResult{}
+}
+
+func (p *annotationsProvider) Status(*controller.Context) (controller.Status, error) {
+	return controller.Status{}, nil
+}
+
+func (p *annotationsProvider) Sync(c *controller.Context) error {
+	data := make(map[string]string)
+	if service := c.Instance().Spec.Components["engine"].Service; p.readsAnnotations && service != nil {
+		data = service.Annotations
+	}
+	return c.Apply(&corev1.ConfigMap{ObjectMeta: c.ObjectMeta("probe"), Data: data})
+}
+
+// A `map` UI field binds one path to a whole map of strings, so the probe sets
+// a map there rather than giving up on a value it cannot address.
+func TestProbePathSetsAStringMapWhole(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		reads bool
+		want  outcome
+	}{
+		"a provider that passes the entries on": {true, reconciled},
+		"a provider that drops them":            {false, ignored},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := probePath(
+				Config{Provider: &annotationsProvider{readsAnnotations: tt.reads}},
+				testSpec(), "simple", "spec.components.engine.service.annotations",
 			)
 			assert.Equal(t, tt.want, got.outcome, got.detail)
 		})

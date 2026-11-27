@@ -49,7 +49,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  CMP["Component"] --> UT["uiType<br/>(number, quantity, select, text, toggle, secret, hidden)"]
+  CMP["Component"] --> UT["uiType<br/>(number, quantity, select, text, toggle, secret, map, hidden)"]
   CMP --> PID{"path | id"}
   CMP --> TP2["techPreview? 🛠️"]
   CMP --> DS2["dataSource?"]
@@ -66,6 +66,41 @@ flowchart TD
 - **`path` | `id`** — `path` (`string` | `string[]`) writes to the API; an array is a multi-path (`[0]` is the source, all entries are targets). `id` has no API binding and is used only for validation / CEL.
 - **`dataSource.provider`** — a key in the open runtime registry (`register()`), not a closed enum.
 - **`modes?`** — `{ [FormMode]: { uiType? } }`; the create wizard runs in `import` when it creates a database from an imported backup.
+
+## Level 2 — Map (repeatable leaf, Tech Preview)
+
+```mermaid
+flowchart TD
+  M["Map"] --> MU["uiType: map"]
+  M --> MP["path<br/>(one)"]
+  M --> MI["itemTemplate"]
+  MI --> MIU["uiType: group<br/>groupType: line | none"]
+  MI --> MIC["components"]
+  MIC --> MIK["text field, path: key"]
+  MIC --> MIVA["text field, path: value"]
+  M --> MR["_row<br/>(set by preprocess)"]
+```
+
+- **The data shape is the `uiType`** — `map` writes `{ key: value }`; `list` is planned in
+  [#1959](https://github.com/openeverest/openeverest/issues/1959).
+- **One field, one `path`** — the map writes its whole value to `path`; paths inside a row are the
+  row's own (`key`, `value`), never schema paths. A map with several paths is dropped: an edit reads
+  only the first.
+- **`itemTemplate`** describes one row, written as a group like anywhere else: a mini-section
+  whose fields' paths are relative to the row. The container decides what is written: `map` takes
+  rows of a field at `key` and a field at `value` and writes an object. Today both are text fields,
+  in a `line` group or stacked; a typed value, more fields and nested groups are planned (🛠️). The
+  fields are told apart by `path`, so their names are the schema's own. Preprocess prepares the row
+  into `_row`, and it renders through the UI Generator, so a text field's params and rules apply,
+  transforms included, but for `defaultValue`, badges, CEL and `dataSource`, which the row drops.
+- **Ignored options are reported**: what a rendered map can't use (`regex` / CEL on the map, CEL,
+  a `dataSource` or a default / badge on a row's field, a `defaultValue` that isn't a map of strings, limits no
+  map meets) is ignored at runtime with a dev warning (`lintMapFields`), and the Go validator
+  reports `map-ignored-option` / `map-invalid-default` / `map-invalid-limits`.
+- **Unique keys** are implied by the map and can't be switched off.
+- **Other shapes are ignored**: preprocess drops a map whose item template it doesn't implement,
+  with several paths, or that doesn't own its path, like an unknown `uiType`; the Go validator
+  reports `map-unsupported` / `map-multi-path` / `map-overlap`.
 
 ## Level 2 — Widget (host-rendered leaf)
 
@@ -161,6 +196,10 @@ classDiagram
   class HiddenFieldParams {
     <<CommonFieldParams>>
   }
+  class MapFieldParams {
+    addButtonLabel?
+    defaultValue? map
+  }
   CommonFieldParams <|-- NumberFieldParams
   CommonFieldParams <|-- QuantityFieldParams
   CommonFieldParams <|-- TextFieldParams
@@ -168,6 +207,7 @@ classDiagram
   CommonFieldParams <|-- ToggleFieldParams
   CommonFieldParams <|-- SecretFieldParams
   CommonFieldParams <|-- HiddenFieldParams
+  CommonFieldParams <|-- MapFieldParams
   TextFieldParams --> TextType : type
   SelectFieldParams <|-- SelectStaticOptions
   SelectFieldParams <|-- SelectDynamicOptions
@@ -221,12 +261,21 @@ classDiagram
   class HiddenValidation {
     <<CommonValidation>>
   }
+  class MapValidation {
+    required?
+    min?
+    max?
+    modes?
+    regex? never
+    celExpressions? never
+  }
   CommonValidation <|-- NumberValidation
   NumberValidation <|-- QuantityValidation
   CommonValidation <|-- TextValidation
   CommonValidation <|-- SelectValidation
   CommonValidation <|-- ToggleValidation
   CommonValidation <|-- HiddenValidation
+  CommonValidation <|-- MapValidation
 ```
 
 - **modes (mode-aware)** — `{ [FormMode]: <same rules> + inheritShared? }`.
@@ -234,6 +283,17 @@ classDiagram
 - **`select` / `hidden`** — common rules only.
 - **`secret`** — `text` rules; the value is the Secret's name.
 - **`quantity`** — same numeric rules as `number`; bounds and CEL see the number in `unit`.
+- **`map`** — rules on the count of filled rows; `required` means at least one. A count issue
+  sits at the map's `root`, beside its rows' issues. CEL waits for `self` support. The limits
+  are `min` / `max`, the names `text` and `number` use for their own size; OpenAPI's
+  `minProperties` / `maxProperties` stay in the API schema.
+
+## Reserved Keys
+
+A key starting with `_` on a component is the engine's: preprocess derives `_normalized`, `_row`,
+`_toggleable` and `_widgetTargets`, and `MapField` sets `_renderOverrides` on the row fields it
+renders. `stripEngineKeys` drops any such key a schema sets before anything reads it, and the Go
+validator reports it (`reserved-key`).
 
 ## Cross-Cutting Concepts
 
@@ -257,4 +317,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-13
+- Last updated: 2026-11-27

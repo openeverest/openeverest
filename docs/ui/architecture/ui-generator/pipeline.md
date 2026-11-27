@@ -23,6 +23,12 @@ flowchart TD
 **Input:** raw `TopologyUISchemas` + `Provider` object. **Output:** normalized sections.
 
 - **`preprocessSchema(schema, provider, formMode?)`** — for each component:
+  - **`stripEngineKeys`** (`strip-engine-keys.ts`) — runs before anything reads the schema and
+    drops (dev warning) every key starting with `_` from a component, a map's `itemTemplate` and
+    its fields included: those are the engine's own
+    (`_normalized`, `_row`, `_toggleable`, `_widgetTargets`, `_renderOverrides`), and a later stage
+    would take a schema-set one for the engine's, e.g. a widget's `_widgetTargets`, which no
+    resolver overwrites when the widget has none.
   - **`withNormalizedPathMeta`** → `_normalized.sourcePath` / `targetPaths` (parses `path` — a string
     or an array for multi-path). This is the only place paths are parsed.
   - **`resolveSelectOptions`** — `optionsPath` → static `options[]` (reads the array from the Provider
@@ -33,6 +39,22 @@ flowchart TD
   - **`dataSource` validation** — for a component with `dataSource: { provider }`, warns (dev-time) if
     the provider is not registered. Options are not resolved here — they are loaded at runtime by
     `DataSourceField` and prefetched by `DataSourcePrefetcher`.
+  - **`resolveMapFields`** (`utils/map-field/resolve-map-fields.ts`) — runs first, over the whole
+    topology, and drops (dev warning) a `map` field whose item template `isMapComponent` doesn't
+    accept, one with several paths (an edit reads only the first), or one whose path another field
+    writes, sits in or writes inside: a map writes its whole value. A dropped field is ignored like
+    an unknown `uiType` — not rendered or sent, and an edit keeps its saved value — so the
+    toggleable rules below don't see it.
+  - **`lintMapFields`** (`utils/map-field/lint-map-fields.ts`) — warns (dev-time) about what a
+    rendered map field ignores or can't use: `regex` / CEL on the map, CEL, a `dataSource` or a
+    default / badge on a row's field, a `defaultValue` that isn't a map of strings (`getSchemaDefault` ignores it),
+    limits no map meets.
+  - **`toMapRow`** (`utils/map-field/map-row.ts`) — prepares a map's row from its `itemTemplate`
+    into `_row`: the group as the schema writes it, each field named `Key` or `Value` until the
+    schema says otherwise, minus what a row can't act on yet (`defaultValue`, `badge`,
+    `badgeToApi`, `celExpressions`, `dataSource`, component-level `modes`). A row field is the key or the value by its
+    `path` (`getRowFieldRole`), not by its name. `applyModeOverrides` reaches into `_row` too. A
+    form that skips preprocess gets the same row from `getMapRow`.
   - **`resolveToggleable`** (`utils/toggleable/toggleable.ts`) — sets
     `_toggleable: { switchName, childPaths }` on a `toggleable` group. The switch is
     named after the group's key path (`toggleable-switches.advanced~monitoring`), so form modes
@@ -42,8 +64,10 @@ flowchart TD
   - **`findUnguardedCelReferences`** (`utils/toggleable/find-unguarded-cel-references.ts`) —
     warns (dev-time) when a CEL rule outside a working toggleable reads one of its paths without
     `has()` on that exact path: while the group is off the path is absent and the rule fails.
-  - The Go validator `provider-runtime/uischema` applies the same toggleable rules to provider schemas;
-    `provider-runtime/uischema/testdata/toggleable.yaml` is the case set both are tested against.
+  - The Go validator `provider-runtime/uischema` applies the same map, toggleable, lint and
+    reserved-key rules to provider schemas, and `provider-sdk generate` rejects a schema that breaks one. Every file in
+    `provider-runtime/uischema/testdata/` is a case set both are tested against
+    (`utils/preprocess/preprocess-shared-cases.test.ts` here), so a rule changes on both sides.
 - **`applyModeOverrides(sections, formMode)`** (`apply-mode-overrides.ts`) — applies `modes` overrides
   for the current `FormMode`. `preprocessSchema` runs it last when given a `formMode`: the create
   wizard (`useSchema`) passes its mode, so defaults, validation, render and postprocess all see the
@@ -67,6 +91,13 @@ flowchart TD
   - **`buildShapeFromComponents`** — `ZOD_SCHEMA_MAP[uiType]` (base zod type) +
     `applyValidationFromSchema` (min/max/regex/required/…) + CEL expression collection. A field
     without `validation` is optional, like a validated field without `required: true`.
+    A `map` field gets `buildMapFieldSchema` (`utils/map-field/`) even without `validation`: it
+    validates the rows the form keeps against the row's own fields (their shape built by this same
+    `buildShapeFromComponents`), plus a unique key, a key in every filled row, and `required` /
+    `min` / `max` on filled rows. Empty rows pass. A count issue goes to the map's
+    `root`, where RHF keeps an array's own error, so it sits beside the rows' issues instead of
+    replacing them. Its output is each filled row as its fields parse it (e.g. a trimmed key), and
+    duplicates are found on that key.
   - **`convertToNestedSchema`** — flat fields → nested `z.object`. A parent object is optional when
     all of its fields are, so edit mode accepts an instance that lacks it (e.g. no
     `spec.components.engine.parameters` when Engine configuration is unset).
@@ -87,6 +118,11 @@ flowchart TD
 
 - Collects initial values from `fieldParams.defaultValue` (create). A `secret` field never takes
   one: a Secret is namespaced, while the schema is cluster-wide (`getSchemaDefault`).
+- **Map fields** keep rows (`[{ key, value }]`) in the form, while the schema's `defaultValue`
+  and the instance hold the API shape (a map). `getSchemaDefault` and `extractInstanceValues`
+  convert it with `objectToRows` (`utils/map-field/`); `writeMapFieldsInApiShape` converts
+  back in postprocess. Zod transforms can't do it: the create wizard runs the generated schema in
+  a `superRefine`, so its output never reaches submit.
 - **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` drops the previous
   topology's values with `dropOtherTopologyValues` (`utils/topology-scope/`), then merges the new
   topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
@@ -116,6 +152,13 @@ flowchart TD
 - **`renderComponent({ item, name, root })`** — recursive traversal:
   - `group` / `hidden` → recurse into nested `components`;
   - leaf → `generateFieldId(item, name)` joined with `root` (form field name) →
+    - `secret` → `SecretField`; `map` → `MapField`: `useFieldArray` rows, each rendered by
+      `renderComponent` from the row group under `root` `<path>.<index>` (so row fields are
+      ordinary fields; `_renderOverrides` names them `Key 2` etc. and has a value its input cuts
+      off shown on hover, see `TruncatedValueTooltip`), with add / remove buttons, the
+      map's own error (`root`), and re-validation of the whole map (`useRevalidateMap`) when a key
+      changes or a row fills or empties, since a duplicate, the count and a value without a key
+      span rows;
     - has `dataSource` → `<ComponentErrorBoundary><DataSourceField><UIComponent/></DataSourceField></ComponentErrorBoundary>`
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.
@@ -195,6 +238,10 @@ Read-only and disabled fields keep their value.
     topologies' paths, walking all sections regardless of `sectionsOrder` (leftovers from a topology
     switch, e.g. `spec.components.mixCoord` after switching Milvus cluster → standalone). Paths shared with the selected topology, or nested under/over one of its paths, are
     kept; values no topology binds (`dbName`, `backup`, …) are untouched.
+  - **`writeMapFieldsInApiShape`** — a `map` field's rows → its map at the source path;
+    empty rows are dropped, and no filled row leaves the path unset. Runs before multi-path, so
+    targets get the map. A value that isn't rows, like a saved map a form loaded as it is, is left
+    untouched.
   - **`extractMultiPathMappings` / `applyMultiPathMappings`** — one value → all `targetPaths`.
   - **`extractQuantityMappings` / `applyQuantitiesToFormData`** — number in `unit` → quantity
     string (`10` → `"10Gi"`). When `originalData` is set and the form number still equals the
@@ -203,7 +250,9 @@ Read-only and disabled fields keep their value.
     `quantity` fields (they use `unit`, not `badge` / `badgeToApi`).
   - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
     they are deleted together with the form-only `toggleable-switches` key.
-  - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`.
+  - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`, and the objects that leaves
+    empty. It doesn't look inside a map field's value (`getMapFieldTargetPaths`): there an empty
+    string is an entry, like a label with an empty value.
 
 **Principle:** the mapping source is the same `_normalized` computed in preprocess.
 
@@ -221,7 +270,7 @@ flowchart TD
   ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
-  SUBMIT --> MERGE["mergeSectionEdit:<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)"]
+  SUBMIT --> MERGE["mergeSectionEdit(editSections):<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)<br/>→ replace widget and map values whole"]
   MERGE --> UPDATE["useUpdateDbInstanceWithConflictRetry"]
 ```
 
@@ -235,7 +284,27 @@ CEL's `original` is built from the same read as the form (`extractInstanceValues
 
 The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
 `mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
-left empty.
+left empty. Widget and map values are written whole for the same reason: a map entry removed
+in the form would otherwise survive the merge. The merge gets the same mode-applied sections the
+form was read and rendered with: a field the edit mode hides isn't in the form, so it is neither
+replaced nor deleted.
+
+## Section forms
+
+A section rendered as a form of its own, outside a provider topology (today a monitoring class's
+destination, credentials and Instance entry forms), goes through the same stages via
+`utils/section-form/`:
+
+- **`toSectionForm(sectionKey, section, formMode)`** — wraps the section as a one-section topology
+  (`preprocessSection`) and keeps both shapes the stages take: `{ sectionKey, sections, schema }`.
+- **`getSectionFormDefaults`** — create defaults (`getDefaultValues`).
+- **`getSectionFormValues(form, saved)`** — edit values: saved values over the defaults, then the
+  fields the schema owns in the form's shape (`extractInstanceValues`, e.g. a map → rows).
+  Saved keys the schema doesn't own are kept, so a save doesn't drop them. The destination modal
+  reads with it; the Instance's monitoring entries editor still loads saved entries as they are
+  (see [Known Limitations](../../ui-generator/known-limitations.md#maps-and-lists)).
+- **`getSectionFormZodSchema`** — `buildSectionZodSchema` for the section.
+- **`postprocessSectionForm`** — `postprocessSchemaData` for the section.
 
 ## Section forms
 
@@ -360,6 +429,8 @@ components:
 | Section forms              | `utils/section-form/section-form.ts`                        |
 | Field overrides            | `utils/field-overrides/field-overrides.ts`                  |
 | OpenAPI constraints        | `utils/openapi-constraints/openapi-constraints.ts`          |
+| Map fields (rows ↔ map)    | `utils/map-field/`                                          |
+| Map field render           | `map-field/map-field.tsx`                                   |
 | Topology scope             | `utils/topology-scope/topology-scope.ts`                    |
 | Object path                | `utils/object-path/object-path.ts`                          |
 | API provider registry      | `api-providers/registry.ts`                                 |
@@ -374,4 +445,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-20
+- Last updated: 2026-11-27

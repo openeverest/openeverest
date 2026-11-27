@@ -13,7 +13,12 @@
 // limitations under the License.
 
 import { Stack } from '@mui/material';
-import { DatabaseIcon, EditIconButton, OverviewCard } from '@percona/ui-lib';
+import {
+  DatabaseIcon,
+  EditIconButton,
+  KeyValueSummary,
+  OverviewCard,
+} from '@percona/ui-lib';
 import type { SchemaDrivenCardProps } from './schema-driven-card.types';
 import { segmentCardFields } from './schema-driven-card.utils';
 import OverviewSectionRow from '../../overview-section-row';
@@ -73,13 +78,27 @@ const SchemaDrivenCard = ({
               dataTestId={index === 0 ? card.key : `${card.key}-${index}`}
               loading={loading}
             >
-              {segment.fields.map((field) => (
-                <OverviewSectionRow
-                  key={`${card.key}:${field.path}`}
-                  label={field.label}
-                  content={field.value}
-                />
-              ))}
+              {segment.fields.map((field) =>
+                field.mapEntries ? (
+                  <OverviewSectionRow
+                    key={`${card.key}:${field.path}`}
+                    label={field.label}
+                    content={
+                      <KeyValueSummary
+                        entries={field.mapEntries}
+                        label={field.label}
+                        dataTestId={`${card.key}-${field.path}`}
+                      />
+                    }
+                  />
+                ) : (
+                  <OverviewSectionRow
+                    key={`${card.key}:${field.path}`}
+                    label={field.label}
+                    content={field.value}
+                  />
+                )
+              )}
             </OverviewSection>
           ) : null
         )

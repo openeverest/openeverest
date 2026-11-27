@@ -15,10 +15,18 @@
 import {
   Component,
   FieldType,
+  isMapComponent,
 } from 'components/ui-generator/ui-generator.types';
+import { isStringMap, objectToRows } from '../map-field';
 
 // A Secret is namespaced, so a cluster-wide schema can't name a default one.
-export const getSchemaDefault = (component: Component): unknown =>
-  component.uiType === FieldType.Secret || !('fieldParams' in component)
-    ? undefined
-    : component.fieldParams?.defaultValue;
+// A map's default is written in the API shape; the form keeps rows. One that
+// isn't a map of strings is ignored rather than written back as text.
+export const getSchemaDefault = (component: Component): unknown => {
+  if (component.uiType === FieldType.Secret || !('fieldParams' in component)) {
+    return undefined;
+  }
+  const defaultValue = component.fieldParams?.defaultValue;
+  if (!isMapComponent(component)) return defaultValue;
+  return isStringMap(defaultValue) ? objectToRows(defaultValue) : undefined;
+};
