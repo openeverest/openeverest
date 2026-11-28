@@ -27,6 +27,7 @@ export const ModalContent = ({
   header,
   succeededBackups,
   pitrStorages,
+  isPitrHiddenByPermissions,
 }: ModalContentProps) => {
   const backupType: BackupTypeValues = useWatch({
     name: RestoreDbFields.backupType,
@@ -58,11 +59,15 @@ export const ModalContent = ({
             label: Messages.fromBackup,
             value: BackupTypeValues.fromBackup,
           },
-          {
-            label: Messages.fromPitr,
-            value: BackupTypeValues.fromPitr,
-            disabled: pitrStorages.length === 0,
-          },
+          ...(!isPitrHiddenByPermissions
+            ? [
+                {
+                  label: Messages.fromPitr,
+                  value: BackupTypeValues.fromPitr,
+                  disabled: pitrStorages.length === 0,
+                },
+              ]
+            : []),
         ]}
       />
 

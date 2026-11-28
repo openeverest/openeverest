@@ -23,6 +23,7 @@ import {
   useCreateInstanceRestore,
 } from 'hooks/api/restores/useInstanceRestores';
 import { useClusterName } from 'hooks/api/useClusterName';
+import { useRBACAllowedObjects } from 'hooks/rbac';
 import { BackupStatus } from 'shared-types/backups.types';
 import {
   defaultValues,
@@ -63,7 +64,7 @@ export const useRestoreDbModal = ({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { data: backups = [], isLoading } = useBackupsList(
+  const { data: backups = [], isLoading: isBackupsLoading } = useBackupsList(
     clusterName,
     namespace,
     instanceName,
@@ -74,19 +75,35 @@ export const useRestoreDbModal = ({
     enabled: !!instanceName,
   });
 
-  // PITR is offered — for both in-place restore and clone-to-new-DB — only once
-  // the source instance's provider has reported a restorable window in status;
-  // otherwise the option stays disabled.
-  const pitrStorages = useMemo<RestorePitrStorageOption[]>(
+  // PITR candidates come from instance status. The backend still authorizes
+  // backup-storages:read at restore time (#3310), so the UI must hide storages
+  // the caller cannot read before they submit (#3470).
+  const pitrCandidateStorages = useMemo(
     () =>
-      (instance?.status?.backup?.storages ?? [])
-        .filter((storage) => storage.pitr)
-        .map((storage) => ({
-          name: storage.name,
-          window: resolvePitrWindow(storage.pitr),
-        })),
+      (instance?.status?.backup?.storages ?? []).filter(
+        (storage) => storage.pitr
+      ),
     [instance]
   );
+  const { allowedObjects, isPermissionsLoading } = useRBACAllowedObjects(
+    'read',
+    'backup-storages',
+    pitrCandidateStorages.map((storage) => `${namespace}/${storage.name}`)
+  );
+
+  const pitrStorages = useMemo<RestorePitrStorageOption[]>(() => {
+    const readable = new Set(allowedObjects);
+    return pitrCandidateStorages
+      .filter((storage) => readable.has(`${namespace}/${storage.name}`))
+      .map((storage) => ({
+        name: storage.name,
+        window: resolvePitrWindow(storage.pitr),
+      }));
+  }, [allowedObjects, namespace, pitrCandidateStorages]);
+
+  // The instance has PITR, but every storage holding it is unreadable.
+  const isPitrHiddenByPermissions =
+    pitrCandidateStorages.length > 0 && pitrStorages.length === 0;
 
   const succeededBackups = useMemo<RestorableBackupOption[]>(
     () =>
@@ -158,7 +175,8 @@ export const useRestoreDbModal = ({
   };
 
   return {
-    isLoading,
+    isLoading: isBackupsLoading || isPermissionsLoading,
+    isPitrHiddenByPermissions,
     succeededBackups,
     pitrStorages,
     submitting,

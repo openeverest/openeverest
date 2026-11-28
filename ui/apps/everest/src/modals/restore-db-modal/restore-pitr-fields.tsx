@@ -43,10 +43,11 @@ export const RestorePitrFields = ({ pitrStorages }: RestorePitrFieldsProps) => {
   });
 
   const activeStorage = resolveActiveStorage(pitrStorages, selectedStorage);
+  const singleStorage = pitrStorages.length === 1;
 
   // Keep the form's storage selection in sync with the resolved active storage
   // so the submit payload always names a storage even when the selector is
-  // hidden (single-storage case).
+  // disabled (single-storage case).
   useEffect(() => {
     if (activeStorage && selectedStorage !== activeStorage.name) {
       setValue(RestoreDbFields.pitrStorage, activeStorage.name);
@@ -75,22 +76,23 @@ export const RestorePitrFields = ({ pitrStorages }: RestorePitrFieldsProps) => {
 
   return (
     <>
-      {pitrStorages.length > 1 && (
-        <SelectInput
-          label={Messages.selectStorage}
-          name={RestoreDbFields.pitrStorage}
-          selectFieldProps={{
-            labelId: 'restore-pitr-storage',
-            label: Messages.selectStorage,
-          }}
-        >
-          {pitrStorages.map((storage) => (
-            <MenuItem key={storage.name} value={storage.name}>
-              {storage.name}
-            </MenuItem>
-          ))}
-        </SelectInput>
-      )}
+      {/* Always show the field so a single readable storage is named; disable
+          when there is nothing to choose. */}
+      <SelectInput
+        label={Messages.selectStorage}
+        name={RestoreDbFields.pitrStorage}
+        selectFieldProps={{
+          labelId: 'restore-pitr-storage',
+          label: Messages.selectStorage,
+          disabled: singleStorage,
+        }}
+      >
+        {pitrStorages.map((storage) => (
+          <MenuItem key={storage.name} value={storage.name}>
+            {storage.name}
+          </MenuItem>
+        ))}
+      </SelectInput>
 
       <Alert
         sx={{ mt: 1.5, mb: 1.5 }}

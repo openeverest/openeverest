@@ -95,6 +95,46 @@ export const useRBACPermissions = (
   };
 };
 
+// Returns the subset of specificResources the caller is allowed to act on.
+// useRBACPermissions uses canAll and is unsuitable for filtering a list.
+export const useRBACAllowedObjects = (
+  action: RBACAction,
+  resource: RBACResource,
+  specificResources: string[]
+) => {
+  const [allowedObjects, setAllowedObjects] = useState<string[]>([]);
+  const cluster = useClusterName();
+  // Key on contents so a fresh array with the same items (e.g. instance refetch)
+  // does not re-run the permission check.
+  const specificResourcesKey = specificResources.join('\0');
+
+  const checkPermissions = useCallback(async () => {
+    const objects = specificResourcesKey
+      ? specificResourcesKey.split('\0')
+      : [];
+    if (objects.length === 0) {
+      setAllowedObjects([]);
+      return;
+    }
+
+    const allowed = (
+      await Promise.all(
+        objects.map(async (object) =>
+          (await can(action, resource, toRBACObject(resource, object, cluster)))
+            ? object
+            : null
+        )
+      )
+    ).filter((object): object is string => object !== null);
+
+    setAllowedObjects(allowed);
+  }, [action, cluster, resource, specificResourcesKey]);
+
+  const isPermissionsLoading = useAuthorizerCheck(checkPermissions);
+
+  return { allowedObjects, isPermissionsLoading };
+};
+
 // Actions beyond CRUD belong to one resource (e.g. instances:read-connection),
 // so they are checked on demand instead of in every useRBACPermissions call.
 export const useRBACAction = (
