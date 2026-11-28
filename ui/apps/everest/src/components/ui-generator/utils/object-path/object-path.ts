@@ -22,7 +22,7 @@
  *
  * React Hook Form splits field names on `.` and `[`, so schema/API paths are
  * converted to RHF-safe form ids via {@link toFormId} at the form boundary and
- * decoded back with {@link toApiPath} / key decoding at postprocess.
+ * converted back from registered paths during postprocessing.
  */
 
 // `-` is safe in dot notation (and React Hook Form names), so it stays unquoted.
@@ -30,8 +30,8 @@ const SIMPLE_SEGMENT = /^[A-Za-z0-9_-]+$/;
 
 /**
  * Splits a path into segments. Supports dot separators and bracket-quoted
- * segments (`['a.b']` / `["a.b"]` / `[0]`). Backslash escapes the quote and
- * backslash itself inside brackets.
+ * segments (`['a.b']` / `["a.b"]`). Backslash escapes the quote and backslash
+ * itself inside brackets. Unquoted bracket segments are unsupported.
  */
 export const parsePath = (path: string): string[] => {
   if (typeof path !== 'string' || path.length === 0) {
@@ -39,89 +39,99 @@ export const parsePath = (path: string): string[] => {
   }
 
   const parts: string[] = [];
-  let current = '';
   let i = 0;
 
-  const pushCurrent = (): void => {
-    if (current.length > 0) {
-      parts.push(current);
-      current = '';
-    }
+  const invalidPath = (position: number, reason: string): never => {
+    throw new Error(
+      `Invalid path "${path}" at position ${position}: ${reason}.`
+    );
   };
 
   while (i < path.length) {
     const char = path[i];
 
-    if (char === '.') {
-      pushCurrent();
-      i += 1;
-      continue;
-    }
-
     if (char === '[') {
-      pushCurrent();
+      const bracketPosition = i;
       i += 1;
-      // Skip whitespace inside brackets
       while (i < path.length && path[i] === ' ') i += 1;
-      if (i >= path.length) break;
 
       const quote = path[i];
-      if (quote === "'" || quote === '"') {
-        i += 1;
-        let segment = '';
-        let closed = false;
-        while (i < path.length) {
-          const c = path[i];
-          if (c === '\\' && i + 1 < path.length) {
-            const next = path[i + 1];
-            if (next === quote || next === '\\') {
-              segment += next;
-              i += 2;
-              continue;
-            }
-          }
-          if (c === quote) {
-            closed = true;
-            i += 1;
-            break;
-          }
-          segment += c;
-          i += 1;
-        }
-        if (closed) {
-          parts.push(segment);
-          // Skip to closing bracket
-          while (i < path.length && path[i] === ' ') i += 1;
-          if (path[i] === ']') i += 1;
-          // Skip an optional dot after the bracket
-          if (path[i] === '.') i += 1;
-          continue;
-        }
-        // Unclosed quote: treat the rest literally
-        current = `[${quote}${segment}`;
-        continue;
+      if (quote !== "'" && quote !== '"') {
+        invalidPath(i, 'bracket segments must contain a quoted key');
       }
 
-      // Unquoted bracket content (e.g. [0]): read until ']'
+      i += 1;
       let segment = '';
-      while (i < path.length && path[i] !== ']') {
-        segment += path[i];
+      let closedQuote = false;
+      while (i < path.length) {
+        const current = path[i];
+        if (current === '\\' && i + 1 < path.length) {
+          const next = path[i + 1];
+          if (next === quote || next === '\\') {
+            segment += next;
+            i += 2;
+            continue;
+          }
+        }
+        if (current === quote) {
+          closedQuote = true;
+          i += 1;
+          break;
+        }
+        segment += current;
         i += 1;
       }
-      if (path[i] === ']') i += 1;
-      const trimmed = segment.trim();
-      if (trimmed.length > 0) {
-        parts.push(trimmed);
+
+      if (!closedQuote) {
+        invalidPath(bracketPosition, 'unclosed quoted bracket key');
       }
-      if (path[i] === '.') i += 1;
+      if (segment.length === 0) {
+        invalidPath(bracketPosition, 'bracket key cannot be empty');
+      }
+
+      while (i < path.length && path[i] === ' ') i += 1;
+      if (path[i] !== ']') {
+        invalidPath(i, "expected ']' after quoted bracket key");
+      }
+      parts.push(segment);
+      i += 1;
+
+      if (i < path.length && path[i] !== '.' && path[i] !== '[') {
+        invalidPath(i, 'unexpected character after bracket expression');
+      }
+      if (path[i] === '.') {
+        i += 1;
+        if (i === path.length || path[i] === '.') {
+          invalidPath(i, 'expected a path segment after separator');
+        }
+      }
       continue;
     }
 
-    current += char;
-    i += 1;
+    if (char === '.') {
+      invalidPath(i, 'empty path segment');
+    }
+    if (char === ']') {
+      invalidPath(i, "unexpected ']' outside a bracket expression");
+    }
+
+    const segmentStart = i;
+    while (i < path.length && path[i] !== '.' && path[i] !== '[') {
+      if (path[i] === ']') {
+        invalidPath(i, "unexpected ']' outside a bracket expression");
+      }
+      i += 1;
+    }
+    parts.push(path.slice(segmentStart, i));
+
+    if (path[i] === '.') {
+      i += 1;
+      if (i === path.length || path[i] === '.') {
+        invalidPath(i, 'expected a path segment after separator');
+      }
+    }
   }
 
-  pushCurrent();
   return parts;
 };
 

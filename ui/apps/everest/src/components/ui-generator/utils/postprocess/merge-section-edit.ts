@@ -27,6 +27,21 @@ import { walkLeafComponents } from '../schema-walker';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
 import { getWidgetTargetPaths } from '../widget-targets';
 
+const collectRegisteredApiPaths = (
+  sections: Record<string, Section>
+): string[] => {
+  const paths = new Set<string>();
+  Object.values(sections).forEach(({ components }) => {
+    if (!components) return;
+    walkLeafComponents(components, ({ component }) => {
+      const sourcePath = getComponentSourcePath(component);
+      if (sourcePath) paths.add(sourcePath);
+      getWidgetTargetPaths(component).forEach((path) => paths.add(path));
+    });
+  });
+  return Array.from(paths);
+};
+
 const collectWidgetPaths = (section: Section | undefined): string[] => {
   const paths: string[] = [];
   if (!section?.components) return paths;
@@ -59,17 +74,15 @@ export const mergeSectionEdit = ({
   sectionKey,
   topology,
 }: MergeSectionEditParams): Record<string, unknown> => {
-  const processed = postprocessSchemaData(
-    formData,
-    topology
-      ? {
-          schema: { [topology]: { sections } },
-          selectedTopology: topology,
-          // Align with form paths (`spec.*`): keep stored quantities untouched.
-          originalData: { spec },
-        }
-      : undefined
-  );
+  const postprocessOptions = topology
+    ? {
+        schema: { [topology]: { sections } },
+        selectedTopology: topology,
+        // Align with form paths (`spec.*`): keep stored quantities untouched.
+        originalData: { spec },
+      }
+    : { registeredApiPaths: collectRegisteredApiPaths(sections) };
+  const processed = postprocessSchemaData(formData, postprocessOptions);
   const updates = processed.spec;
   const root: Record<string, unknown> = {
     spec: isPlainObject(updates)

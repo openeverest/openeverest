@@ -17,14 +17,18 @@ import {
   ComponentGroup,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
-import { generateFieldId } from '../component-renderer/generate-field-id';
+import {
+  generateFieldId,
+  getGeneratedNameSegments,
+  type GeneratedName,
+} from '../component-renderer/generate-field-id';
 import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
 import { getToggleableMeta } from '../toggleable/toggleable';
 import { getSchemaDefault } from './get-schema-default';
 
 export const buildDefaultsFromComponents = (
   components: { [key: string]: Component | ComponentGroup },
-  basePath: string = '',
+  basePath: GeneratedName = [],
   /**
    * When true, only includes defaults explicitly set in the schema's
    * `fieldParams.defaultValue`. Skips the fallback to UI_TYPE_DEFAULT_VALUE
@@ -36,10 +40,11 @@ export const buildDefaultsFromComponents = (
   buildOnlySchemaDefaults: boolean = false
 ): Record<string, unknown> => {
   const result: Record<string, unknown> = {};
+  const basePathSegments = getGeneratedNameSegments(basePath);
 
   Object.entries(components).forEach(([key, item]) => {
-    const generatedName = basePath ? `${basePath}.${key}` : key;
-    const fieldId = generateFieldId(item, generatedName);
+    const generatedNameSegments = [...basePathSegments, key];
+    const fieldId = generateFieldId(item, generatedNameSegments);
 
     if (item.uiType === 'group' && 'components' in item) {
       const toggleable = getToggleableMeta(item);
@@ -50,7 +55,7 @@ export const buildDefaultsFromComponents = (
       // Recursively process nested components
       const nestedDefaults = buildDefaultsFromComponents(
         (item as ComponentGroup).components,
-        generatedName,
+        generatedNameSegments,
         buildOnlySchemaDefaults
       );
       Object.assign(result, nestedDefaults);

@@ -23,7 +23,7 @@ export const getDefaultValues = (
     if (section?.components) {
       const sectionDefaults = buildDefaultsFromComponents(
         section.components,
-        sectionKey
+        sectionKey ? [sectionKey] : []
       );
       Object.assign(flatDefaults, sectionDefaults);
     }

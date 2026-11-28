@@ -14,16 +14,31 @@
 
 import { TopologyUISchemas } from '../../ui-generator.types';
 import {
+  formatPath,
   isPlainObject,
   deepClone,
   getByPath,
+  parsePath,
   setByPath,
   deleteByPath,
   isEmptyFieldValue,
+  toFormId,
 } from '../object-path';
-import { walkTopologyComponents } from '../schema-walker';
-import { dropOtherTopologyValues } from '../topology-scope';
-import { getComponentTargetPaths } from '../preprocess/normalized-component';
+import {
+  collectAllSchemaPaths,
+  walkLeafComponents,
+  walkTopologyComponents,
+} from '../schema-walker';
+import {
+  dropOtherTopologyFormValues,
+  dropOtherTopologyValues,
+  isPathRetainedByTopology,
+} from '../topology-scope';
+import {
+  getComponentSourcePath,
+  getComponentTargetPaths,
+} from '../preprocess/normalized-component';
+import { getWidgetTargetPaths } from '../widget-targets';
 import {
   extractBadgeMappings,
   applyBadgesToFormData,
@@ -48,6 +63,9 @@ export type MultiPathMapping = {
 export type PostprocessOptions = {
   schema?: TopologyUISchemas;
   selectedTopology?: string;
+  // API paths whose values are registered in RHF. Used when a caller has
+  // section metadata but cannot provide a selected topology.
+  registeredApiPaths?: string[];
   multiPathMappings?: MultiPathMapping[];
   // Instance / restore source at the same paths as form data. Used so an
   // untouched quantity field is written back as stored (e.g. "10240Mi").
@@ -64,25 +82,136 @@ const normalizeRuntimePathArray = (paths: unknown): string[] => {
   );
 };
 
-// Form state is keyed by form ids (see toFormId); the payload is API-shaped.
-// Decode the keys once, at this boundary, so every step below speaks API paths.
-const decodeFormIdSegment = (key: string): string => {
-  try {
-    return decodeURIComponent(key);
-  } catch {
-    return key;
-  }
+type RegisteredPathNode = {
+  isField: boolean;
+  children: Map<
+    string,
+    {
+      apiSegment: string;
+      apiPath: string;
+      node: RegisteredPathNode;
+    }
+  >;
 };
 
-const toApiShapedValues = (value: unknown): unknown => {
-  if (!isPlainObject(value)) return value;
+const createRegisteredPathNode = (): RegisteredPathNode => ({
+  isField: false,
+  children: new Map(),
+});
 
-  return Object.fromEntries(
-    Object.entries(value).map(([key, child]) => [
-      decodeFormIdSegment(key),
-      toApiShapedValues(child),
-    ])
+const collectRegisteredApiPaths = (
+  schema: TopologyUISchemas,
+  selectedTopology: string
+): string[] => {
+  const paths = new Set<string>();
+  const sections = schema[selectedTopology]?.sections;
+
+  if (!sections) return [];
+
+  Object.values(sections).forEach((section) => {
+    if (!section?.components) return;
+
+    walkLeafComponents(section.components, ({ component }) => {
+      const sourcePath = getComponentSourcePath(component);
+      if (sourcePath) paths.add(sourcePath);
+
+      // extractInstanceValues stores widget targets at toFormId(path), so
+      // these paths, unlike other widget output destinations, are RHF keys.
+      getWidgetTargetPaths(component).forEach((path) => paths.add(path));
+    });
+  });
+
+  return Array.from(paths);
+};
+
+const collectRetainedRegisteredApiPaths = (
+  schema: TopologyUISchemas,
+  selectedTopology: string
+): string[] => {
+  const selectedPaths = Array.from(
+    collectAllSchemaPaths(schema[selectedTopology]?.sections ?? {})
+  ).map(toFormId);
+  const selectedRegisteredPaths = collectRegisteredApiPaths(
+    schema,
+    selectedTopology
   );
+  const retainedPaths = Object.keys(schema)
+    .filter((topology) => topology !== selectedTopology)
+    .flatMap((topology) => collectRegisteredApiPaths(schema, topology))
+    .filter((path) => isPathRetainedByTopology(toFormId(path), selectedPaths));
+
+  return Array.from(new Set([...selectedRegisteredPaths, ...retainedPaths]));
+};
+
+const createRegisteredPathTree = (apiPaths: string[]): RegisteredPathNode => {
+  const root = createRegisteredPathNode();
+
+  apiPaths.forEach((apiPath) => {
+    if (!apiPath) return;
+
+    const apiSegments = parsePath(apiPath);
+    const formSegments = toFormId(apiPath).split('.');
+    if (apiSegments.length !== formSegments.length) {
+      throw new Error(`Cannot register malformed API path "${apiPath}".`);
+    }
+
+    let node = root;
+    apiSegments.forEach((apiSegment, index) => {
+      const formSegment = formSegments[index];
+      let child = node.children.get(formSegment);
+      if (!child) {
+        child = {
+          apiSegment,
+          apiPath: formatPath(apiSegments.slice(0, index + 1)),
+          node: createRegisteredPathNode(),
+        };
+        node.children.set(formSegment, child);
+      } else if (child.apiSegment !== apiSegment) {
+        throw new Error(
+          `Registered API paths map the form segment "${formSegment}" to multiple API keys.`
+        );
+      }
+
+      node = child.node;
+    });
+
+    node.isField = true;
+  });
+
+  return root;
+};
+
+const toApiShapedValues = (
+  value: unknown,
+  registeredPaths: RegisteredPathNode
+): unknown => {
+  if (registeredPaths.children.size === 0 || !isPlainObject(value)) {
+    return value;
+  }
+
+  const result = { ...value };
+  registeredPaths.children.forEach(
+    ({ apiSegment, apiPath, node }, formSegment) => {
+      if (!Object.prototype.hasOwnProperty.call(value, formSegment)) return;
+
+      const childValue = value[formSegment];
+      const apiValue = toApiShapedValues(childValue, node);
+      if (formSegment === apiSegment) {
+        if (apiValue !== childValue) result[formSegment] = apiValue;
+        return;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(value, apiSegment)) {
+        throw new Error(
+          `Cannot convert registered form path "${apiPath}": API key "${apiSegment}" already exists alongside "${formSegment}".`
+        );
+      }
+
+      delete result[formSegment];
+      result[apiSegment] = apiValue;
+    }
+  );
+  return result;
 };
 
 export const extractMultiPathMappings = (
@@ -228,7 +357,28 @@ export const postprocessSchemaData = (
     ...(options?.multiPathMappings ?? []),
   ];
 
-  const apiValues = toApiShapedValues(formValues) as PostprocessInput;
+  const formValuesForSelectedTopology =
+    options?.schema && options.selectedTopology
+      ? dropOtherTopologyFormValues(
+          formValues,
+          options.schema,
+          options.selectedTopology
+        )
+      : formValues;
+
+  const registeredApiPaths = [
+    ...(options?.schema && options.selectedTopology
+      ? collectRetainedRegisteredApiPaths(
+          options.schema,
+          options.selectedTopology
+        )
+      : []),
+    ...(options?.registeredApiPaths ?? []),
+  ];
+  const apiValues = toApiShapedValues(
+    formValuesForSelectedTopology,
+    createRegisteredPathTree(registeredApiPaths)
+  ) as PostprocessInput;
 
   const scoped =
     options?.schema && options.selectedTopology

@@ -44,13 +44,13 @@ import { readQuantity } from '../quantity';
 const extractFlat = (
   components: Record<string, Component | ComponentGroup>,
   instance: Record<string, unknown>,
-  basePath: string,
+  basePath: readonly string[],
   formMode?: FormMode
 ): Record<string, unknown> => {
   const result: Record<string, unknown> = {};
 
   for (const [key, item] of Object.entries(components)) {
-    const generatedName = basePath ? `${basePath}.${key}` : key;
+    const generatedNameSegments = [...basePath, key];
 
     if (
       (item.uiType === 'group' || item.uiType === 'hidden') &&
@@ -68,7 +68,7 @@ const extractFlat = (
         extractFlat(
           (item as ComponentGroup).components,
           instance,
-          generatedName,
+          generatedNameSegments,
           formMode
         )
       );
@@ -76,7 +76,7 @@ const extractFlat = (
     }
 
     const component = item as Component;
-    const fieldId = generateFieldId(component, generatedName);
+    const fieldId = generateFieldId(component, generatedNameSegments);
     const sourcePath = getComponentSourcePath(component);
 
     getWidgetTargets(component).forEach(({ path }) => {
@@ -135,7 +135,12 @@ export const extractInstanceValues = (
     if (section?.components) {
       Object.assign(
         flatValues,
-        extractFlat(section.components, instance, sectionKey, formMode)
+        extractFlat(
+          section.components,
+          instance,
+          sectionKey ? [sectionKey] : [],
+          formMode
+        )
       );
     }
   }

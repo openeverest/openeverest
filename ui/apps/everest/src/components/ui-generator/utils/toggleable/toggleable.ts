@@ -24,6 +24,7 @@ import {
   getByPath,
   isEmptyFieldValue,
   isSameOrNestedPath,
+  toFormId,
 } from '../object-path/object-path';
 import { walkLeafComponents } from '../schema-walker/schema-walker';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
@@ -203,9 +204,10 @@ export const withToggleableSwitchDependencies = (
   celDependencyGroups.map((group) => {
     const switches = metas
       .filter((meta) =>
-        meta.childPaths.some((path) =>
-          group.some((dep) => isSameOrNestedPath(path, dep))
-        )
+        meta.childPaths.some((path) => {
+          const formId = toFormId(path);
+          return group.some((dep) => isSameOrNestedPath(formId, dep));
+        })
       )
       .map((meta) => meta.switchName);
     return switches.length > 0 ? [...group, ...switches] : group;

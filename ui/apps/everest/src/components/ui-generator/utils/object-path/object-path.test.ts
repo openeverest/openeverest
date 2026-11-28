@@ -160,12 +160,44 @@ describe('object-path utils', () => {
       ]);
     });
 
+    it('parses escaped quotes and backslashes in quoted keys', () => {
+      const path = String.raw`spec['vendor\'s\\key']`;
+      const segments = ['spec', "vendor's\\key"];
+
+      expect(parsePath(path)).toEqual(segments);
+      expect(parsePath(formatPath(segments))).toEqual(segments);
+    });
+
+    it('supports a quoted numeric key as an object-property segment', () => {
+      const segments = ['spec', '0'];
+
+      expect(parsePath("spec['0']")).toEqual(segments);
+      expect(parsePath(formatPath(segments))).toEqual(segments);
+    });
+
     it('formats canonical path using formatPath', () => {
       expect(formatPath(['resources', 'limits', 'nvidia.com/gpu'])).toBe(
         "resources.limits['nvidia.com/gpu']"
       );
       expect(formatPath(['spec', 'replicas'])).toBe('spec.replicas');
       expect(formatPath(['spec', 'foo-bar'])).toBe('spec.foo-bar');
+    });
+
+    it.each([
+      "spec['a']b",
+      "spec['a'",
+      "spec['a]",
+      'spec[a]',
+      'spec.items[0].name',
+      'spec[]',
+      "spec['']",
+      'spec..replicas',
+      'spec.',
+      '.spec',
+      "spec['a']..value",
+      'spec]',
+    ])('rejects malformed or unsupported path %s', (path) => {
+      expect(() => parsePath(path)).toThrow(/Invalid path .*position \d+/);
     });
 
     it('correctly sets and reads bracketed paths on objects', () => {

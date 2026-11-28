@@ -35,6 +35,7 @@ import { appendPath } from 'components/ui-generator/utils/object-path';
 export type RenderComponentProps = {
   item: Component | ComponentGroup;
   name: string;
+  nameSegments?: readonly string[];
   root?: string;
 };
 
@@ -42,9 +43,10 @@ export type RenderComponentProps = {
 export const renderComponent = ({
   item,
   name,
+  nameSegments = name.split('.'),
   root,
 }: RenderComponentProps): ReactNode => {
-  const fieldId = generateFieldId(item, name);
+  const fieldId = generateFieldId(item, nameSegments);
   const fieldName = appendPath(root, fieldId);
   const isGroup = item?.uiType === 'group' && 'components' in item;
 
@@ -53,12 +55,14 @@ export const renderComponent = ({
       (item as ComponentGroup).components,
       (item as ComponentGroup).componentsOrder
     ).map(([childKey, childItem]) => {
-      const childName = `${fieldId}.${childKey}`;
+      const childNameSegments = [...nameSegments, childKey];
+      const childName = childNameSegments.join('.');
       return (
-        <React.Fragment key={childName}>
+        <React.Fragment key={JSON.stringify(childNameSegments)}>
           {renderComponent({
             item: childItem,
             name: childName,
+            nameSegments: childNameSegments,
             root,
           })}
         </React.Fragment>

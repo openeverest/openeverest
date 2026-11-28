@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FormProvider, useForm, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@mui/material';
 import { TestWrapper } from 'utils/test';
@@ -24,6 +24,7 @@ import { getDefaultValues } from '../utils/default-values';
 import { postprocessSchemaData } from '../utils/postprocess/postprocess-schema';
 import { preprocessSchema } from '../utils/preprocess/preprocess-schema';
 import { useCelValidation } from '../hooks/use-cel-validation';
+import { TOGGLEABLE_SWITCHES_KEY } from '../utils/toggleable/toggleable';
 
 const TOPOLOGY = 'replicaSet';
 
@@ -223,6 +224,47 @@ const celSchema: TopologyUISchemas = preprocessSchema({
   },
 });
 
+const qualifiedCelSchema: TopologyUISchemas = preprocessSchema({
+  [TOPOLOGY]: {
+    sections: {
+      advanced: {
+        components: {
+          monitoring: {
+            uiType: 'group',
+            groupType: GroupType.Toggleable,
+            label: 'Monitoring',
+            components: {
+              gpuLimit: {
+                uiType: FieldType.Number,
+                path: "spec.monitoring['nvidia.com/gpu']",
+                fieldParams: { label: 'GPU limit', defaultValue: 4 },
+                validation: {
+                  celExpressions: [
+                    {
+                      celExpr: 'spec.backup.retention >= spec.backup.minimum',
+                      message: 'Retention must cover the minimum',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          retention: {
+            uiType: FieldType.Number,
+            path: 'spec.backup.retention',
+            fieldParams: { label: 'Retention', defaultValue: 1 },
+          },
+          minimum: {
+            uiType: FieldType.Number,
+            path: 'spec.backup.minimum',
+            fieldParams: { label: 'Minimum', defaultValue: 3 },
+          },
+        },
+      },
+    },
+  },
+});
+
 const CelFormWrapper = () => {
   const { schema: zodSchema, celDependencyGroups } = buildZodSchema(
     celSchema,
@@ -245,7 +287,66 @@ const CelFormWrapper = () => {
   );
 };
 
+const QualifiedCelErrorProbe = () => {
+  const { formState, getFieldState } = useFormContext();
+  const { error } = getFieldState(
+    'spec.monitoring.nvidia%2Ecom%2Fgpu',
+    formState
+  );
+
+  return (
+    <output
+      data-testid="qualified-cel-error-state"
+      data-error-active={error ? 'true' : 'false'}
+    />
+  );
+};
+
+const QualifiedCelFormWrapper = ({
+  onTrigger,
+}: {
+  onTrigger: (fields?: string | string[]) => void;
+}) => {
+  const { schema: zodSchema, celDependencyGroups } = buildZodSchema(
+    qualifiedCelSchema,
+    TOPOLOGY
+  );
+  const methods = useForm({
+    resolver: zodResolver(zodSchema),
+    mode: 'onSubmit',
+    defaultValues: getDefaultValues(qualifiedCelSchema, TOPOLOGY),
+  });
+  useCelValidation(celDependencyGroups, methods.control, (fields) => {
+    onTrigger(fields);
+    return methods.trigger(fields);
+  });
+
+  return (
+    <FormProvider {...methods}>
+      <UIGenerator
+        sections={qualifiedCelSchema[TOPOLOGY].sections}
+        sectionKey="advanced"
+      />
+      <QualifiedCelErrorProbe />
+    </FormProvider>
+  );
+};
+
 describe('UIGenerator - CEL across a toggleable group', () => {
+  it('uses the qualified form ID and adds its toggleable switch to CEL dependencies', () => {
+    const { celDependencyGroups } = buildZodSchema(
+      qualifiedCelSchema,
+      TOPOLOGY
+    );
+
+    expect(celDependencyGroups).toContainEqual([
+      'spec.monitoring.nvidia%2Ecom%2Fgpu',
+      'spec.backup.retention',
+      'spec.backup.minimum',
+      'toggleable-switches.advanced~monitoring',
+    ]);
+  });
+
   it('re-checks a rule outside the group when its switch flips', async () => {
     render(
       <TestWrapper>
@@ -262,6 +363,52 @@ describe('UIGenerator - CEL across a toggleable group', () => {
     fireEvent.click(getSwitch());
     await waitFor(() =>
       expect(screen.queryByText(message)).not.toBeInTheDocument()
+    );
+  });
+
+  it('clears the CEL error when a qualified child field switch turns off', async () => {
+    const onTrigger = vi.fn();
+    const { schema: zodSchema } = buildZodSchema(qualifiedCelSchema, TOPOLOGY);
+    const enabledValues = {
+      ...getDefaultValues(qualifiedCelSchema, TOPOLOGY),
+      [TOGGLEABLE_SWITCHES_KEY]: { 'advanced~monitoring': true },
+    };
+    expect(zodSchema.safeParse(enabledValues).success).toBe(false);
+
+    render(
+      <TestWrapper>
+        <QualifiedCelFormWrapper onTrigger={onTrigger} />
+      </TestWrapper>
+    );
+    const message = 'Retention must cover the minimum';
+
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
+
+    fireEvent.click(getSwitch());
+    fireEvent.change(await screen.findByLabelText(/Retention/), {
+      target: { value: '2' },
+    });
+    expect(await screen.findByText(message)).toBeInTheDocument();
+
+    const triggerCountBeforeSwitchOff = onTrigger.mock.calls.length;
+    fireEvent.click(getSwitch());
+    await waitFor(() =>
+      expect(screen.queryByText(message)).not.toBeInTheDocument()
+    );
+    await waitFor(() =>
+      expect(onTrigger).toHaveBeenCalledTimes(triggerCountBeforeSwitchOff + 1)
+    );
+    expect(onTrigger).toHaveBeenLastCalledWith([
+      'spec.monitoring.nvidia%2Ecom%2Fgpu',
+      'spec.backup.retention',
+      'spec.backup.minimum',
+      'toggleable-switches.advanced~monitoring',
+    ]);
+    await waitFor(() =>
+      expect(screen.getByTestId('qualified-cel-error-state')).toHaveAttribute(
+        'data-error-active',
+        'false'
+      )
     );
   });
 });

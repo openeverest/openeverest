@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import {
   FieldType,
   GroupType,
@@ -20,6 +21,8 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { TOGGLEABLE_SWITCHES_KEY } from '../toggleable/toggleable';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
+import { generateFieldId } from '../component-renderer/generate-field-id';
+import { applyToggleableValidation } from './apply-toggleable-validation';
 import { buildZodSchema } from './build-zod-schema';
 
 const SWITCH = 'advanced~monitoring';
@@ -80,5 +83,32 @@ describe('toggleable group validation', () => {
     const result = parse(true, '30');
     expect(result.success).toBe(true);
     expect(result.success && result.data.spec.monitoring.interval).toBe(30);
+  });
+
+  it('reads generated field IDs during toggleable validation', () => {
+    const fieldId = generateFieldId(
+      {
+        uiType: FieldType.Number,
+        id: 'volume[0]',
+        fieldParams: { label: 'Volume' },
+      },
+      ['basic', 'resources', 'volume[0]']
+    );
+    const fieldSchema = z.number().min(2, 'Too small');
+    const schema = applyToggleableValidation(z.object({}).passthrough(), [
+      { switchName: 'enabled', fieldId, schema: fieldSchema },
+    ]);
+
+    const result = schema.safeParse({
+      enabled: true,
+      'g-basic': { resources: { 'volume%5B0%5D': 1 } },
+    });
+
+    expect(result.success).toBe(false);
+    expect(!result.success && result.error.issues[0].path).toEqual([
+      'g-basic',
+      'resources',
+      'volume%5B0%5D',
+    ]);
   });
 });

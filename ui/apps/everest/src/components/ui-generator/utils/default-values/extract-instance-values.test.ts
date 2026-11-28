@@ -318,4 +318,27 @@ describe('extractInstanceValues', () => {
       spec: { resources: { limits: { 'nvidia%2Ecom%2Fgpu': 2 } } },
     });
   });
+
+  it('encodes pathless field names when extracting new-instance defaults', () => {
+    const sections: Record<string, Section> = {
+      basic: {
+        components: {
+          resources: {
+            uiType: 'group',
+            components: {
+              'volume[0]': {
+                uiType: FieldType.Number,
+                id: 'volume[0]',
+                fieldParams: { label: 'Volume', defaultValue: 4 },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    expect(extractInstanceValues(sections, {}, FormMode.New)).toEqual({
+      'g-basic': { resources: { 'volume%5B0%5D': 4 } },
+    });
+  });
 });
