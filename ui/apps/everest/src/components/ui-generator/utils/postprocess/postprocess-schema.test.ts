@@ -18,6 +18,57 @@ import { FieldType, TopologyUISchemas } from '../../ui-generator.types';
 import { twoTopologySchema } from '../topology-scope/__mocks__/topology-schemas';
 
 describe('postprocessSchemaData', () => {
+  it.each([{ order: ['basic'] }, { order: [] }])(
+    'postprocesses fields in sections omitted from sectionsOrder ($order)',
+    ({ order }) => {
+      const schema: TopologyUISchemas = {
+        single: {
+          sectionsOrder: order,
+          sections: {
+            basic: { components: {} },
+            advanced: {
+              components: {
+                timeout: {
+                  uiType: FieldType.Number,
+                  path: 'spec.timeout',
+                  fieldParams: { label: 'Timeout' },
+                },
+                memory: {
+                  uiType: FieldType.Number,
+                  path: 'spec.memory',
+                  fieldParams: {
+                    label: 'Memory',
+                    badge: 'Gi',
+                    badgeToApi: true,
+                  },
+                },
+                logLevel: {
+                  uiType: FieldType.Text,
+                  path: ['spec.proxy.logLevel', 'spec.engine.logLevel'],
+                  fieldParams: { label: 'Log level' },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      expect(
+        postprocessSchemaData(
+          { spec: { timeout: '30', memory: 2, proxy: { logLevel: 'info' } } },
+          { schema, selectedTopology: 'single' }
+        )
+      ).toEqual({
+        spec: {
+          timeout: 30,
+          memory: '2Gi',
+          proxy: { logLevel: 'info' },
+          engine: { logLevel: 'info' },
+        },
+      });
+    }
+  );
+
   it('removes empty values recursively and preserves meaningful falsy values', () => {
     const input = {
       provider: 'psmdb',

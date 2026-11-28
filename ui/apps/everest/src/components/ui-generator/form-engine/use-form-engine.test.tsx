@@ -54,6 +54,47 @@ const StepHarness = ({ Step }: { Step: ComponentType<StepProps> }) => {
 };
 
 describe('useFormEngine', () => {
+  it.each([{ order: ['basic'] }, { order: [] }])(
+    'keeps unlisted sections and their validation errors reachable ($order)',
+    ({ order }) => {
+      const uiSchema: TopologyUISchemas = {
+        single: {
+          sectionsOrder: order,
+          sections: {
+            basic: { components: {} },
+            advanced: {
+              components: {
+                token: {
+                  uiType: FieldType.Text,
+                  path: 'spec.token',
+                  fieldParams: { label: 'Token' },
+                  validation: { required: true },
+                },
+              },
+            },
+          },
+        },
+      };
+      const { result } = renderHook(() =>
+        useFormEngine({ uiSchema, selectedTopology: 'single' })
+      );
+
+      expect(result.current.steps.map((step) => step.sectionKey)).toEqual([
+        'basic',
+        'advanced',
+      ]);
+      expect(result.current.fieldToStepMap['spec.token']).toBe(
+        'section:advanced'
+      );
+      expect(result.current.steps[1].fields).toContain('spec.token');
+      expect(result.current.zodSchema.safeParse({}).success).toBe(false);
+      expect(
+        result.current.zodSchema.safeParse({ spec: { token: 'secret' } })
+          .success
+      ).toBe(true);
+    }
+  );
+
   it.each([
     [FormMode.Import, false],
     [FormMode.New, true],

@@ -33,6 +33,7 @@ import {
   formatDisplayValue,
 } from 'components/ui-generator/utils/object-path/object-path';
 import { collectAllSchemaPaths } from 'components/ui-generator/utils/schema-walker';
+import { getOrderedSectionKeys } from 'components/ui-generator/utils/section-order';
 import { hasConnectionDetails } from 'utils/instance-gating';
 
 export interface SchemaSectionCard {
@@ -100,7 +101,10 @@ export const useClusterOverviewData = () => {
 
     return {
       sections: topology.sections,
-      sectionsOrder: topology.sectionsOrder ?? Object.keys(topology.sections),
+      sectionsOrder: getOrderedSectionKeys(
+        topology.sections,
+        topology.sectionsOrder
+      ),
     };
   }, [provider, instance?.spec?.topology?.type]);
 

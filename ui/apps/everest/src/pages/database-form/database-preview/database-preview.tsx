@@ -30,6 +30,7 @@ import {
   MONITORING_STEP_ID,
 } from '../database-form-body/steps/constants.ts';
 import { getSectionStepId } from 'components/ui-generator/utils/section-step-id.ts';
+import { getOrderedSectionKeys } from 'components/ui-generator/utils/section-order';
 
 export const DatabasePreview = ({
   activeStepId,
@@ -48,7 +49,7 @@ export const DatabasePreview = ({
 
   const values = getValues();
 
-  const orderedSectionKeys = sectionsOrder || Object.keys(sections);
+  const orderedSectionKeys = getOrderedSectionKeys(sections, sectionsOrder);
 
   const previewSections: {
     stepId: string;

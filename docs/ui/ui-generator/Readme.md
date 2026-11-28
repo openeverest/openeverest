@@ -307,12 +307,17 @@ Array binding is not supported yet — see [Known Limitations](known-limitations
 
 ### Components Order
 
+Last updated: 2026-11-28
+
 Both sections and groups can specify the order of their child elements using the `Order` suffix:
 
 - **`sectionsOrder`**: Array of section keys defining section order
 - **`componentsOrder`**: Array of component keys defining component order within a section or group
 
 If not specified, the order is determined by the object key insertion order. If only a few sections are ordered, they will be ordered and displayed first. The remaining sections/components will be displayed next by the object key insertion order.
+
+`sectionsOrder` controls ordering, not visibility: an empty array still includes every section.
+The wizard, validation error navigation, preview, overview, and API value processing all use this same order.
 
 **Example:**
 

@@ -16,6 +16,7 @@ import type { Section } from '../../ui-generator.types';
 import { generateFieldId } from './generate-field-id';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
 import { walkLeafComponents } from '../schema-walker';
+import { getOrderedSectionKeys } from '../section-order';
 
 export const buildSectionFieldMap = (
   sections: { [key: string]: Section },
@@ -23,7 +24,7 @@ export const buildSectionFieldMap = (
 ): Record<string, string> => {
   const map: Record<string, string> = {};
 
-  const orderedKeys = sectionsOrder || Object.keys(sections);
+  const orderedKeys = getOrderedSectionKeys(sections, sectionsOrder);
   orderedKeys.forEach((sectionKey) => {
     const section = sections[sectionKey];
     if (!section?.components) return;

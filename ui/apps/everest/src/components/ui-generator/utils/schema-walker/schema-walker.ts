@@ -20,6 +20,7 @@ import type {
 } from '../../ui-generator.types';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
 import { getWidgetTargetPaths } from '../widget-targets';
+import { getOrderedSectionKeys } from '../section-order';
 
 export interface LeafComponentInfo {
   component: Component;
@@ -61,7 +62,10 @@ export const walkTopologyComponents = (
   const topology = schema[selectedTopology];
   if (!topology?.sections) return;
 
-  const order = topology.sectionsOrder ?? Object.keys(topology.sections);
+  const order = getOrderedSectionKeys(
+    topology.sections,
+    topology.sectionsOrder
+  );
 
   for (const sectionKey of order) {
     const section = topology.sections[sectionKey];
