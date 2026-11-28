@@ -207,7 +207,10 @@ updates:
       default-days: 3
       semver-major-days: 14
   - package-ecosystem: "docker"
-    directory: "/"
+    directories:
+      - "/build/package/cli"
+      - "/build/package/helmtools"
+      - "/build/package/server"
     schedule:
       interval: "weekly"
     labels:
