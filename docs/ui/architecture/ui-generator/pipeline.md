@@ -1,10 +1,16 @@
 # UI Generator (modules, functions, principles)
 
+Last updated: 2026-11-28
+
 > Mirrors the code in `components/ui-generator/` and the types in `ui-generator.types.ts`.
 
 The schema goes through 5 stages: **Preprocess → (Build-Zod ‖ Defaults ‖ Render) → Postprocess**.
 Key principle — **path metadata is computed once** in preprocess and reused by all stages
 (no repeated tree traversal).
+
+`utils/section-order.ts` resolves section order for wizard steps, error-to-step mapping,
+schema traversal, the preview, and the overview. Explicitly ordered sections come first;
+unlisted sections follow in object insertion order, including when `sectionsOrder` is empty.
 
 ```mermaid
 flowchart TD

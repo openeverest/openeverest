@@ -40,7 +40,13 @@ const FormProviderWrapper = ({
 };
 
 describe('DatabasePreview - Sections Order', () => {
-  it('should render sections in the order specified by sectionsOrder', () => {
+  it.each([
+    {
+      sectionsOrder: ['databaseVersion', 'resources', 'advancedConfigurations'],
+    },
+    { sectionsOrder: ['databaseVersion'] },
+    { sectionsOrder: [] },
+  ])('renders every section ($sectionsOrder)', ({ sectionsOrder }) => {
     const sections: { [key: string]: Section } = {
       databaseVersion: {
         label: 'Database Version',
@@ -55,13 +61,6 @@ describe('DatabasePreview - Sections Order', () => {
         components: {},
       },
     };
-
-    // Define the order explicitly
-    const sectionsOrder = [
-      'databaseVersion',
-      'resources',
-      'advancedConfigurations',
-    ];
 
     render(
       <FormProviderWrapper>

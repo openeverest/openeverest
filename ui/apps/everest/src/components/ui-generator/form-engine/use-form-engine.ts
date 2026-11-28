@@ -18,6 +18,7 @@ import { useUiGenerator } from '../hooks/ui-generator';
 import { getDefaultValues } from '../utils/default-values';
 import { postprocessSchemaData } from '../utils/postprocess/postprocess-schema';
 import { getSectionStepId } from '../utils/section-step-id';
+import { getOrderedSectionKeys } from '../utils/section-order';
 import { UIGenerator } from '../ui-generator';
 
 /**
@@ -55,7 +56,7 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
 
   // 2. Build generated steps from schema sections
   const sectionKeys = useMemo(
-    () => sectionsOrder || Object.keys(sections),
+    () => getOrderedSectionKeys(sections, sectionsOrder),
     [sectionsOrder, sections]
   );
 
