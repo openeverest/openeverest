@@ -25,20 +25,29 @@ export interface LeafComponentInfo {
   component: Component;
   key: string;
   generatedName: string;
+  generatedNameSegments: string[];
 }
 
 export const walkLeafComponents = (
   components: Record<string, Component | ComponentGroup>,
   visitor: (info: LeafComponentInfo) => void | false,
-  basePath = ''
+  basePath: string | readonly string[] = ''
 ): void => {
+  const basePathSegments =
+    typeof basePath === 'string'
+      ? basePath.length > 0
+        ? basePath.split('.')
+        : []
+      : [...basePath];
+
   for (const [key, item] of Object.entries(components)) {
-    const generatedName = basePath ? `${basePath}.${key}` : key;
+    const generatedNameSegments = [...basePathSegments, key];
+    const generatedName = generatedNameSegments.join('.');
 
     if (item.uiType === 'group' || item.uiType === 'hidden') {
       const group = item as ComponentGroup;
       if (group.components) {
-        walkLeafComponents(group.components, visitor, generatedName);
+        walkLeafComponents(group.components, visitor, generatedNameSegments);
       }
       continue;
     }
@@ -47,6 +56,7 @@ export const walkLeafComponents = (
       component: item as Component,
       key,
       generatedName,
+      generatedNameSegments,
     });
 
     if (stop === false) return;

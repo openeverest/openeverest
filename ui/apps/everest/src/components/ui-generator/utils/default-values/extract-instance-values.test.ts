@@ -295,4 +295,50 @@ describe('extractInstanceValues', () => {
       spec: { name: 'my-db', resources: { cpu: 4 } },
     });
   });
+
+  it('keys a qualified-name path by its RHF-safe form id', () => {
+    const sections: Record<string, Section> = {
+      basic: {
+        components: {
+          gpu: makeComponent("spec.resources.limits['nvidia.com/gpu']"),
+        },
+      },
+    };
+    const instance = {
+      spec: { resources: { limits: { 'nvidia.com/gpu': 2 } } },
+    };
+
+    const result = extractInstanceValues(
+      sections,
+      instance as unknown as Record<string, unknown>,
+      FormMode.Edit
+    );
+
+    expect(result).toEqual({
+      spec: { resources: { limits: { 'nvidia%2Ecom%2Fgpu': 2 } } },
+    });
+  });
+
+  it('encodes pathless field names when extracting new-instance defaults', () => {
+    const sections: Record<string, Section> = {
+      basic: {
+        components: {
+          resources: {
+            uiType: 'group',
+            components: {
+              'volume[0]': {
+                uiType: FieldType.Number,
+                id: 'volume[0]',
+                fieldParams: { label: 'Volume', defaultValue: 4 },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    expect(extractInstanceValues(sections, {}, FormMode.New)).toEqual({
+      'g-basic': { resources: { 'volume%5B0%5D': 4 } },
+    });
+  });
 });

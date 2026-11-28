@@ -140,4 +140,31 @@ describe('buildSectionFieldMap', () => {
     // Source field id for multipath is the first path entry, not generated g-* id.
     expect(map['g-engineVersion']).toBeUndefined();
   });
+
+  it('uses the rendered generated ID for a pathless target field', () => {
+    const sections: Record<string, Section> = {
+      basic: {
+        components: {
+          resources: {
+            uiType: 'group',
+            components: {
+              'volume[0]': {
+                uiType: FieldType.Number,
+                id: 'volume[0]',
+                fieldParams: { label: 'Volume' },
+                _normalized: {
+                  sourcePath: undefined,
+                  targetPaths: ['spec.volume'],
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const map = buildSectionFieldMap(sections, ['basic']);
+
+    expect(map['g-basic.resources.volume%5B0%5D']).toBe('basic');
+  });
 });

@@ -87,6 +87,23 @@ const sharedProviderSections: Record<string, Section> = preprocessSchema({
   },
 }).replicaSet.sections;
 
+const qualifiedDataSourceSections: Record<string, Section> = preprocessSchema({
+  replicaSet: {
+    sections: {
+      metadata: {
+        components: {
+          issuer: {
+            uiType: FieldType.Select,
+            path: "spec.annotations['cert-manager.io/issuer']",
+            dataSource: { provider: PROVIDER },
+            fieldParams: { label: 'Issuer' },
+          },
+        },
+      },
+    },
+  },
+}).replicaSet.sections;
+
 const renderPrefetcher = (
   switchOn: boolean,
   schemaSections: Record<string, Section> = sections
@@ -103,6 +120,34 @@ const renderPrefetcher = (
     return (
       <FormProvider {...form}>
         <DataSourcePrefetcher sections={schemaSections} namespace="ns" />
+      </FormProvider>
+    );
+  };
+  render(<Harness />);
+  const form = formRef.current;
+  if (!form) throw new Error('form not initialized');
+  return form;
+};
+
+const QUALIFIED_FORM_ID = 'spec.annotations.cert-manager%2Eio%2Fissuer';
+
+const renderQualifiedPrefetcher = (issuer: string) => {
+  const formRef: { current?: UseFormReturn } = {};
+  const Harness = () => {
+    const form = useForm<Record<string, unknown>>({
+      defaultValues: {
+        spec: {
+          annotations: { 'cert-manager%2Eio%2Fissuer': issuer },
+        },
+      },
+    });
+    formRef.current = form;
+    return (
+      <FormProvider {...form}>
+        <DataSourcePrefetcher
+          sections={qualifiedDataSourceSections}
+          namespace="ns"
+        />
       </FormProvider>
     );
   };
@@ -142,6 +187,32 @@ describe('DataSourcePrefetcher - toggleable groups', () => {
       expect(form.getValues('spec.storage.configName')).toBe('pmm')
     );
     expect(form.getValues('spec.monitoring.configName')).toBe('');
+  });
+});
+
+describe('DataSourcePrefetcher - qualified-name fields', () => {
+  it('reads and preserves an existing value stored under its form id', async () => {
+    useOptions.mockClear();
+    const form = renderQualifiedPrefetcher('pmm');
+
+    await waitFor(() => expect(form.getValues(QUALIFIED_FORM_ID)).toBe('pmm'));
+    expect(form.getValues()).toEqual({
+      spec: {
+        annotations: { 'cert-manager%2Eio%2Fissuer': 'pmm' },
+      },
+    });
+  });
+
+  it('auto-selects into the encoded field without creating a split-key object', async () => {
+    useOptions.mockClear();
+    const form = renderQualifiedPrefetcher('');
+
+    await waitFor(() => expect(form.getValues(QUALIFIED_FORM_ID)).toBe('pmm'));
+    expect(form.getValues()).toEqual({
+      spec: {
+        annotations: { 'cert-manager%2Eio%2Fissuer': 'pmm' },
+      },
+    });
   });
 });
 

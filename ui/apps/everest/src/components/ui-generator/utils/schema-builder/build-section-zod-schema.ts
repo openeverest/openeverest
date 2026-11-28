@@ -54,7 +54,7 @@ export const buildSectionZodSchema = (
   // Build Zod shape only for the target section
   const { schemaShape, toggleableFieldRules } = buildShapeFromComponents(
     targetSection.components,
-    sectionKey,
+    sectionKey ? [sectionKey] : [],
     options?.formMode
   );
 
@@ -66,7 +66,7 @@ export const buildSectionZodSchema = (
     if (section?.components) {
       const result = buildShapeFromComponents(
         section.components,
-        secKey,
+        secKey ? [secKey] : [],
         options?.formMode
       );
       allCelExpValidations.push(...result.celExpValidations);

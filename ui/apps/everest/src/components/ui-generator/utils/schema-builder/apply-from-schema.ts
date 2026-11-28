@@ -20,6 +20,10 @@ import {
 
 import { extractCelFieldPaths } from './cel-validation';
 import {
+  formatPath,
+  toFormId,
+} from 'components/ui-generator/utils/object-path';
+import {
   buildGenericValidationSchema,
   buildNumberValidationSchema,
   buildSelectValidationSchema,
@@ -146,7 +150,8 @@ const extractCelValidationData = (
   const allDeps = new Set<string>();
   celExpressions.forEach((celExpr) => {
     const deps = extractCelFieldPaths(celExpr.celExpr);
-    deps.forEach((dep) => allDeps.add(dep.join('.')));
+    // CEL reads the form state, which is keyed by form ids.
+    deps.forEach((dep) => allDeps.add(toFormId(formatPath(dep))));
   });
 
   const celData: CelValidationData = {

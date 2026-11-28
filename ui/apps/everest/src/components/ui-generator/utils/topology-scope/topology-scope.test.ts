@@ -15,15 +15,21 @@
 import { describe, expect, it } from 'vitest';
 import {
   ComponentGroup,
-  FieldType,
   GroupType,
   TopologyUISchemas,
 } from '../../ui-generator.types';
 import { getByPath } from '../object-path';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
 import { TOGGLEABLE_SWITCHES_KEY } from '../toggleable/toggleable';
-import { numberField, twoTopologySchema } from './__mocks__/topology-schemas';
-import { dropOtherTopologyValues } from './topology-scope';
+import {
+  numberField,
+  parentChildTopologySchema,
+  twoTopologySchema,
+} from './__mocks__/topology-schemas';
+import {
+  dropOtherTopologyFormValues,
+  dropOtherTopologyValues,
+} from './topology-scope';
 
 const toggleableGroup = (path: string): ComponentGroup => ({
   uiType: 'group',
@@ -58,35 +64,29 @@ describe('dropOtherTopologyValues', () => {
   });
 
   it('keeps values the selected topology owns through a parent or child path', () => {
-    const schema: TopologyUISchemas = {
-      a: {
-        sections: {
-          s: {
-            components: {
-              storage: {
-                uiType: FieldType.Text,
-                path: 'spec.topology.parameters.storage',
-                fieldParams: { label: 'Storage' },
-              },
-            },
-          },
-        },
-      },
-      b: {
-        sections: {
-          s: {
-            components: {
-              size: numberField('spec.topology.parameters.storage.size'),
-            },
-          },
-        },
-      },
-    };
     const input = {
       spec: { topology: { parameters: { storage: { size: 5 } } } },
     };
 
-    expect(dropOtherTopologyValues(input, schema, 'a')).toEqual(input);
+    expect(
+      dropOtherTopologyValues(input, parentChildTopologySchema, 'a')
+    ).toEqual(input);
+    expect(
+      dropOtherTopologyValues(input, parentChildTopologySchema, 'b')
+    ).toEqual(input);
+  });
+
+  it('keeps parent/child paths with the same semantics in RHF form-ID space', () => {
+    const input = {
+      spec: { topology: { parameters: { storage: { size: 5 } } } },
+    };
+
+    expect(
+      dropOtherTopologyFormValues(input, parentChildTopologySchema, 'a')
+    ).toEqual(input);
+    expect(
+      dropOtherTopologyFormValues(input, parentChildTopologySchema, 'b')
+    ).toEqual(input);
   });
 
   it('keeps values bound by a selected-topology section missing from sectionsOrder', () => {

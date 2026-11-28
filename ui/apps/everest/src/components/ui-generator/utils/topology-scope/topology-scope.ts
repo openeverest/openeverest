@@ -13,7 +13,12 @@
 // limitations under the License.
 
 import { TopologyUISchemas } from '../../ui-generator.types';
-import { deepClone, deleteByPath, isSameOrNestedPath } from '../object-path';
+import {
+  deepClone,
+  deleteByPath,
+  isSameOrNestedPath,
+  toFormId,
+} from '../object-path';
 import { collectAllSchemaPaths } from '../schema-walker';
 import { collectToggleableMetas } from '../toggleable/toggleable';
 
@@ -31,22 +36,28 @@ const collectTopologySwitches = (
     (meta) => meta.switchName
   );
 
-// Values bound only by other topologies are leftovers from a topology switch.
-export const dropOtherTopologyValues = (
+export const isPathRetainedByTopology = (
+  path: string,
+  selectedPaths: string[]
+): boolean =>
+  selectedPaths.some((selected) => isSameOrNestedPath(path, selected));
+
+const dropOtherTopologyValuesWithPathMapping = (
   input: Record<string, unknown>,
   schema: TopologyUISchemas,
-  selectedTopology: string
+  selectedTopology: string,
+  mapPath: (path: string) => string
 ): Record<string, unknown> => {
-  const selectedPaths = collectTopologyPaths(schema, selectedTopology);
+  const selectedPaths = collectTopologyPaths(schema, selectedTopology).map(
+    mapPath
+  );
   const result = deepClone(input);
 
   Object.keys(schema)
     .filter((topology) => topology !== selectedTopology)
     .flatMap((topology) => collectTopologyPaths(schema, topology))
-    .filter(
-      (path) =>
-        !selectedPaths.some((selected) => isSameOrNestedPath(path, selected))
-    )
+    .map(mapPath)
+    .filter((path) => !isPathRetainedByTopology(path, selectedPaths))
     .forEach((path) => deleteByPath(result, path));
 
   // A switch shared by name keeps the user's choice; the rest start off again.
@@ -59,3 +70,28 @@ export const dropOtherTopologyValues = (
 
   return result;
 };
+
+// Values bound only by other topologies are leftovers from a topology switch.
+export const dropOtherTopologyValues = (
+  input: Record<string, unknown>,
+  schema: TopologyUISchemas,
+  selectedTopology: string
+): Record<string, unknown> =>
+  dropOtherTopologyValuesWithPathMapping(
+    input,
+    schema,
+    selectedTopology,
+    (path) => path
+  );
+
+export const dropOtherTopologyFormValues = (
+  input: Record<string, unknown>,
+  schema: TopologyUISchemas,
+  selectedTopology: string
+): Record<string, unknown> =>
+  dropOtherTopologyValuesWithPathMapping(
+    input,
+    schema,
+    selectedTopology,
+    toFormId
+  );

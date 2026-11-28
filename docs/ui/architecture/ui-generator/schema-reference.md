@@ -64,6 +64,13 @@ flowchart TD
 ```
 
 - **`path` | `id`** — `path` (`string` | `string[]`) writes to the API; an array is a multi-path (`[0]` is the source, all entries are targets). `id` has no API binding and is used only for validation / CEL.
+  - Object keys that contain dots or other path syntax characters use a quoted bracket segment:
+    `resources.limits['nvidia.com/gpu']`. Single- and double-quoted keys are supported; escape the
+    active quote or a backslash with a backslash. Quoted numeric keys (for example, `spec['0']`)
+    are object keys. Unquoted bracket segments, including array-index syntax such as `[0]`, are
+    unsupported.
+  - The form registers the field under an RHF-safe id from `toFormId` (e.g.
+    `resources.limits.nvidia%2Ecom%2Fgpu`). Postprocess restores the API key.
 - **`dataSource.provider`** — a key in the open runtime registry (`register()`), not a closed enum.
 - **`modes?`** — `{ [FormMode]: { uiType? } }`; the create wizard runs in `import` when it creates a database from an imported backup.
 
@@ -257,4 +264,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-13
+- Last updated: 2026-11-28

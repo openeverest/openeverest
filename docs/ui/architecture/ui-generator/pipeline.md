@@ -307,6 +307,21 @@ use it.
 5. **Error isolation** — `ComponentErrorBoundary` around every render.
 6. **Engine reuse** — the section edit modal and section forms use the same UIGenerator +
    `buildSectionZodSchema`.
+7. **Shared path tokenizer** — `parsePath` / `formatPath` in `utils/object-path/object-path.ts`
+   parse and stringify canonical schema/API paths. Dots separate segments; object keys containing
+   dots or slashes use quoted bracket segments (for example,
+   `resources.limits['nvidia.com/gpu']`). Unquoted bracket and array-index paths are unsupported.
+   React Hook Form still has its own `stringToPath`, so schema paths are converted to RHF-safe form
+   ids with `toFormId` when registering fields and building defaults / zod shapes.
+
+   Before postprocessing decodes keys, topology scoping removes stale, unshared values in RHF
+   form-id space using the existing shared/parent/child retention rules. Decoding then uses the
+   selected topology's registered API paths plus explicitly registered foreign paths retained by
+   those rules. It traverses only registered path segments: a registered leaf is opaque unless a
+   separately registered retained descendant requires traversal. Arbitrary map keys and
+   unregistered nested data are not recursively decoded. If conversion would overwrite an
+   existing API key, postprocessing throws rather than silently replacing it. Calls without schema
+   metadata do not infer encoded keys or heuristically decode arbitrary data.
 
 ## Modes — override matrix
 
@@ -374,4 +389,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-20
+- Last updated: 2026-11-28

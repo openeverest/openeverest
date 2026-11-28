@@ -85,6 +85,33 @@ describe('schema-walker utils', () => {
       expect(collected).toEqual(['hidden.secret']);
     });
 
+    it('preserves literal dots separately from hierarchy segments', () => {
+      const components: Record<string, Component | ComponentGroup> = {
+        'literal.dot': {
+          uiType: FieldType.Text,
+          id: 'literal-dot',
+          fieldParams: { label: 'Literal dot' },
+        } as Component,
+        literal: {
+          uiType: 'group',
+          components: {
+            dot: {
+              uiType: FieldType.Text,
+              id: 'nested-dot',
+              fieldParams: { label: 'Nested dot' },
+            } as Component,
+          },
+        },
+      };
+      const collected: string[][] = [];
+
+      walkLeafComponents(components, ({ generatedNameSegments }) => {
+        collected.push(generatedNameSegments);
+      });
+
+      expect(collected).toEqual([['literal.dot'], ['literal', 'dot']]);
+    });
+
     it('stops early when visitor returns false', () => {
       const components: Record<string, Component | ComponentGroup> = {
         fieldA: {

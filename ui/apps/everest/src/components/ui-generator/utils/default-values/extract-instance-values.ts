@@ -24,7 +24,7 @@ import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
 import { stripBadgeFromValue } from '../badge-to-api/badge-to-api';
 import { generateFieldId } from '../component-renderer/generate-field-id';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
-import { getByPath } from '../object-path/object-path';
+import { getByPath, toFormId } from 'components/ui-generator/utils/object-path';
 import { convertToNestedObject } from './convert-to-nested-object';
 import {
   getToggleableMeta,
@@ -44,13 +44,13 @@ import { readQuantity } from '../quantity';
 const extractFlat = (
   components: Record<string, Component | ComponentGroup>,
   instance: Record<string, unknown>,
-  basePath: string,
+  basePath: readonly string[],
   formMode?: FormMode
 ): Record<string, unknown> => {
   const result: Record<string, unknown> = {};
 
   for (const [key, item] of Object.entries(components)) {
-    const generatedName = basePath ? `${basePath}.${key}` : key;
+    const generatedNameSegments = [...basePath, key];
 
     if (
       (item.uiType === 'group' || item.uiType === 'hidden') &&
@@ -68,7 +68,7 @@ const extractFlat = (
         extractFlat(
           (item as ComponentGroup).components,
           instance,
-          generatedName,
+          generatedNameSegments,
           formMode
         )
       );
@@ -76,12 +76,12 @@ const extractFlat = (
     }
 
     const component = item as Component;
-    const fieldId = generateFieldId(component, generatedName);
+    const fieldId = generateFieldId(component, generatedNameSegments);
     const sourcePath = getComponentSourcePath(component);
 
     getWidgetTargets(component).forEach(({ path }) => {
       const value = getByPath(instance, path);
-      if (value !== undefined) result[path] = value;
+      if (value !== undefined) result[toFormId(path)] = value;
     });
 
     // Try reading from instance first
@@ -135,7 +135,12 @@ export const extractInstanceValues = (
     if (section?.components) {
       Object.assign(
         flatValues,
-        extractFlat(section.components, instance, sectionKey, formMode)
+        extractFlat(
+          section.components,
+          instance,
+          sectionKey ? [sectionKey] : [],
+          formMode
+        )
       );
     }
   }

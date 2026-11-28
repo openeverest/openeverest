@@ -69,12 +69,14 @@ export const UIGenerator = ({
       <FormGroup sx={{ mt: 3 }}>
         <Stack spacing={2}>
           {orderedComponents.map(([key, item]) => {
-            const fieldName = basePath ? `${basePath}.${key}` : key;
+            const nameSegments = basePath ? [basePath, key] : [key];
+            const fieldName = nameSegments.join('.');
             return (
-              <React.Fragment key={fieldName}>
+              <React.Fragment key={JSON.stringify(nameSegments)}>
                 {renderComponent({
                   item,
                   name: fieldName,
+                  nameSegments,
                   root,
                 })}
               </React.Fragment>

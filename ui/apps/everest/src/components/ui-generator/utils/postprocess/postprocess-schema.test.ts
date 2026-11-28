@@ -14,8 +14,16 @@
 
 import { describe, expect, it } from 'vitest';
 import { postprocessSchemaData } from './postprocess-schema';
-import { FieldType, TopologyUISchemas } from '../../ui-generator.types';
-import { twoTopologySchema } from '../topology-scope/__mocks__/topology-schemas';
+import {
+  FieldType,
+  TopologyUISchemas,
+  WIDGET_UI_TYPE,
+  WidgetType,
+} from '../../ui-generator.types';
+import {
+  parentChildTopologySchema,
+  twoTopologySchema,
+} from '../topology-scope/__mocks__/topology-schemas';
 
 describe('postprocessSchemaData', () => {
   it('removes empty values recursively and preserves meaningful falsy values', () => {
@@ -283,6 +291,570 @@ describe('postprocessSchemaData', () => {
         },
       },
     });
+  });
+
+  it('drops qualified keys registered only by another topology', () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          resources: {
+            components: {
+              cpu: {
+                uiType: FieldType.Text,
+                path: 'spec.resources.limits.cpu',
+                fieldParams: { label: 'CPU limit' },
+              },
+            },
+          },
+        },
+      },
+      cluster: {
+        sections: {
+          resources: {
+            components: {
+              gpu: {
+                uiType: FieldType.Text,
+                path: "spec.resources.limits['nvidia.com/gpu']",
+                fieldParams: { label: 'GPU limit' },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    expect(
+      postprocessSchemaData(
+        {
+          spec: {
+            resources: {
+              limits: { cpu: '4', 'nvidia%2Ecom%2Fgpu': '2' },
+            },
+          },
+        },
+        { schema, selectedTopology: 'single' }
+      )
+    ).toEqual({
+      spec: { resources: { limits: { cpu: '4' } } },
+    });
+  });
+
+  it('scopes parent/child topology paths without rejecting either topology', () => {
+    const formValues = {
+      spec: { topology: { parameters: { storage: { size: 5 } } } },
+    };
+
+    expect(
+      postprocessSchemaData(formValues, {
+        schema: parentChildTopologySchema,
+        selectedTopology: 'a',
+      })
+    ).toEqual(formValues);
+    expect(
+      postprocessSchemaData(formValues, {
+        schema: parentChildTopologySchema,
+        selectedTopology: 'b',
+      })
+    ).toEqual(formValues);
+  });
+
+  it('decodes retained qualified descendants when the selected topology registers their parent', () => {
+    const schema: TopologyUISchemas = {
+      a: {
+        sections: {
+          configuration: {
+            components: {
+              config: {
+                uiType: FieldType.Text,
+                path: 'spec.config',
+                fieldParams: { label: 'Configuration' },
+              },
+            },
+          },
+        },
+      },
+      b: {
+        sectionsOrder: [],
+        sections: {
+          configuration: {
+            components: {
+              qualifiedValue: {
+                uiType: FieldType.Text,
+                path: "spec.config['vendor.example/key']",
+                fieldParams: { label: 'Qualified value' },
+              },
+            },
+          },
+        },
+      },
+    };
+    const formValues = {
+      spec: {
+        config: {
+          'vendor%2Eexample%2Fkey': 'value',
+          'user%20label': 'literal',
+        },
+      },
+    };
+
+    expect(
+      postprocessSchemaData(formValues, {
+        schema,
+        selectedTopology: 'a',
+      })
+    ).toEqual({
+      spec: {
+        config: {
+          'vendor.example/key': 'value',
+          'user%20label': 'literal',
+        },
+      },
+    });
+    expect(
+      postprocessSchemaData(formValues, {
+        schema,
+        selectedTopology: 'b',
+      })
+    ).toEqual({
+      spec: {
+        config: {
+          'vendor.example/key': 'value',
+          'user%20label': 'literal',
+        },
+      },
+    });
+  });
+
+  it('keeps arbitrary nested keys opaque when only the parent field is registered', () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          configuration: {
+            components: {
+              config: {
+                uiType: FieldType.Text,
+                path: 'spec.config',
+                fieldParams: { label: 'Configuration' },
+              },
+            },
+          },
+        },
+      },
+    };
+    const formValues = {
+      spec: {
+        config: {
+          'vendor%2Eexample%2Fkey': 'literal',
+          nested: { 'user%20label': 'unchanged' },
+        },
+      },
+    };
+
+    expect(
+      postprocessSchemaData(formValues, {
+        schema,
+        selectedTopology: 'single',
+      })
+    ).toEqual(formValues);
+  });
+
+  it('restores API keys from form ids, keeping qualified names intact', () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          resources: {
+            components: {
+              gpu: {
+                uiType: FieldType.Text,
+                path: "spec.resources.limits['nvidia.com/gpu']",
+                fieldParams: { label: 'GPU limit' },
+              },
+            },
+          },
+        },
+      },
+    };
+    const formValues = {
+      spec: {
+        resources: {
+          limits: {
+            'nvidia%2Ecom%2Fgpu': '2',
+            cpu: '1',
+          },
+        },
+        'foo-bar': 'kept',
+      },
+    } as Record<string, unknown>;
+
+    expect(
+      postprocessSchemaData(formValues, {
+        schema,
+        selectedTopology: 'single',
+      })
+    ).toEqual({
+      spec: {
+        resources: {
+          limits: {
+            'nvidia.com/gpu': '2',
+            cpu: '1',
+          },
+        },
+        'foo-bar': 'kept',
+      },
+    });
+  });
+
+  it('decodes qualified fields in sections omitted from sectionsOrder', () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sectionsOrder: ['listed'],
+        sections: {
+          listed: {
+            components: {
+              cpu: {
+                uiType: FieldType.Text,
+                path: 'spec.resources.limits.cpu',
+                fieldParams: { label: 'CPU limit' },
+              },
+            },
+          },
+          omitted: {
+            components: {
+              gpu: {
+                uiType: FieldType.Text,
+                path: "spec.resources.limits['nvidia.com/gpu']",
+                fieldParams: { label: 'GPU limit' },
+              },
+            },
+          },
+          unrelated: {
+            components: {
+              value: {
+                uiType: FieldType.Text,
+                path: 'spec.other.value',
+                fieldParams: { label: 'Other value' },
+              },
+            },
+          },
+        },
+      },
+    };
+    const formValues = {
+      spec: {
+        resources: {
+          limits: {
+            cpu: '4',
+            'nvidia%2Ecom%2Fgpu': '2',
+            custom: 'unchanged',
+          },
+        },
+        other: { value: 'retained' },
+        unregistered: { 'a%20b': 'literal' },
+      },
+    };
+
+    expect(
+      postprocessSchemaData(formValues, {
+        schema,
+        selectedTopology: 'single',
+      })
+    ).toEqual({
+      spec: {
+        resources: {
+          limits: {
+            cpu: '4',
+            'nvidia.com/gpu': '2',
+            custom: 'unchanged',
+          },
+        },
+        other: { value: 'retained' },
+        unregistered: { 'a%20b': 'literal' },
+      },
+    });
+  });
+
+  it('registers widget targets from sections omitted from sectionsOrder', () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sectionsOrder: ['listed'],
+        sections: {
+          listed: { components: {} },
+          omitted: {
+            components: {
+              affinity: {
+                uiType: WIDGET_UI_TYPE,
+                widgetType: WidgetType.Affinity,
+                _widgetTargets: [
+                  {
+                    key: 'qualified-config',
+                    path: "spec['vendor.example/config']",
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    };
+
+    expect(
+      postprocessSchemaData(
+        {
+          spec: {
+            'vendor%2Eexample%2Fconfig': { affinity: 'value' },
+          },
+        },
+        { schema, selectedTopology: 'single' }
+      )
+    ).toEqual({
+      spec: {
+        'vendor.example/config': { affinity: 'value' },
+      },
+    });
+  });
+
+  it('does not register multipath API destinations as RHF fields', () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          listed: {
+            components: {
+              version: {
+                uiType: FieldType.Text,
+                path: ['spec.engine.version', "spec['vendor.example/version']"],
+                fieldParams: { label: 'Version' },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    expect(
+      postprocessSchemaData(
+        {
+          spec: {
+            engine: { version: '8.0' },
+            'vendor%2Eexample%2Fversion': 'unregistered value',
+          },
+        },
+        { schema, selectedTopology: 'single' }
+      )
+    ).toEqual({
+      spec: {
+        engine: { version: '8.0' },
+        'vendor%2Eexample%2Fversion': 'unregistered value',
+        'vendor.example/version': '8.0',
+      },
+    });
+  });
+
+  it('preserves literal keys inside an object-valued field', () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          configuration: {
+            components: {
+              config: {
+                uiType: WIDGET_UI_TYPE,
+                widgetType: WidgetType.Affinity,
+                path: 'spec.config',
+                _widgetTargets: [
+                  {
+                    key: 'qualified-config',
+                    path: "spec['vendor.example/config']",
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    };
+    const formValues = {
+      spec: {
+        config: {
+          'a%20b': 'some-value',
+          'x%2E': 'another-value',
+        },
+        'vendor%2Eexample%2Fconfig': {
+          'a%20b': 'some-value',
+          'x%2E': 'another-value',
+        },
+      },
+    };
+
+    expect(
+      postprocessSchemaData(formValues, {
+        schema,
+        selectedTopology: 'single',
+      })
+    ).toEqual({
+      spec: {
+        config: {
+          'a%20b': 'some-value',
+          'x%2E': 'another-value',
+        },
+        'vendor.example/config': {
+          'a%20b': 'some-value',
+          'x%2E': 'another-value',
+        },
+      },
+    });
+  });
+
+  it('converts a registered qualified parent but preserves its unrelated map value', () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          configuration: {
+            components: {
+              selected: {
+                uiType: FieldType.Text,
+                path: "spec['vendor.example/config'].selected",
+                fieldParams: { label: 'Selected value' },
+              },
+            },
+          },
+        },
+      },
+    };
+    const formValues = {
+      spec: {
+        'vendor%2Eexample%2Fconfig': {
+          selected: 'enabled',
+          custom: {
+            'a%20b': 'some-value',
+            'x%2E': 'another-value',
+          },
+        },
+      },
+    };
+
+    expect(
+      postprocessSchemaData(formValues, {
+        schema,
+        selectedTopology: 'single',
+      })
+    ).toEqual({
+      spec: {
+        'vendor.example/config': {
+          selected: 'enabled',
+          custom: {
+            'a%20b': 'some-value',
+            'x%2E': 'another-value',
+          },
+        },
+      },
+    });
+  });
+
+  it('rejects a registered path conversion that would overwrite an API key', () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          resources: {
+            components: {
+              gpu: {
+                uiType: FieldType.Text,
+                path: "spec.resources.limits['nvidia.com/gpu']",
+                fieldParams: { label: 'GPU limit' },
+              },
+            },
+          },
+        },
+      },
+    };
+    const formValues = {
+      spec: {
+        resources: {
+          limits: {
+            'nvidia%2Ecom%2Fgpu': '2',
+            'nvidia.com/gpu': '3',
+          },
+        },
+      },
+    };
+
+    expect(() =>
+      postprocessSchemaData(formValues, {
+        schema,
+        selectedTopology: 'single',
+      })
+    ).toThrow(/API key "nvidia\.com\/gpu" already exists/);
+    expect(formValues).toEqual({
+      spec: {
+        resources: {
+          limits: {
+            'nvidia%2Ecom%2Fgpu': '2',
+            'nvidia.com/gpu': '3',
+          },
+        },
+      },
+    });
+  });
+
+  it('rejects a retained descendant collision without mutating the parent value', () => {
+    const schema: TopologyUISchemas = {
+      a: {
+        sections: {
+          configuration: {
+            components: {
+              config: {
+                uiType: FieldType.Text,
+                path: 'spec.config',
+                fieldParams: { label: 'Configuration' },
+              },
+            },
+          },
+        },
+      },
+      b: {
+        sections: {
+          configuration: {
+            components: {
+              qualifiedValue: {
+                uiType: FieldType.Text,
+                path: "spec.config['vendor.example/key']",
+                fieldParams: { label: 'Qualified value' },
+              },
+            },
+          },
+        },
+      },
+    };
+    const formValues = {
+      spec: {
+        config: {
+          'vendor%2Eexample%2Fkey': 'encoded',
+          'vendor.example/key': 'existing',
+          'user%20label': 'literal',
+        },
+      },
+    };
+
+    expect(() =>
+      postprocessSchemaData(formValues, {
+        schema,
+        selectedTopology: 'a',
+      })
+    ).toThrow(/API key "vendor\.example\/key" already exists/);
+    expect(formValues.spec.config).toEqual({
+      'vendor%2Eexample%2Fkey': 'encoded',
+      'vendor.example/key': 'existing',
+      'user%20label': 'literal',
+    });
+  });
+
+  it('does not decode arbitrary keys when schema metadata is missing', () => {
+    const formValues = {
+      config: {
+        'a%20b': 'some-value',
+        'x%2E': 'another-value',
+      },
+    };
+
+    expect(postprocessSchemaData(formValues)).toEqual(formValues);
   });
 
   describe('quantity fields', () => {

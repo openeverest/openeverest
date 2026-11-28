@@ -20,7 +20,11 @@ import {
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { ZOD_SCHEMA_MAP } from 'components/ui-generator/constants';
-import { generateFieldId } from '../component-renderer/generate-field-id';
+import {
+  generateFieldId,
+  getGeneratedNameSegments,
+  type GeneratedName,
+} from '../component-renderer/generate-field-id';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
 import { applyValidationFromSchema } from './apply-from-schema';
 import { resolveValidationForMode } from '../validation/resolve-validation-for-mode';
@@ -37,7 +41,7 @@ import type {
 
 export const buildShapeFromComponents = (
   components: { [key: string]: Component | ComponentGroup },
-  basePath: string = '',
+  basePath: GeneratedName = [],
   formMode?: FormMode,
   activeSwitch?: string
 ): ComponentSchemaResult => {
@@ -45,10 +49,11 @@ export const buildShapeFromComponents = (
   const celExpValidations: CelExpValidation[] = [];
   const celDependencyGroups: string[][] = [];
   const toggleableFieldRules: ToggleableFieldRule[] = [];
+  const basePathSegments = getGeneratedNameSegments(basePath);
 
   Object.entries(components).forEach(([key, item]) => {
-    const generatedName = basePath ? `${basePath}.${key}` : key;
-    const fieldId = generateFieldId(item, generatedName);
+    const generatedNameSegments = [...basePathSegments, key];
+    const fieldId = generateFieldId(item, generatedNameSegments);
 
     // Handle groups recursively
     if (item.uiType === 'group' && 'components' in item) {
@@ -58,7 +63,7 @@ export const buildShapeFromComponents = (
       }
       const groupResult = buildShapeFromComponents(
         (item as ComponentGroup).components,
-        generatedName,
+        generatedNameSegments,
         formMode,
         toggleable?.switchName ?? activeSwitch
       );

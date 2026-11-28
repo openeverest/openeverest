@@ -18,7 +18,8 @@ import {
   GroupType,
   Section,
 } from 'components/ui-generator/ui-generator.types';
-import { setByPath } from '../object-path';
+import { getByPath, setByPath } from '../object-path';
+import { extractInstanceValues } from '../default-values/extract-instance-values';
 import { Messages } from '../openapi-constraints/openapi-constraints.messages';
 import { getToggleableMeta } from '../toggleable/toggleable';
 import {
@@ -226,6 +227,59 @@ describe('section form edit', () => {
         memory: '10240Mi',
         custom: '',
         extra: null,
+      },
+    });
+  });
+
+  it('round-trips edits to qualified-name fields without changing sibling keys', () => {
+    const gpuPath = "spec.resources.limits['nvidia.com/gpu']";
+    const gpuFormId = 'spec.resources.limits.nvidia%2Ecom%2Fgpu';
+    const gpuForm = toSectionForm(
+      'resources',
+      {
+        components: {
+          gpu: {
+            uiType: FieldType.Number,
+            path: gpuPath,
+            fieldParams: { label: 'GPU limit' },
+          },
+        },
+      },
+      { formMode: FormMode.Edit }
+    );
+    const saved = {
+      spec: {
+        resources: {
+          limits: {
+            'nvidia.com/gpu': 2,
+            cpu: '4',
+          },
+        },
+      },
+    };
+
+    expect(
+      extractInstanceValues(gpuForm.sections, saved, FormMode.Edit)
+    ).toEqual({
+      spec: {
+        resources: {
+          limits: { 'nvidia%2Ecom%2Fgpu': 2 },
+        },
+      },
+    });
+
+    const values = getSectionFormValues(gpuForm, saved);
+    expect(getByPath(values, gpuFormId)).toBe(2);
+    setByPath(values, gpuFormId, 4);
+
+    expect(getSectionFormUpdate(gpuForm, values, saved)).toEqual({
+      spec: {
+        resources: {
+          limits: {
+            'nvidia.com/gpu': 4,
+            cpu: '4',
+          },
+        },
       },
     });
   });

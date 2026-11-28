@@ -54,3 +54,28 @@ export const twoTopologySchema: TopologyUISchemas = {
     },
   },
 };
+
+export const parentChildTopologySchema: TopologyUISchemas = {
+  a: {
+    sections: {
+      s: {
+        components: {
+          storage: {
+            uiType: FieldType.Text,
+            path: 'spec.topology.parameters.storage',
+            fieldParams: { label: 'Storage' },
+          },
+        },
+      },
+    },
+  },
+  b: {
+    sections: {
+      s: {
+        components: {
+          size: numberField('spec.topology.parameters.storage.size'),
+        },
+      },
+    },
+  },
+};

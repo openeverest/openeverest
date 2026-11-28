@@ -60,7 +60,7 @@ export const buildZodSchema = (
     if (section?.components) {
       const result = buildShapeFromComponents(
         section.components,
-        sectionKey,
+        sectionKey ? [sectionKey] : [],
         options?.formMode
       );
 

@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FieldType,
   GroupType,
+  type Section,
   WIDGET_UI_TYPE,
   WidgetType,
 } from 'components/ui-generator/ui-generator.types';
@@ -121,6 +122,39 @@ describe('mergeSectionEdit', () => {
     const spec = savedSpec();
     merge(false, spec);
     expect(spec).toEqual(savedSpec());
+  });
+
+  it('converts registered qualified form ids when topology is unavailable', () => {
+    const qualifiedSections: Record<string, Section> = {
+      resources: {
+        components: {
+          gpu: {
+            uiType: FieldType.Text,
+            path: "spec.resources.limits['nvidia.com/gpu']",
+            fieldParams: { label: 'GPU limit' },
+          },
+        },
+      },
+    };
+
+    expect(
+      mergeSectionEdit({
+        spec: {
+          resources: { limits: { 'nvidia.com/gpu': 2, cpu: '4' } },
+        },
+        sections: qualifiedSections,
+        sectionKey: 'resources',
+        formData: {
+          spec: {
+            resources: {
+              limits: { 'nvidia%2Ecom%2Fgpu': 4, cpu: '4' },
+            },
+          },
+        },
+      })
+    ).toEqual({
+      resources: { limits: { 'nvidia.com/gpu': 4, cpu: '4' } },
+    });
   });
 
   describe('widget values', () => {

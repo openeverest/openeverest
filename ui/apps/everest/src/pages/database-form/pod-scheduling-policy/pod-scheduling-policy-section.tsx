@@ -22,6 +22,7 @@ import {
   WidgetRenderer,
   WidgetType,
 } from 'components/ui-generator/ui-generator.types';
+import { toFormId } from 'components/ui-generator/utils/object-path';
 import { AffinityRuleEditor } from './affinity';
 import { buildAffinitySections } from './build-scheduling-sections';
 import { toAffinityGroups } from './pod-scheduling-policy.utils';
@@ -44,7 +45,7 @@ export const PodSchedulingPolicySection: WidgetRenderer = ({ item }) => {
     [targets]
   );
   const paths = useMemo(
-    () => (targets ?? []).map(({ path }) => path),
+    () => (targets ?? []).map(({ path }) => toFormId(path)),
     [targets]
   );
   const values = useWatch({ control, name: paths });

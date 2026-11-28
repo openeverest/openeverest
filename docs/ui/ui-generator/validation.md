@@ -174,6 +174,10 @@ CEL expressions have access to the following variables:
 | `self`            | Current field value                                                                      |
 | `original.<path>` | Original persisted instance data at the same path; available in edit mode for comparison |
 
+Dependency extraction for CEL currently matches only simple dotted segments
+(`[A-Za-z0-9_]+`). Bracket-quoted qualified keys (e.g. `spec.resources.limits['nvidia.com/gpu']`)
+are not detected as dependencies yet — see [Known Limitations](known-limitations.md).
+
 The `original` namespace allows write-once or no-descale rules:
 
 ```yaml
